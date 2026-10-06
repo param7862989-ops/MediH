@@ -1,0 +1,100 @@
+/* ==============================================================================
+   MediHaven Component Styles (Phase 1 Baseline)
+   ============================================================================== */
+
+@import url('tokens.css');
+
+/* Utilities */
+.text-critical { color: var(--risk-critical); }
+.text-high { color: var(--risk-high); }
+.text-medium { color: var(--risk-medium); }
+.text-low { color: var(--risk-low); }
+
+/* Card Components */
+.card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* Status Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  line-height: 1;
+}
+
+.badge-critical {
+  background-color: var(--risk-critical-bg);
+  color: var(--risk-critical);
+  border: 1px solid var(--risk-critical-border);
+}
+
+.badge-high {
+  background-color: var(--risk-high-bg);
+  color: var(--risk-high);
+  border: 1px solid var(--risk-high-border);
+}
+
+.badge-medium {
+  background-color: var(--risk-medium-bg);
+  color: var(--risk-medium);
+  border: 1px solid var(--risk-medium-border);
+}
+
+.badge-low {
+  background-color: var(--risk-low-bg);
+  color: var(--risk-low);
+  border: 1px solid var(--risk-low-border);
+}
+
+/* Action Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background-color: var(--color-brand);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-brand-muted);
+}
+
+.btn-outline {
+  background-color: transparent;
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.btn-outline:hover {
+  background-color: var(--bg-surface-elevated);
+}

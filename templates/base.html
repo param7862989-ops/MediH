@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="MediHaven: Integrated Multimodal Clinical Intelligence System for Patient Risk Assessment and Treatment Optimization">
+  <title>{% block title %}MediHaven | Clinical Intelligence System{% endblock %}</title>
+
+  <!-- Professional Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Core Design Tokens -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+
+  <style>
+    /* Critical Base Shell Layout Styles */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+    .top-nav {
+      background-color: var(--bg-surface);
+      border-bottom: 1px solid var(--border-hairline);
+      padding: 0 var(--space-xl);
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      text-decoration: none;
+      color: inherit;
+    }
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 800;
+      font-size: 18px;
+      box-shadow: 0 2px 4px rgba(2, 132, 199, 0.3);
+    }
+    .brand-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .brand-badge {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      background-color: var(--color-brand-surface);
+      color: var(--color-brand);
+      border: 1px solid rgba(2, 132, 199, 0.25);
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      list-style: none;
+    }
+    .nav-link {
+      padding: 8px 14px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-link:hover {
+      color: var(--text-primary);
+      background-color: var(--bg-surface-elevated);
+    }
+    .nav-link.active {
+      color: #38bdf8;
+      background-color: var(--color-brand-surface);
+      font-weight: 600;
+    }
+    .system-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      background-color: var(--bg-surface-elevated);
+      border: 1px solid var(--border-hairline);
+      border-radius: var(--radius-full);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--risk-low);
+      box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+    }
+    main.main-content {
+      flex: 1;
+      padding: var(--space-xl);
+      max-width: 1440px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    footer.app-footer {
+      border-top: 1px solid var(--border-hairline);
+      padding: var(--space-md) var(--space-xl);
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: var(--bg-surface);
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <!-- Semantic Header & Navigation -->
+  <header class="top-nav" role="banner">
+    <a href="/" class="brand-group" aria-label="MediHaven Home">
+      <div class="brand-icon">M</div>
+      <div>
+        <span class="brand-title">MediHaven</span>
+      </div>
+      <span class="brand-badge">Clinical AI v1.0</span>
+    </a>
+
+    <nav role="navigation" aria-label="Main Navigation">
+      <ul class="nav-links">
+        <li>
+          <a href="/dashboard" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" id="nav-dashboard">
+            🩺 Physician Triage
+          </a>
+        </li>
+        <li>
+          <a href="/vault" class="nav-link {% if active_page == 'vault' %}active{% endif %}" id="nav-vault">
+            🛡️ Patient Medical Vault
+          </a>
+        </li>
+        <li>
+          <a href="/scanner" class="nav-link {% if active_page == 'scanner' %}active{% endif %}" id="nav-scanner">
+            📷 QR Scanner
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="system-status" aria-label="System Operational Status">
+      <span class="status-dot"></span>
+      <span>4 Models Online · SPIT CE2026</span>
+    </div>
+  </header>
+
+  <!-- Main Content Landmark -->
+  <main class="main-content" role="main" id="main-content">
+    {% block content %}
+    <div style="padding: 40px; text-align: center; color: var(--text-secondary);">
+      <h2 style="font-family: var(--font-display); color: var(--text-primary); margin-bottom: 12px;">Welcome to MediHaven</h2>
+      <p>Integrated Multimodal Clinical Intelligence & Medical Vault Platform</p>
+    </div>
+    {% endblock %}
+  </main>
+
+  <!-- Semantic Footer -->
+  <footer class="app-footer" role="contentinfo">
+    <div>
+      MediHaven © 2026 · TE Sem V Mini Project I · Sardar Patel Institute of Technology (SPIT)
+    </div>
+    <div>
+      Department of Computer Engineering | Mapped to CE204 · AS202 · CE205 · CE207 · CE202
+    </div>
+  </footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>
