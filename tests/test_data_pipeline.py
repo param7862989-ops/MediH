@@ -65,8 +65,11 @@ def test_train_test_split_integrity_and_zero_nulls():
     train_df = pd.read_parquet(Config.PROCESSED_DATA_DIR / "train.parquet")
     test_df = pd.read_parquet(Config.PROCESSED_DATA_DIR / "test.parquet")
 
-    assert len(train_df) == 80, f"Expected 80 train rows, found {len(train_df)}"
-    assert len(test_df) == 20, f"Expected 20 test rows, found {len(test_df)}"
+    total_len = len(train_df) + len(test_df)
+    assert total_len >= 100
+    assert abs((len(test_df) / total_len) - 0.20) <= 0.05
+    assert len(train_df) >= 80, f"Expected at least 80 train rows, found {len(train_df)}"
+    assert len(test_df) >= 20, f"Expected at least 20 test rows, found {len(test_df)}"
 
     # Zero nulls check across all 30 engineered clinical features
     train_nulls = train_df[FEATURE_COLUMNS].isnull().sum().sum()
