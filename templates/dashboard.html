@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}Physician Clinical Triage Dashboard | MediHaven{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">
+        🩺 Physician Clinical Triage & Risk Surveillance
+      </h1>
+      <p class="page-subtitle">
+        Real-time multi-model intelligence, hemodynamic shock detection, and 7–14 day deterioration surveillance
+      </p>
+    </div>
+    <div style="display: flex; gap: var(--space-sm); align-items: center;">
+      <span class="badge badge-low" id="live-polling-badge">● Live 5s Polling</span>
+      <button class="btn btn-outline btn-sm" id="btn-refresh-triage" title="Force Refresh Telemetry">
+        ↻ Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Hospital Cohort KPI Grid -->
+  <section class="kpi-grid" aria-label="Hospital Cohort Telemetry Summary">
+    <div class="kpi-card kpi-brand">
+      <div class="kpi-label">Active Census</div>
+      <div class="kpi-value" id="kpi-total-admitted">--</div>
+      <div class="kpi-subtext">Monitored Inpatients</div>
+    </div>
+    <div class="kpi-card kpi-critical">
+      <div class="kpi-label">Critical Tier</div>
+      <div class="kpi-value text-critical" id="kpi-critical-count">--</div>
+      <div class="kpi-subtext">Immediate Clinical Review</div>
+    </div>
+    <div class="kpi-card kpi-high">
+      <div class="kpi-label">High Risk Tier</div>
+      <div class="kpi-value text-high" id="kpi-high-count">--</div>
+      <div class="kpi-subtext">Step-Down & ICU Watch</div>
+    </div>
+    <div class="kpi-card kpi-critical">
+      <div class="kpi-label">7–14d Warning Alerts</div>
+      <div class="kpi-value text-critical" id="kpi-active-alerts">--</div>
+      <div class="kpi-subtext">Predicted Decompensation</div>
+    </div>
+    <div class="kpi-card kpi-medium">
+      <div class="kpi-label">ICU / CCU Occupancy</div>
+      <div class="kpi-value" id="kpi-icu-occupancy">--</div>
+      <div class="kpi-subtext">Critical Care Beds Filled</div>
+    </div>
+    <div class="kpi-card kpi-low">
+      <div class="kpi-label">Avg 30d Readmit Risk</div>
+      <div class="kpi-value" id="kpi-readmit-risk">--%</div>
+      <div class="kpi-subtext">Cohort Rehospitalization</div>
+    </div>
+  </section>
+
+  <!-- Early Warning Deterioration Alert Feed -->
+  <section class="alert-feed-container" id="alerts-marquee-container" aria-label="Active Early Warning Deterioration Alerts">
+    <!-- Dynamically Populated by dashboard.js -->
+  </section>
+
+  <!-- Clinical Roster Controls Bar -->
+  <section class="roster-controls" aria-label="Triage Queue Filters">
+    <div class="filter-pills" role="tablist">
+      <button class="filter-pill active" data-filter="" role="tab">All Cohorts (<span id="count-all">0</span>)</button>
+      <button class="filter-pill" data-filter="Critical" role="tab">Critical (<span id="count-critical">0</span>)</button>
+      <button class="filter-pill" data-filter="High" role="tab">High (<span id="count-high">0</span>)</button>
+      <button class="filter-pill" data-filter="Medium" role="tab">Medium (<span id="count-medium">0</span>)</button>
+      <button class="filter-pill" data-filter="Low" role="tab">Low (<span id="count-low">0</span>)</button>
+    </div>
+
+    <div style="display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap;">
+      <select class="select-dropdown" id="ward-filter-select" aria-label="Filter by Ward">
+        <option value="">All Hospital Wards</option>
+        <option value="ICU">Intensive Care Unit (ICU)</option>
+        <option value="CCU">Cardiac Care Unit (CCU)</option>
+        <option value="Step-Down">Step-Down Telemetry</option>
+        <option value="General">General Medical Ward</option>
+        <option value="Pulmonary">Pulmonary Sub-Acute</option>
+      </select>
+
+      <div class="search-input-group">
+        <input 
+          type="search" 
+          class="search-input" 
+          id="patient-search-input" 
+          placeholder="Search by MRN or Patient Name..."
+          aria-label="Search Patient Roster"
+        />
+      </div>
+    </div>
+  </section>
+
+  <!-- Patient Triage Table -->
+  <section class="table-container" aria-label="Admitted Patients Roster">
+    <table class="clinical-table" id="triage-table">
+      <thead>
+        <tr>
+          <th>Risk Tier</th>
+          <th>Score</th>
+          <th>Patient / MRN</th>
+          <th>Age/Sex</th>
+          <th>Ward & Bed</th>
+          <th>Latest Vitals (HR · BP · SpO2)</th>
+          <th>Shock Index</th>
+          <th>MAP</th>
+          <th>Recommended Protocol</th>
+          <th style="text-align: right;">Action</th>
+        </tr>
+      </thead>
+      <tbody id="triage-tbody">
+        <tr>
+          <td colspan="10" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+            Loading real-time clinical roster...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<!-- ============================================================================
+     Slide-Over Clinical Chart & Explainability Drawer
+     ============================================================================ -->
+<div class="drawer-backdrop" id="drawer-backdrop" aria-hidden="true">
+  <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-patient-name">
+    <div class="drawer-header">
+      <div class="drawer-title-group">
+        <div>
+          <h2 class="patient-name-cell" id="drawer-patient-name" style="font-size: 18px; margin: 0;">Patient Chart</h2>
+          <div class="patient-mrn-cell" id="drawer-patient-meta">MRN: -- · Ward: --</div>
+        </div>
+        <span class="risk-badge" id="drawer-risk-badge">--</span>
+      </div>
+      <button class="drawer-close-btn" id="drawer-close-btn" aria-label="Close Chart Drawer">✕</button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- 1. Multi-Model Risk Score Card -->
+      <div class="card" style="padding: var(--space-md);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-sm);">
+          <div>
+            <div class="kpi-label">4-Model Consensus Risk Assessment</div>
+            <div style="font-size: 26px; font-weight: 700; color: #ffffff; display: flex; align-items: baseline; gap: 8px;">
+              <span id="drawer-score-val" class="mono">--</span>
+              <span style="font-size: 13px; color: var(--text-secondary);" id="drawer-confidence-val">Confidence: --%</span>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div class="kpi-label">30-Day Readmission Risk</div>
+            <div style="font-size: 18px; font-weight: 700; color: #38bdf8;" id="drawer-readmit-val" class="mono">--%</div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 11px; margin-top: 8px; border-top: 1px solid var(--border-hairline); padding-top: 8px;">
+          <div><span style="color: var(--text-muted);">K-Means:</span> <strong id="vote-kmeans">--</strong></div>
+          <div><span style="color: var(--text-muted);">Decision Tree:</span> <strong id="vote-dt">--</strong></div>
+          <div><span style="color: var(--text-muted);">Neural Net:</span> <strong id="vote-nn">--</strong></div>
+        </div>
+      </div>
+
+      <!-- 2. Longitudinal Vitals Telemetry Graph -->
+      <div class="chart-box">
+        <div class="chart-header">
+          <div class="chart-title">Longitudinal Telemetry Trend (Last 72 Hours)</div>
+          <div style="font-size: 11px; color: var(--text-muted);">
+            HR (bpm) · SBP/DBP (mmHg) · SpO2 (%)
+          </div>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <canvas id="vitalsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 3. Decision Tree Explainability Rule Path -->
+      <div class="dt-explainer-card">
+        <div class="dt-header">
+          <span>🧠 Decision Tree Biomarker Logic Trail (Human-in-the-Loop)</span>
+        </div>
+        <div class="dt-breadcrumbs" id="dt-rules-list">
+          <!-- Populated by dashboard.js -->
+        </div>
+      </div>
+
+      <!-- 4. KNN Historical Case Precedent Matcher -->
+      <div class="card" style="padding: var(--space-md);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
+          <div class="chart-title">KNN Case Precedents (K=5 Historical Matches)</div>
+          <span class="knn-proto-badge" id="drawer-rec-protocol">Protocol: --</span>
+        </div>
+        <div class="knn-container" id="knn-precedents-list">
+          <!-- Populated by dashboard.js -->
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- ============================================================================
+     Alert Acknowledgement Modal Dialog
+     ============================================================================ -->
+<div class="modal-overlay" id="ack-modal-overlay">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <div class="modal-title">🩺 Clinical Deterioration Alert Acknowledgement</div>
+      <button class="drawer-close-btn" id="ack-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-md);">
+        Document treating physician review and log immediate clinical intervention intent for this high-risk patient.
+      </p>
+      <div class="form-group">
+        <label class="form-label" for="ack-doctor-name">Treating Clinician Name</label>
+        <input type="text" class="form-control" id="ack-doctor-name" value="Dr. Sarah Chen, MD (Attending)" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ack-clinical-notes">Intervention & Clinical Action Plan</label>
+        <textarea class="form-control" id="ack-clinical-notes" rows="3" placeholder="e.g. Bedside hemodynamic assessment conducted. Initiated 500mL IV fluid bolus and ordered stat repeat blood gas."></textarea>
+      </div>
+      <input type="hidden" id="ack-patient-id" value="" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="ack-btn-cancel">Cancel</button>
+      <button class="btn btn-primary" id="ack-btn-submit">Confirm & Log Acknowledgement</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

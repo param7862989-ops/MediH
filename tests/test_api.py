@@ -541,20 +541,27 @@ def test_web_portal_view_routes(client: FlaskClient):
     assert root_res.status_code == 302
     assert "/dashboard" in root_res.headers["Location"]
 
-    # Dashboard view renders HTML
+    # Dashboard view renders HTML with dashboard.js & triage elements
     dash_res = client.get("/dashboard")
     assert dash_res.status_code == 200
     assert b"MediHaven" in dash_res.data
+    assert b"Physician Clinical Triage" in dash_res.data
+    assert b"dashboard.js" in dash_res.data
+    assert b"chart.umd.min.js" in dash_res.data
 
-    # Vault view renders HTML
+    # Vault view renders HTML with vault.js & patient sovereignty components
     vault_res = client.get("/vault")
     assert vault_res.status_code == 200
     assert b"MediHaven" in vault_res.data
+    assert b"Sovereign Patient Medical Vault" in vault_res.data
+    assert b"vault.js" in vault_res.data
 
-    # Scanner view renders HTML
+    # Scanner view renders HTML with scanner.js & optical viewfinder
     scanner_res = client.get("/scanner")
     assert scanner_res.status_code == 200
     assert b"MediHaven" in scanner_res.data
+    assert b"Provider Optical QR Scanner" in scanner_res.data
+    assert b"scanner.js" in scanner_res.data
 
 
 def test_centralized_error_handlers(client: FlaskClient):

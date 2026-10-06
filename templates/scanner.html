@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Provider Optical QR Scanner | MediHaven{% endblock %}
+
+{% block content %}
+<div class="scanner-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">
+        📷 Provider Optical QR Scanner & Bedside Verification
+      </h1>
+      <p class="page-subtitle">
+        Zero-trust optical QR scanning with cryptographic HMAC-SHA256 signature verification and strict scope isolation
+      </p>
+    </div>
+    <div style="display: flex; gap: var(--space-sm); align-items: center;">
+      <span class="badge badge-low">🛡️ Zero Data Leakage Enforced</span>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--space-xl);">
+    <!-- Left Column: Scanner Viewfinder & Controls -->
+    <div style="display: flex; flex-direction: column; gap: var(--space-md);">
+      <!-- Provider Metadata Bar -->
+      <div class="card" style="padding: var(--space-md);">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="scanner-clinician-name">Consulting Clinician / Facility</label>
+          <input 
+            type="text" 
+            class="form-control" 
+            id="scanner-clinician-name" 
+            value="Dr. Gregory House, MD (Emergency Triage)" 
+          />
+        </div>
+      </div>
+
+      <!-- Viewfinder Box -->
+      <div class="card" style="padding: var(--space-md);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
+          <div style="font-weight: 600; font-size: 13px; color: #ffffff;">Camera Viewfinder</div>
+          <button class="btn btn-outline btn-sm" id="btn-toggle-camera">📷 Start Camera</button>
+        </div>
+
+        <div class="scanner-viewport-box" id="viewport-box">
+          <video class="scanner-video" id="scanner-video" playsinline></video>
+          <div class="scanner-target-reticle" id="reticle-box" style="display: none;">
+            <div class="scanner-laser-line"></div>
+          </div>
+          <div id="camera-placeholder" style="text-align: center; color: var(--text-muted); padding: 20px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">📷</div>
+            <div>Camera Inactive</div>
+            <div style="font-size: 11px; margin-top: 4px;">Click "Start Camera" above or upload a QR image below</div>
+          </div>
+        </div>
+
+        <canvas id="qr-canvas" style="display: none;"></canvas>
+      </div>
+
+      <!-- Alternative Input: Upload File or Direct Token String -->
+      <div class="card" style="padding: var(--space-md);">
+        <div style="font-weight: 600; font-size: 13px; color: #ffffff; margin-bottom: var(--space-xs);">
+          Alternative Input Methods
+        </div>
+
+        <!-- File Upload -->
+        <div class="form-group">
+          <label class="form-label" for="qr-file-input">Upload Saved QR Code Image (PNG / JPEG)</label>
+          <input type="file" class="form-control" id="qr-file-input" accept="image/*" />
+        </div>
+
+        <!-- Text Token Paste Fallback -->
+        <div class="form-group" style="margin-bottom: var(--space-sm);">
+          <label class="form-label" for="qr-token-input">Or Paste Cryptographic QR Payload (JWT String)</label>
+          <textarea 
+            class="form-control mono" 
+            id="qr-token-input" 
+            rows="2" 
+            placeholder="Paste eyJhbGciOi..."
+          ></textarea>
+        </div>
+
+        <button class="btn btn-primary" id="btn-submit-token" style="width: 100%;">
+          Verify & Decrypt Scoped Health Records
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Column: Verification Badge & Scoped Records View -->
+    <div style="display: flex; flex-direction: column; gap: var(--space-md);" id="results-panel">
+      <!-- Default Idle State Card -->
+      <div class="card" id="idle-card" style="padding: 40px; text-align: center; color: var(--text-muted);">
+        <div style="font-size: 40px; margin-bottom: 12px;">🛡️</div>
+        <h3 style="color: #ffffff; font-size: 16px; margin-bottom: 6px;">Awaiting Optical Verification</h3>
+        <p style="font-size: 13px; max-width: 360px; margin: 0 auto;">
+          Point the camera at the patient's generated QR pass or upload a QR file to unlock cryptographically authorized clinical records.
+        </p>
+      </div>
+
+      <!-- Error State Card -->
+      <div class="card" id="error-card" style="display: none; border-color: var(--risk-critical-border); background-color: rgba(239, 68, 68, 0.08);">
+        <div style="display: flex; align-items: center; gap: var(--space-sm); color: var(--risk-critical); font-weight: 700;">
+          <span>🛑 Cryptographic Access Denied</span>
+        </div>
+        <p style="font-size: 13px; color: #fca5a5; margin-top: 8px;" id="error-card-msg">
+          Token is invalid or signature failed verification.
+        </p>
+      </div>
+
+      <!-- Verified Success Badge -->
+      <div class="verification-badge-card" id="verified-badge-card" style="display: none;">
+        <div class="verification-header">
+          <span>✓ Cryptographic Signature Verified (HMAC-SHA256)</span>
+        </div>
+        <div style="font-size: 12px; color: #a7f3d0; margin-top: 4px;">
+          MediHaven Zero-Trust Authority · Patient Scope Isolation Active
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-md); padding-top: var(--space-sm); border-top: 1px solid rgba(16, 185, 129, 0.2);">
+          <div>
+            <div style="font-size: 16px; font-weight: 700; color: #ffffff;" id="verified-patient-name">
+              Patient Name
+            </div>
+            <div style="font-size: 11px; color: var(--text-secondary);" id="verified-patient-meta">
+              MRN: -- · Age: --
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div class="kpi-label">Authorized Scope</div>
+            <div id="verified-scopes-list" style="display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap;">
+              <!-- Scope pills -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zero Data Leakage Assurance Notice -->
+      <div class="card" id="leakage-notice-card" style="display: none; padding: var(--space-sm) var(--space-md); background: rgba(2, 132, 199, 0.08); border-color: rgba(2, 132, 199, 0.25);">
+        <div style="font-size: 12px; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+          <span>🔒 <strong>Zero Data Leakage Protocol:</strong> Only patient-consented categories were transmitted. Unselected categories remained sealed at the database layer.</span>
+        </div>
+      </div>
+
+      <!-- Scoped Medical Records Container -->
+      <div id="scoped-records-container" style="display: none; flex-direction: column; gap: var(--space-md);">
+        <!-- Populated dynamically by scanner.js -->
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/scanner.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+
+{% block title %}Patient Medical Vault Portal | MediHaven{% endblock %}
+
+{% block content %}
+<div class="vault-page">
+  <!-- Page Header & Patient Switcher -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">
+        🛡️ Sovereign Patient Medical Vault & Dynamic Privacy Sharing
+      </h1>
+      <p class="page-subtitle">
+        Patient-owned health records with cryptographic HMAC-SHA256 zero-trust QR passes, scope isolation, and immutable audit logs
+      </p>
+    </div>
+    <div style="display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <label for="vault-patient-select" style="font-size: 12px; color: var(--text-muted); font-weight: 600;">ACTIVE PATIENT:</label>
+        <select class="select-dropdown" id="vault-patient-select" aria-label="Select Patient Account">
+          <option value="1">Patient #1: James Wilson (MRN-2026-0001)</option>
+          <option value="2">Patient #2: Sarah Jenkins (MRN-2026-0002)</option>
+          <option value="3">Patient #3: Robert Chen (MRN-2026-0003)</option>
+          <option value="4">Patient #4: Emily Rodriguez (MRN-2026-0004)</option>
+        </select>
+      </div>
+
+      <button class="btn btn-outline" id="btn-open-upload-modal">
+        + Upload Record
+      </button>
+      <button class="btn btn-primary" id="btn-open-share-modal">
+        🔑 Generate Scoped QR Pass
+      </button>
+    </div>
+  </div>
+
+  <!-- 7-Category Medical Vault Summary Metrics -->
+  <section class="vault-category-grid" id="vault-category-grid" aria-label="Medical Vault Category Distribution">
+    <div class="vault-cat-card active" data-category="">
+      <div class="vault-cat-icon">📁</div>
+      <div class="vault-cat-title">All Categories</div>
+      <div class="vault-cat-count" id="count-cat-all">0</div>
+    </div>
+    <div class="vault-cat-card" data-category="allergy">
+      <div class="vault-cat-icon">⚠️</div>
+      <div class="vault-cat-title">Allergies</div>
+      <div class="vault-cat-count" id="count-cat-allergy">0</div>
+    </div>
+    <div class="vault-cat-card" data-category="medication">
+      <div class="vault-cat-icon">💊</div>
+      <div class="vault-cat-title">Medications</div>
+      <div class="vault-cat-count" id="count-cat-medication">0</div>
+    </div>
+    <div class="vault-cat-card" data-category="lab_report">
+      <div class="vault-cat-icon">🧪</div>
+      <div class="vault-cat-title">Lab Reports</div>
+      <div class="vault-cat-count" id="count-cat-lab">0</div>
+    </div>
+    <div class="vault-cat-card" data-category="surgery">
+      <div class="vault-cat-icon">🩺</div>
+      <div class="vault-cat-title">Surgeries</div>
+      <div class="vault-cat-count" id="count-cat-surgery">0</div>
+    </div>
+    <div class="vault-cat-card" data-category="chronic_condition">
+      <div class="vault-cat-icon">📋</div>
+      <div class="vault-cat-title">Conditions</div>
+      <div class="vault-cat-count" id="count-cat-condition">0</div>
+    </div>
+    <div class="vault-cat-card" data-category="immunization">
+      <div class="vault-cat-icon">💉</div>
+      <div class="vault-cat-title">Immunizations</div>
+      <div class="vault-cat-count" id="count-cat-immunization">0</div>
+    </div>
+    <div class="vault-cat-card" data-category="clinical_note">
+      <div class="vault-cat-icon">📝</div>
+      <div class="vault-cat-title">Clinical Notes</div>
+      <div class="vault-cat-count" id="count-cat-notes">0</div>
+    </div>
+  </section>
+
+  <!-- Active Shared Passes Panel (With 1-Click Revocation) -->
+  <section class="card" style="margin-bottom: var(--space-xl);" aria-label="Active Shared Passes Management">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
+      <div>
+        <h2 style="font-size: 16px; font-weight: 700; color: #ffffff; margin: 0;">
+          Active Cryptographic QR Passes
+        </h2>
+        <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">
+          Tokens currently granting external provider access. You retain instant 1-click revocation authority at all times.
+        </p>
+      </div>
+      <span class="badge badge-low" id="active-tokens-count-badge">0 Active Passes</span>
+    </div>
+
+    <div id="active-tokens-list" style="display: flex; flex-direction: column; gap: var(--space-sm);">
+      <div style="color: var(--text-muted); font-size: 12px; padding: 12px 0;">
+        No active sharing passes issued. Generate a pass above to share scoped health data with providers.
+      </div>
+    </div>
+  </section>
+
+  <!-- Vault Record Stream -->
+  <section style="margin-bottom: var(--space-xl);" aria-label="Medical Records Catalog">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
+      <h2 style="font-size: 16px; font-weight: 700; color: #ffffff; margin: 0;">
+        Vaulted Medical Records (<span id="filtered-records-count">0</span>)
+      </h2>
+      <div style="font-size: 12px; color: var(--text-secondary);">
+        Category Filter: <strong id="current-category-label" style="color: #38bdf8;">All Records</strong>
+      </div>
+    </div>
+
+    <div class="record-grid" id="records-grid">
+      <!-- Populated dynamically by vault.js -->
+    </div>
+  </section>
+
+  <!-- Immutable Patient Access Audit Log Table -->
+  <section class="card" aria-label="Immutable Access Audit Trail">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
+      <div>
+        <h2 style="font-size: 16px; font-weight: 700; color: #ffffff; margin: 0;">
+          Immutable Access Audit Trail
+        </h2>
+        <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">
+          Dual-stream cryptographic logging of every provider scan attempt with exact timestamps, IP addresses, and authorized scopes.
+        </p>
+      </div>
+      <button class="btn btn-outline btn-sm" id="btn-refresh-audit">↻ Refresh Audit Log</button>
+    </div>
+
+    <div class="table-container">
+      <table class="clinical-table" id="audit-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Access Status</th>
+            <th>Provider / Facility</th>
+            <th>Authorized Scope</th>
+            <th>IP Address</th>
+            <th>User Agent</th>
+          </tr>
+        </thead>
+        <tbody id="audit-tbody">
+          <tr>
+            <td colspan="6" style="text-align: center; padding: 24px; color: var(--text-muted);">
+              Loading audit logs...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<!-- ============================================================================
+     Modal 1: Cryptographic QR Pass Generator
+     ============================================================================ -->
+<div class="modal-overlay" id="modal-qr-share">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <div class="modal-title">🔑 Generate Scoped QR Access Pass</div>
+      <button class="drawer-close-btn" id="modal-qr-close">✕</button>
+    </div>
+
+    <div class="modal-body" id="modal-qr-body">
+      <!-- Form Step -->
+      <div id="qr-form-step">
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-md);">
+          Select strictly the medical categories you authorize consulting clinicians to view. Unchecked categories remain cryptographically sealed.
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Authorized Scope (Selective Consent):</label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" name="scope" value="allergy" checked />
+              ⚠️ Allergies
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="scope" value="medication" checked />
+              💊 Medications
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="scope" value="lab_report" />
+              🧪 Lab Reports
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="scope" value="surgery" />
+              🩺 Surgeries
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="scope" value="chronic_condition" />
+              📋 Chronic Conditions
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="scope" value="immunization" />
+              💉 Immunizations
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="scope" value="clinical_note" />
+              📝 Clinical Notes
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="scope-wildcard" value="*" />
+              🌐 All Categories (*)
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="qr-ttl-select">Access Pass Expiration (TTL):</label>
+          <select class="form-control" id="qr-ttl-select">
+            <option value="15">15 Minutes (Emergency Triage Consult)</option>
+            <option value="60" selected>1 Hour (Outpatient Specialist Visit)</option>
+            <option value="1440">24 Hours (Inpatient Ward Admission)</option>
+            <option value="10080">7 Days (Rehabilitation & Transfer)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="qr-max-uses-select">Usage Quota Constraint:</label>
+          <select class="form-control" id="qr-max-uses-select">
+            <option value="1" selected>Single-Use (Token expires immediately after 1 scan)</option>
+            <option value="5">Up to 5 Scans</option>
+            <option value="0">Unlimited Scans within TTL</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Result Step (Generated QR Card) -->
+      <div id="qr-result-step" style="display: none;">
+        <div class="qr-pass-card">
+          <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: var(--color-brand); margin-bottom: 6px;">
+            MEDIHAVEN VERIFIED PASS
+          </div>
+          <div class="qr-image-frame" id="qr-image-container">
+            <!-- Base64 PNG image -->
+          </div>
+          <div style="font-size: 12px; font-weight: 700; color: #0b0f17; margin-top: 8px;" id="qr-card-patient-name">
+            Patient Name
+          </div>
+          <div style="font-size: 11px; color: #64748b;" id="qr-card-exp">
+            Expires in 60m
+          </div>
+          <div style="display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; margin-top: 8px;" id="qr-card-scopes">
+            <!-- Scope Badges -->
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Signed JWT Cryptographic Payload (Copyable):</label>
+          <div class="qr-token-field" id="qr-token-text">--</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer" id="qr-modal-footer">
+      <button class="btn btn-outline" id="qr-btn-cancel">Cancel</button>
+      <button class="btn btn-primary" id="qr-btn-generate">Generate Cryptographic QR Pass</button>
+      <button class="btn btn-primary" id="qr-btn-done" style="display: none;">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================================
+     Modal 2: Upload Medical Record
+     ============================================================================ -->
+<div class="modal-overlay" id="modal-upload-record">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <div class="modal-title">+ Add New Medical Record to Vault</div>
+      <button class="drawer-close-btn" id="modal-upload-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="record-category">Record Clinical Category</label>
+        <select class="form-control" id="record-category">
+          <option value="allergy">Allergy (Severity, Reactions)</option>
+          <option value="medication">Medication (Drug, Dosage, Frequency)</option>
+          <option value="lab_report">Lab Report (Biomarkers, Values)</option>
+          <option value="surgery">Surgery / Operative Procedure</option>
+          <option value="chronic_condition">Chronic Health Condition</option>
+          <option value="immunization">Immunization & Vaccine Record</option>
+          <option value="clinical_note">Clinical Note / Consultation Summary</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="record-title">Record Title / Summary</label>
+        <input type="text" class="form-control" id="record-title" placeholder="e.g. Ciprofloxacin Allergic Rash" required />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="record-description">Clinical Description / Findings</label>
+        <textarea class="form-control" id="record-description" rows="3" placeholder="Detailed clinical observations, historical notes, or prescription directions..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="record-json">Structured Data (Optional JSON parameters):</label>
+        <textarea class="form-control mono" id="record-json" rows="2" placeholder='{"severity": "Severe", "reaction": "Anaphylaxis"}'></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="record-sensitive" />
+          🔒 Mark as Sensitive Record (Excluded from general wildcard sharing)
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="upload-btn-cancel">Cancel</button>
+      <button class="btn btn-primary" id="upload-btn-submit">Add Record to Vault</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/vault.js') }}"></script>
+{% endblock %}
