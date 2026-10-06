@@ -4,6 +4,7 @@
 [![Test Suite 63/63 Passing](https://img.shields.io/badge/Test%20Suite-63%2F63%20Passing%20(100%25)-10B981?style=flat&logo=pytest&logoColor=white)](https://pytest.org/)
 [![Benchmark Accuracy 100%](https://img.shields.io/badge/5--Fold%20CV%20Accuracy-100.00%25-10B981?style=flat)](file:///models_store/benchmark_report.md)
 [![Zero Data Leakage](https://img.shields.io/badge/Security-HMAC--SHA256%20Zero--Trust-4338CA?style=flat)](file:///src/vault/)
+[![Agent Codex](https://img.shields.io/badge/Agent%20Codex-agent--context.md-8B5CF6?style=flat)](file:///agent-context.md)
 [![Clinical UI Anti-AI](https://img.shields.io/badge/Design-Anti--AI%20Obsidian%20Slate-1E293B?style=flat)](file:///static/css/tokens.css)
 [![Academic Capstone](https://img.shields.io/badge/SPIT%20CE%202026-TE%20Sem%20V%20Mini%20Project%20I-F59E0B?style=flat)](https://www.spit.ac.in/)
 
@@ -27,6 +28,9 @@
 10. [Repository Directory Structure](#10-repository-directory-structure)
 11. [Quickstart: Single-Command Demo Runner](#11-quickstart-single-command-demo-runner)
 12. [Automated Verification & Test Suite](#12-automated-verification--test-suite)
+13. [Omniscient AI Agent Context & Extension Codex](#13-omniscient-ai-agent-context--extension-codex)
+14. [Git Branch & Commit History](#14-git-branch--commit-history)
+15. [Academic Citation & Departmental Sign-Off](#15-academic-citation--departmental-sign-off)
 
 ---
 
@@ -446,6 +450,7 @@ MediH/
 ├── master-build.md                     # Master engineering build plan
 ├── requirements.txt                    # Pinned production dependencies
 ├── run_demo.py                         # Single-command application launcher
+├── agent-context.md                    # Omniscient AI Agent Context & Architecture Codex
 └── README.md                           # Master project documentation
 ```
 
@@ -519,11 +524,33 @@ To re-run the 5-fold cross-validation report and export new benchmark JSON/Markd
 
 ---
 
-## 13. Git Branch & Commit History
+## 13. Omniscient AI Agent Context & Extension Codex
 
-All development was executed on active working branch **`nirupam`**:
+For autonomous AI agents, LLM copilots, and future engineering collaborators onboarding to this repository, a comprehensive single-source architecture codex has been authored and maintained in the root directory:
+
+📄 **[`agent-context.md`](file:///agent-context.md)** — *The Omniscient AI Agent Context, Memory Codex & System Blueprint*
+
+### What `agent-context.md` Provides:
+1. **Zero Context Loss Onboarding**: Complete operational briefing covering the academic origins (SPIT CE 2026), core problem statement, and engineering philosophy.
+2. **Exhaustive Directory & File Index**: Line-by-line inventory of all 42+ repository files, their architectural role, export signatures, and runtime dependencies.
+3. **End-to-End System Architecture**: Relational database schemas, SQLite WAL connection management, 30-feature vector definitions, and mathematical derivations.
+4. **The 4-Model Intelligence Ensemble**: Algorithmic specifications for K-Means ($K=4$), Decision Tree rule extraction, KNN ($K=5$) precedent retrieval, and MLP Dual-Head Neural Network inference.
+5. **Zero-Trust Cryptographic Vault & QR Protocols**: HMAC-SHA256 JWT claims, 7-category field-level scope isolation matrix, replay protection, and tamper audit trails.
+6. **Presentation Layer & Design Tokens**: Anti-AI clinical design tokens, obsidian color palettes, typography scales, SVG charts, and vanilla JS state loops.
+7. **Production Gotchas & Critical Hard Constraints**: Documented historical bugs (Windows CP1252 charmap encoding, PyJWT RFC 7519 sub string casting, SQLite CHECK constraint mappings, dataset split tolerance) and exact mitigation rules.
+8. **Extensibility Playbook**: Step-by-step guides for adding new clinical models, expanding vault scope categories, integrating real-time IoT feeds, or migrating to PostgreSQL.
+
+Any AI agent or engineer reading [`agent-context.md`](file:///agent-context.md) can immediately reason about the entire codebase, diagnose anomalies, develop new multimodal healthcare modules, or build next-generation applications around MediHaven without needing prior conversational history.
+
+---
+
+## 14. Git Branch & Commit History
+
+All development was executed on active working branch **`nirupam`** and merged cleanly into **`main`**:
 
 ```bash
+4333c21 docs: author omniscient agent-context.md codex for autonomous agent continuity
+cd4422a docs: rename legacy build/readme files and author comprehensive master README.md
 f801f9b feat(evaluation): implement clinical benchmarking engine, demo runner, and validation suite (Phase 8)
 5a54533 feat(presentation): implement clinical triage dashboard, patient vault, QR scanner, and UI design system (Phase 7)
 eb542ed feat(api): implement Flask RESTful API layer, in-memory model caching, route blueprints, and test suite (Phase 6)
@@ -536,7 +563,7 @@ ed15f85 feat(vault): implement cryptographic QR token engine, scope isolation, a
 
 ---
 
-## 14. Academic Citation & Departmental Sign-Off
+## 15. Academic Citation & Departmental Sign-Off
 
 ```bibtex
 @project{medihaven2026,
@@ -551,3 +578,4 @@ ed15f85 feat(vault): implement cryptographic QR token engine, scope isolation, a
 ```
 
 *Developed with pride for Sardar Patel Institute of Technology (SPIT) Computer Engineering Department (2026).*
+
