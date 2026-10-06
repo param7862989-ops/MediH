@@ -81,6 +81,7 @@ class Config:
     DECISION_TREE_MODEL_PATH = MODELS_STORE_DIR / "decision_tree_model.joblib"
     KNN_MODEL_PATH = MODELS_STORE_DIR / "knn_model.joblib"
     NEURAL_NETWORK_MODEL_PATH = MODELS_STORE_DIR / "neural_network_model.joblib"
+    NEURAL_NET_MODEL_PATH = NEURAL_NETWORK_MODEL_PATH
 
     @classmethod
     def ensure_directories(cls):
