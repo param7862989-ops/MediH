@@ -3,131 +3,220 @@
 {% block title %}Provider Optical QR Scanner | MediHaven{% endblock %}
 
 {% block content %}
-<div class="scanner-page">
-  <!-- Page Header -->
-  <div class="page-header">
-    <div>
-      <h1 class="page-title">
-        📷 Provider Optical QR Scanner & Bedside Verification
-      </h1>
-      <p class="page-subtitle">
-        Zero-trust optical QR scanning with cryptographic HMAC-SHA256 signature verification and strict scope isolation
-      </p>
+<div class="scanner-page" style="max-width: 980px; margin: 0 auto; padding-bottom: var(--space-2xl);">
+  <!-- Centered Page Header -->
+  <div class="page-header" style="text-align: center; justify-content: center; flex-direction: column; align-items: center; margin-bottom: var(--space-xl);">
+    <div style="display: inline-flex; align-items: center; gap: 8px; padding: 4px 14px; border-radius: var(--radius-full); background: rgba(2, 132, 199, 0.12); border: 1px solid rgba(2, 132, 199, 0.3); color: #38bdf8; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; margin-bottom: var(--space-xs);">
+      <span>🛡️ ZERO-TRUST OPTICAL CLINICAL VERIFICATION · HMAC-SHA256</span>
     </div>
-    <div style="display: flex; gap: var(--space-sm); align-items: center;">
-      <span class="badge badge-low">🛡️ Zero Data Leakage Enforced</span>
-    </div>
+    <h1 class="page-title" style="font-size: 28px; justify-content: center;">
+      📷 Provider Optical QR Scanner &amp; Bedside Verification
+    </h1>
+    <p class="page-subtitle" style="font-size: 14px; max-width: 680px; margin: 6px auto 0 auto; line-height: 1.5;">
+      Optical bedside scanning with cryptographic signature validation, strict patient consent scope isolation, and zero standing data leakage.
+    </p>
   </div>
 
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--space-xl);">
-    <!-- Left Column: Scanner Viewfinder & Controls -->
-    <div style="display: flex; flex-direction: column; gap: var(--space-md);">
-      <!-- Provider Metadata Bar -->
-      <div class="card" style="padding: var(--space-md);">
+  <!-- =========================================================================
+       3-STEP BEDSIDE INSTRUCTION GUIDE
+       ========================================================================= -->
+  <section class="card" style="padding: var(--space-lg); margin-bottom: var(--space-xl); background: var(--bg-surface-elevated); border: 1px solid var(--border-hairline);">
+    <div style="text-align: center; margin-bottom: var(--space-md);">
+      <h2 style="font-size: 15px; font-weight: 700; color: #ffffff; margin: 0;">
+        📋 How Bedside QR Authentication &amp; Scope Decryption Works
+      </h2>
+      <p style="font-size: 12px; color: var(--text-secondary); margin: 3px 0 0 0;">
+        Follow these three steps to securely view a patient's consented medical records:
+      </p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+      <!-- Step 1 -->
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); padding: 14px; display: flex; gap: 12px; align-items: flex-start;">
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          1
+        </div>
+        <div>
+          <div style="font-weight: 700; color: #ffffff; font-size: 13px;">Patient Consent</div>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px; line-height: 1.4;">
+            Patient generates a QR pass in their <strong>Patient Vault</strong>, selecting specific categories (e.g. Allergies only) and setting an expiration window.
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); padding: 14px; display: flex; gap: 12px; align-items: flex-start;">
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(16, 185, 129, 0.2); color: #34d399; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          2
+        </div>
+        <div>
+          <div style="font-weight: 700; color: #ffffff; font-size: 13px;">Optical Scan</div>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px; line-height: 1.4;">
+            Clinician aims device camera at patient QR code, uploads an image, or clicks <strong>Instant Demo Pass</strong> below for rapid testing.
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); padding: 14px; display: flex; gap: 12px; align-items: flex-start;">
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(245, 158, 11, 0.2); color: #fbbf24; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          3
+        </div>
+        <div>
+          <div style="font-weight: 700; color: #ffffff; font-size: 13px;">Zero Data Leakage</div>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px; line-height: 1.4;">
+            Server verifies HMAC-SHA256 signature, validates expiration, and delivers <em>only</em> consented records while logging the consult to the audit trail.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       INSTANT 1-CLICK DEMO EMERGENCY PASS GENERATOR BAR
+       ========================================================================= -->
+  <section class="card" style="padding: var(--space-md) var(--space-lg); margin-bottom: var(--space-xl); background: rgba(2, 132, 199, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: var(--radius-md);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <div style="font-size: 13px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+          <span>⚡ INSTANT DEMO PASS GENERATOR (1-Click Test)</span>
+        </div>
+        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">
+          Click either button below to generate a real cryptographic pass and immediately decrypt authorized clinical records:
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary btn-sm" id="btn-quick-scan-p1" style="background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%); color: #ffffff !important; border: 1px solid rgba(56, 189, 248, 0.5); font-weight: 700; padding: 8px 16px;">
+          ⚡ Scan Patient #1: Aarav Verma (Allergies &amp; Meds)
+        </button>
+        <button type="button" class="btn btn-success btn-sm" id="btn-quick-scan-p2" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #ffffff !important; border: 1px solid rgba(52, 211, 153, 0.5); font-weight: 700; padding: 8px 16px;">
+          ⚡ Scan Patient #2: Sarah Jenkins (Full Scope)
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       CENTERED SCANNER & CAMERA VIEWFINDER SECTION
+       ========================================================================= -->
+  <div style="display: flex; flex-direction: column; align-items: center; gap: var(--space-lg); width: 100%;">
+    
+    <!-- Viewfinder HUD Box -->
+    <div class="card" style="padding: var(--space-lg); width: 100%; max-width: 640px; text-align: center; border: 1px solid var(--border-hairline); box-shadow: var(--shadow-lg);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
+        <div style="text-align: left;">
+          <div style="font-weight: 700; font-size: 14px; color: #ffffff;">Optical Camera Viewfinder</div>
+          <div style="font-size: 11px; color: var(--text-secondary);">Direct webcam or mobile rear camera optical decoder</div>
+        </div>
+        <button class="btn btn-outline btn-sm" id="btn-toggle-camera" style="background: var(--bg-surface-elevated); color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.2); font-weight: 600;">
+          📷 Start Camera
+        </button>
+      </div>
+
+      <!-- Viewport Frame -->
+      <div class="scanner-viewport-box" id="viewport-box" style="position: relative; width: 100%; height: 320px; background: #000000; border-radius: var(--radius-md); overflow: hidden; border: 2px dashed rgba(56, 189, 248, 0.35); display: flex; align-items: center; justify-content: center;">
+        <video class="scanner-video" id="scanner-video" playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+        <div class="scanner-target-reticle" id="reticle-box" style="display: none; position: absolute; inset: 24px; border: 2px solid #38bdf8; border-radius: var(--radius-sm); pointer-events: none;">
+          <div class="scanner-laser-line" style="position: absolute; left: 0; right: 0; height: 2px; background: #38bdf8; box-shadow: 0 0 8px #38bdf8; animation: laserSweep 2s infinite ease-in-out;"></div>
+        </div>
+        <div id="camera-placeholder" style="text-align: center; color: var(--text-muted); padding: 30px;">
+          <div style="font-size: 48px; margin-bottom: 10px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">📷</div>
+          <div style="color: #ffffff; font-weight: 600; font-size: 15px;">Camera Viewfinder Standby</div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px; max-width: 320px;">
+            Click <strong>Start Camera</strong> above to begin scanning, or choose file upload / token paste below.
+          </div>
+        </div>
+      </div>
+      <canvas id="qr-canvas" style="display: none;"></canvas>
+
+      <!-- Clinician ID Input -->
+      <div style="margin-top: var(--space-md); text-align: left;">
+        <label class="form-label" for="scanner-clinician-name" style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-muted);">
+          Consulting Clinician / Facility Identifier:
+        </label>
+        <input 
+          type="text" 
+          class="form-control" 
+          id="scanner-clinician-name" 
+          value="Dr. Sarah Chen, MD (Emergency Triage)" 
+          style="font-size: 12px; padding: 8px 12px;"
+        />
+      </div>
+    </div>
+
+    <!-- Secondary Input Options: Image File Upload & JWT Token Paste -->
+    <div class="card" style="padding: var(--space-lg); width: 100%; max-width: 640px; text-align: left;">
+      <div style="font-weight: 700; font-size: 13px; color: #ffffff; margin-bottom: var(--space-sm);">
+        📁 Manual Pass Upload &amp; Cryptographic String Paste
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
         <div class="form-group" style="margin-bottom: 0;">
-          <label class="form-label" for="scanner-clinician-name">Consulting Clinician / Facility</label>
-          <input 
-            type="text" 
-            class="form-control" 
-            id="scanner-clinician-name" 
-            value="Dr. Gregory House, MD (Emergency Triage)" 
-          />
-        </div>
-      </div>
-
-      <!-- Viewfinder Box -->
-      <div class="card" style="padding: var(--space-md);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
-          <div style="font-weight: 600; font-size: 13px; color: #ffffff;">Camera Viewfinder</div>
-          <button class="btn btn-outline btn-sm" id="btn-toggle-camera">📷 Start Camera</button>
-        </div>
-
-        <div class="scanner-viewport-box" id="viewport-box">
-          <video class="scanner-video" id="scanner-video" playsinline></video>
-          <div class="scanner-target-reticle" id="reticle-box" style="display: none;">
-            <div class="scanner-laser-line"></div>
-          </div>
-          <div id="camera-placeholder" style="text-align: center; color: var(--text-muted); padding: 20px;">
-            <div style="font-size: 32px; margin-bottom: 8px;">📷</div>
-            <div>Camera Inactive</div>
-            <div style="font-size: 11px; margin-top: 4px;">Click "Start Camera" above or upload a QR image below</div>
-          </div>
-        </div>
-
-        <canvas id="qr-canvas" style="display: none;"></canvas>
-      </div>
-
-      <!-- Alternative Input: Upload File or Direct Token String -->
-      <div class="card" style="padding: var(--space-md);">
-        <div style="font-weight: 600; font-size: 13px; color: #ffffff; margin-bottom: var(--space-xs);">
-          Alternative Input Methods
-        </div>
-
-        <!-- File Upload -->
-        <div class="form-group">
           <label class="form-label" for="qr-file-input">Upload Saved QR Code Image (PNG / JPEG)</label>
           <input type="file" class="form-control" id="qr-file-input" accept="image/*" />
         </div>
 
-        <!-- Text Token Paste Fallback -->
-        <div class="form-group" style="margin-bottom: var(--space-sm);">
-          <label class="form-label" for="qr-token-input">Or Paste Cryptographic QR Payload (JWT String)</label>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="qr-token-input">Or Paste Cryptographic QR Payload (JWT Token String)</label>
           <textarea 
             class="form-control mono" 
             id="qr-token-input" 
             rows="2" 
             placeholder="Paste eyJhbGciOi..."
+            style="font-size: 11px;"
           ></textarea>
         </div>
 
-        <button class="btn btn-primary" id="btn-submit-token" style="width: 100%;">
-          Verify & Decrypt Scoped Health Records
+        <button class="btn btn-primary" id="btn-submit-token" style="width: 100%; padding: 11px; font-weight: 700; font-size: 13px; margin-top: 4px;">
+          🔓 Verify Signature &amp; Decrypt Scoped Records
         </button>
       </div>
     </div>
 
-    <!-- Right Column: Verification Badge & Scoped Records View -->
-    <div style="display: flex; flex-direction: column; gap: var(--space-md);" id="results-panel">
+    <!-- =========================================================================
+         RESULTS & DECRYPTED SCOPED RECORDS PANEL
+         ========================================================================= -->
+    <div style="width: 100%; max-width: 780px;" id="results-panel">
       <!-- Default Idle State Card -->
       <div class="card" id="idle-card" style="padding: 40px; text-align: center; color: var(--text-muted);">
         <div style="font-size: 40px; margin-bottom: 12px;">🛡️</div>
         <h3 style="color: #ffffff; font-size: 16px; margin-bottom: 6px;">Awaiting Optical Verification</h3>
-        <p style="font-size: 13px; max-width: 360px; margin: 0 auto;">
-          Point the camera at the patient's generated QR pass or upload a QR file to unlock cryptographically authorized clinical records.
+        <p style="font-size: 13px; max-width: 440px; margin: 0 auto; color: var(--text-secondary);">
+          Point your camera at a patient's QR pass, click one of the <strong>Instant Demo Pass</strong> buttons above, or upload a QR image to unlock cryptographically authorized clinical records.
         </p>
       </div>
 
       <!-- Error State Card -->
-      <div class="card" id="error-card" style="display: none; border-color: var(--risk-critical-border); background-color: rgba(239, 68, 68, 0.08);">
+      <div class="card" id="error-card" style="display: none; border-color: var(--risk-critical-border); background-color: rgba(239, 68, 68, 0.08); padding: var(--space-lg); text-align: left;">
         <div style="display: flex; align-items: center; gap: var(--space-sm); color: var(--risk-critical); font-weight: 700;">
           <span>🛑 Cryptographic Access Denied</span>
         </div>
         <p style="font-size: 13px; color: #fca5a5; margin-top: 8px;" id="error-card-msg">
-          Token is invalid or signature failed verification.
+          Token is invalid, expired, or signature failed HMAC-SHA256 verification.
         </p>
       </div>
 
       <!-- Verified Success Badge -->
-      <div class="verification-badge-card" id="verified-badge-card" style="display: none;">
-        <div class="verification-header">
+      <div class="verification-badge-card" id="verified-badge-card" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: var(--radius-md); padding: var(--space-lg); margin-bottom: var(--space-md); text-align: left;">
+        <div class="verification-header" style="color: #34d399; font-weight: 700; font-size: 14px;">
           <span>✓ Cryptographic Signature Verified (HMAC-SHA256)</span>
         </div>
         <div style="font-size: 12px; color: #a7f3d0; margin-top: 4px;">
           MediHaven Zero-Trust Authority · Patient Scope Isolation Active
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-md); padding-top: var(--space-sm); border-top: 1px solid rgba(16, 185, 129, 0.2);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-md); padding-top: var(--space-sm); border-top: 1px solid rgba(16, 185, 129, 0.2); flex-wrap: wrap; gap: 8px;">
           <div>
-            <div style="font-size: 16px; font-weight: 700; color: #ffffff;" id="verified-patient-name">
+            <div style="font-size: 17px; font-weight: 700; color: #ffffff;" id="verified-patient-name">
               Patient Name
             </div>
-            <div style="font-size: 11px; color: var(--text-secondary);" id="verified-patient-meta">
+            <div style="font-size: 12px; color: var(--text-secondary);" id="verified-patient-meta">
               MRN: -- · Age: --
             </div>
           </div>
           <div style="text-align: right;">
-            <div class="kpi-label">Authorized Scope</div>
-            <div id="verified-scopes-list" style="display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap;">
+            <div class="kpi-label" style="font-size: 11px;">Consented Scope</div>
+            <div id="verified-scopes-list" style="display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px;">
               <!-- Scope pills -->
             </div>
           </div>
@@ -135,9 +224,16 @@
       </div>
 
       <!-- Zero Data Leakage Assurance Notice -->
-      <div class="card" id="leakage-notice-card" style="display: none; padding: var(--space-sm) var(--space-md); background: rgba(2, 132, 199, 0.08); border-color: rgba(2, 132, 199, 0.25);">
+      <div class="card" id="leakage-notice-card" style="display: none; padding: var(--space-sm) var(--space-md); background: rgba(2, 132, 199, 0.08); border-color: rgba(2, 132, 199, 0.25); margin-bottom: var(--space-md); text-align: left;">
         <div style="font-size: 12px; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
-          <span>🔒 <strong>Zero Data Leakage Protocol:</strong> Only patient-consented categories were transmitted. Unselected categories remained sealed at the database layer.</span>
+          <span>🔒 <strong>Zero Data Leakage Protocol:</strong> Only patient-consented categories were transmitted. All unselected medical categories remained strictly sealed at the database layer.</span>
+        </div>
+      </div>
+
+      <!-- Access-Logged Confirmation Card -->
+      <div class="card" id="access-logged-notice-card" style="display: none; padding: var(--space-sm) var(--space-md); background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.25); margin-bottom: var(--space-md); text-align: left;">
+        <div style="font-size: 12px; color: #34d399; display: flex; align-items: center; gap: 6px;">
+          <span>📝 <strong id="access-logged-text">Access-Logged Confirmation:</strong> Consult session verified and recorded to patient's immutable audit log.</span>
         </div>
       </div>
 
@@ -153,3 +249,4 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/scanner.js') }}"></script>
 {% endblock %}
+

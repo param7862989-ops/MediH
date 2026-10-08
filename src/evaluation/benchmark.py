@@ -9,10 +9,16 @@ Evaluates:
 6. JSON & Markdown report serialization to models_store/.
 """
 
+import sys
 import json
 import time
 from datetime import datetime
 from pathlib import Path
+
+# Add project root to path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 from typing import Dict, List, Optional, Any, Tuple
 import numpy as np
 import pandas as pd

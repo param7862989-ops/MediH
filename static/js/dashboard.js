@@ -69,18 +69,28 @@ async function fetchDeteriorationAlerts() {
     container.style.display = "block";
     json.data.slice(0, 3).forEach((alert) => {
       const banner = document.createElement("div");
-      banner.className = "alert-banner";
+      const isAck = alert.is_acknowledged === true;
+      banner.className = isAck ? "alert-banner alert-acknowledged" : "alert-banner";
 
       const triggerChips = alert.physiological_triggers
         .map((t) => `<span class="trigger-chip">${escapeHtml(t)}</span>`)
         .join("");
 
+      const urgencyPill = isAck
+        ? `<span class="alert-urgency-pill" style="background-color: var(--risk-low); color: #ffffff;">✓ REVIEWED</span>`
+        : `<span class="alert-urgency-pill">⚠️ ${escapeHtml(alert.urgency_level)}</span>`;
+
+      const ackButton = isAck
+        ? `<button class="btn btn-sm" style="border: 1px solid rgba(16, 185, 129, 0.45); color: #34d399 !important; background: rgba(16, 185, 129, 0.15); cursor: default; font-weight: 600;" disabled title="Acknowledged at ${alert.acknowledged_at || 'earlier'}">✓ Acknowledged (${escapeHtml(alert.acknowledged_by || 'Dr. Gupta')})</button>`
+        : `<button class="btn btn-acknowledge btn-sm btn-ack-alert" data-id="${alert.patient_id}" data-name="${escapeHtml(alert.full_name)}">✓ Acknowledge</button>`;
+
       banner.innerHTML = `
         <div class="alert-banner-content">
-          <span class="alert-urgency-pill">⚠️ ${escapeHtml(alert.urgency_level)}</span>
+          ${urgencyPill}
           <div>
             <div class="alert-patient-headline">
               ${escapeHtml(alert.full_name)} (${escapeHtml(alert.mrn)}) · ${escapeHtml(alert.ward)} [Bed ${escapeHtml(alert.bed_number)}]
+              ${isAck ? '<span style="font-size: 11px; font-weight: normal; color: #34d399; margin-left: 8px;">● Care Plan Active</span>' : ''}
             </div>
             <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">
               Predicted Window: <strong style="color: #ffffff;">${escapeHtml(alert.early_warning_window)}</strong> · Risk Score: <strong>${alert.risk_score}</strong>
@@ -88,9 +98,9 @@ async function fetchDeteriorationAlerts() {
           </div>
           <div class="alert-triggers-list">${triggerChips}</div>
         </div>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn btn-outline btn-sm btn-open-chart" data-id="${alert.patient_id}">View Chart</button>
-          <button class="btn btn-primary btn-sm btn-ack-alert" data-id="${alert.patient_id}" data-name="${escapeHtml(alert.full_name)}">Acknowledge</button>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn btn-chart btn-sm btn-open-chart" data-id="${alert.patient_id}">📊 View Chart</button>
+          ${ackButton}
         </div>
       `;
 
@@ -100,12 +110,14 @@ async function fetchDeteriorationAlerts() {
     // Attach click events
     container.querySelectorAll(".btn-open-chart").forEach((btn) => {
       btn.addEventListener("click", (e) => {
+        e.stopPropagation();
         openPatientChart(parseInt(e.target.dataset.id, 10));
       });
     });
 
     container.querySelectorAll(".btn-ack-alert").forEach((btn) => {
       btn.addEventListener("click", (e) => {
+        e.stopPropagation();
         openAckModal(parseInt(e.target.dataset.id, 10), e.target.dataset.name);
       });
     });
@@ -194,20 +206,43 @@ function renderPatientTable() {
       </td>
       <td>${p.age}y / ${escapeHtml(p.gender)}</td>
       <td>${escapeHtml(p.ward)} · <span class="mono">${escapeHtml(p.bed_number)}</span></td>
+      <td>
+        <span title="${escapeHtml(p.symptoms)}" style="color: #fbbf24; font-size: 11px; max-width: 170px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          ${escapeHtml(p.symptoms)}
+        </span>
+      </td>
+      <td>
+        <span style="color: #60a5fa; font-weight: 600; font-size: 12px;">${escapeHtml(p.assigned_physician || 'Dr. Sarah Chen, MD')}</span>
+      </td>
       <td class="mono">${hr} bpm · ${bp} · ${spo2}</td>
       <td><span class="hemo-pill ${siClass}">${si.toFixed(2)}</span></td>
-      <td><span class="hemo-pill ${mapClass}">${Math.round(mapVal)} mmHg</span></td>
-      <td style="font-size: 11px; color: var(--text-secondary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-        ${escapeHtml(p.recommended_protocol)}
-      </td>
       <td style="text-align: right;">
-        <button class="btn btn-outline btn-sm btn-chart-row" data-id="${p.patient_id}">Open Chart →</button>
+        <div style="display: flex; gap: 6px; justify-content: flex-end; align-items: center;">
+          <button class="btn btn-chart btn-sm btn-chart-row" data-id="${p.patient_id}">📊 View Chart</button>
+          <button class="btn btn-acknowledge btn-sm btn-ack-row" data-id="${p.patient_id}" data-name="${escapeHtml(p.full_name)}">✓ Acknowledge</button>
+        </div>
       </td>
     `;
 
-    tr.addEventListener("click", (e) => {
+    tr.addEventListener("click", () => {
       openPatientChart(p.patient_id);
     });
+
+    const chartBtn = tr.querySelector(".btn-chart-row");
+    if (chartBtn) {
+      chartBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openPatientChart(p.patient_id);
+      });
+    }
+
+    const ackBtn = tr.querySelector(".btn-ack-row");
+    if (ackBtn) {
+      ackBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openAckModal(p.patient_id, p.full_name);
+      });
+    }
 
     tbody.appendChild(tr);
   });
@@ -230,11 +265,14 @@ function setupFilterEventListeners() {
     renderPatientTable();
   });
 
-  document.getElementById("btn-refresh-triage").addEventListener("click", async () => {
-    await fetchPatientRoster();
-    await fetchDashboardSummary();
-    await fetchDeteriorationAlerts();
-  });
+  const refreshBtn = document.getElementById("btn-refresh-triage");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", async () => {
+      await fetchPatientRoster();
+      await fetchDashboardSummary();
+      await fetchDeteriorationAlerts();
+    });
+  }
 }
 
 // ==============================================================================
@@ -266,9 +304,16 @@ async function openPatientChart(patientId) {
     const vitalsSeries = vitalsRes.data || [];
     const simData = simRes.data || {};
 
-    // 1. Populate Demographic Header
+    // 1. Populate Demographic Header & Clinical Dossier
     document.getElementById("drawer-patient-name").textContent = patient.full_name;
     document.getElementById("drawer-patient-meta").textContent = `MRN: ${patient.mrn} · ${patient.age}y ${patient.gender} · Ward: ${patient.ward} [Bed ${patient.bed_number}]`;
+
+    const sympEl = document.getElementById("drawer-patient-symptoms");
+    if (sympEl) sympEl.textContent = patient.symptoms || "Stable telemetry, baseline vitals";
+    const diagEl = document.getElementById("drawer-patient-diagnosis");
+    if (diagEl) diagEl.textContent = patient.primary_diagnosis || "Observational Recovery";
+    const physEl = document.getElementById("drawer-patient-physician");
+    if (physEl) physEl.textContent = patient.assigned_physician || "Dr. Sarah Chen, MD (Attending)";
 
     const badge = document.getElementById("drawer-risk-badge");
     badge.className = `risk-badge risk-badge-${(pred.risk_tier || "low").toLowerCase()}`;
@@ -292,6 +337,9 @@ async function openPatientChart(patientId) {
 
     // 5. Render KNN Case Precedents
     renderKnnPrecedents(simData);
+
+    // 6. Synthesize Live AI Clinical Narrative (Google Gemini)
+    loadDrawerClinicalNarrative(patientId, currentNarrativeMode);
   } catch (err) {
     console.error("Failed to load full clinical chart:", err);
   }
@@ -461,6 +509,65 @@ function renderKnnPrecedents(simData) {
   });
 }
 
+let currentNarrativeMode = "handover";
+
+async function loadDrawerClinicalNarrative(patientId, mode = "handover") {
+  const contentEl = document.getElementById("drawer-narrative-content");
+  const metaEl = document.getElementById("drawer-narrative-meta");
+  const latencyEl = document.getElementById("drawer-narrative-latency");
+  const btnHandover = document.getElementById("drawer-btn-handover");
+  const btnDischarge = document.getElementById("drawer-btn-discharge");
+
+  if (!contentEl) return;
+
+  if (btnHandover && btnDischarge) {
+    if (mode === "handover") {
+      btnHandover.style.background = "rgba(56, 189, 248, 0.2)";
+      btnHandover.style.color = "#38bdf8";
+      btnHandover.style.borderColor = "rgba(56, 189, 248, 0.4)";
+      btnHandover.style.fontWeight = "600";
+      btnDischarge.style.background = "transparent";
+      btnDischarge.style.color = "#94a3b8";
+      btnDischarge.style.borderColor = "rgba(148, 163, 184, 0.2)";
+      btnDischarge.style.fontWeight = "500";
+    } else {
+      btnDischarge.style.background = "rgba(56, 189, 248, 0.2)";
+      btnDischarge.style.color = "#38bdf8";
+      btnDischarge.style.borderColor = "rgba(56, 189, 248, 0.4)";
+      btnDischarge.style.fontWeight = "600";
+      btnHandover.style.background = "transparent";
+      btnHandover.style.color = "#94a3b8";
+      btnHandover.style.borderColor = "rgba(148, 163, 184, 0.2)";
+      btnHandover.style.fontWeight = "500";
+    }
+  }
+
+  contentEl.style.opacity = "0.5";
+  contentEl.textContent = "✨ Google Gemini is synthesizing clinical biomarker trajectory, vitals & rules...";
+
+  try {
+    const res = await fetch(`/api/patients/${patientId}/clinical-narrative?type=${mode}`);
+    const json = await res.json();
+    if (json.success && json.data) {
+      const d = json.data;
+      contentEl.style.opacity = "1";
+      contentEl.textContent = d.narrative || "No clinical narrative generated.";
+      if (metaEl) metaEl.textContent = `Model: ${d.model || "gemini-3.5-flash-lite"}`;
+      if (latencyEl) {
+        latencyEl.textContent = `⚡ ${d.latency_ms || 1800} ms (${d.is_live ? "Live Gemini API" : "Offline Fallback"})`;
+        latencyEl.style.color = d.is_live ? "#34d399" : "#fbbf24";
+      }
+    } else {
+      contentEl.style.opacity = "1";
+      contentEl.textContent = json.error?.message || "Failed to generate narrative.";
+    }
+  } catch (err) {
+    console.error("Clinical narrative fetch error:", err);
+    contentEl.style.opacity = "1";
+    contentEl.textContent = "Unable to load Gemini narrative: " + err.message;
+  }
+}
+
 function setupDrawerEventListeners() {
   const backdrop = document.getElementById("drawer-backdrop");
   const closeBtn = document.getElementById("drawer-close-btn");
@@ -483,6 +590,37 @@ function setupDrawerEventListeners() {
       backdrop.setAttribute("aria-hidden", "true");
     }
   });
+
+  // AI Narrative Mode Toggle and Regenerate Controls
+  const btnHandover = document.getElementById("drawer-btn-handover");
+  const btnDischarge = document.getElementById("drawer-btn-discharge");
+  const btnRegen = document.getElementById("drawer-btn-regen-narrative");
+
+  if (btnHandover) {
+    btnHandover.addEventListener("click", () => {
+      currentNarrativeMode = "handover";
+      if (currentSelectedPatientId) {
+        loadDrawerClinicalNarrative(currentSelectedPatientId, "handover");
+      }
+    });
+  }
+
+  if (btnDischarge) {
+    btnDischarge.addEventListener("click", () => {
+      currentNarrativeMode = "discharge";
+      if (currentSelectedPatientId) {
+        loadDrawerClinicalNarrative(currentSelectedPatientId, "discharge");
+      }
+    });
+  }
+
+  if (btnRegen) {
+    btnRegen.addEventListener("click", () => {
+      if (currentSelectedPatientId) {
+        loadDrawerClinicalNarrative(currentSelectedPatientId, currentNarrativeMode);
+      }
+    });
+  }
 }
 
 // ==============================================================================

@@ -29,6 +29,7 @@ def list_patients():
     query = """
         SELECT p.patient_id, p.mrn, p.full_name, p.age, p.gender, 
                p.admission_date, p.discharge_date, p.status, p.ward, p.bed_number,
+               p.assigned_physician, p.symptoms, p.primary_diagnosis, p.blood_group, p.emergency_contact,
                pr.risk_tier, pr.risk_score, pr.recommended_protocol,
                v.heart_rate as latest_hr, v.blood_pressure_sys as latest_sbp, 
                v.blood_pressure_dia as latest_dbp, v.oxygen_saturation as latest_spo2,
@@ -63,8 +64,8 @@ def list_patients():
         params.append(risk_tier)
 
     if search:
-        query += " AND (p.full_name LIKE ? OR p.mrn LIKE ?)"
-        params.extend([f"%{search}%", f"%{search}%"])
+        query += " AND (p.full_name LIKE ? OR p.mrn LIKE ? OR p.assigned_physician LIKE ?)"
+        params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
 
     query += " ORDER BY CASE pr.risk_tier WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 ELSE 4 END, p.patient_id ASC"
 
@@ -90,6 +91,11 @@ def list_patients():
                 "status": r["status"],
                 "ward": r["ward"],
                 "bed_number": r["bed_number"],
+                "assigned_physician": r["assigned_physician"] or "Dr. Sarah Chen, MD (Attending)",
+                "symptoms": r["symptoms"] or "Stable observation, baseline vitals",
+                "primary_diagnosis": r["primary_diagnosis"] or "Observational Recovery",
+                "blood_group": r["blood_group"] or "O+",
+                "emergency_contact": r["emergency_contact"] or "+1 (555) 019-2834",
                 "admission_date": str(r["admission_date"]),
                 "risk_tier": r["risk_tier"] or "Low",
                 "risk_score": round(float(r["risk_score"] or 0.1), 2),
@@ -180,6 +186,11 @@ def get_patient(patient_id: int):
             "status": p_row["status"],
             "ward": p_row["ward"],
             "bed_number": p_row["bed_number"],
+            "assigned_physician": p_row["assigned_physician"] if "assigned_physician" in p_row.keys() else "Dr. Sarah Chen, MD (Attending)",
+            "symptoms": p_row["symptoms"] if "symptoms" in p_row.keys() else "Stable observation, baseline vitals",
+            "primary_diagnosis": p_row["primary_diagnosis"] if "primary_diagnosis" in p_row.keys() else "Observational Recovery",
+            "blood_group": p_row["blood_group"] if "blood_group" in p_row.keys() else "O+",
+            "emergency_contact": p_row["emergency_contact"] if "emergency_contact" in p_row.keys() else "+1 (555) 019-2834",
             "admission_date": str(p_row["admission_date"]),
             "discharge_date": str(p_row["discharge_date"]) if p_row["discharge_date"] else None,
             "latest_vitals": dict(v_row) if v_row else None,
@@ -202,7 +213,8 @@ def register_patient():
     now = datetime.now()
     mrn = payload.get("mrn")
     if not mrn:
-        mrn = f"MRN-{now.year}-{int(now.timestamp()) % 10000:04d}"
+        import time
+        mrn = f"MRN-{now.year}-{(int(time.time() * 10000) % 90000 + 10000):05d}"
 
     query = """
         INSERT INTO patients (mrn, full_name, age, gender, admission_date, status, ward, bed_number)
@@ -311,3 +323,67 @@ def get_patient_labs(patient_id: int):
         data=labs,
         meta={"patient_id": patient_id, "tests_count": len(labs)},
     )
+
+
+@patients_bp.route("/<int:patient_id>/reassign", methods=["POST"])
+def reassign_patient(patient_id: int):
+    """Reassigns a patient to a different physician."""
+    data = request.get_json(silent=True) or request.form
+    new_physician = data.get("assigned_physician", "").strip()
+    if not new_physician:
+        return error_response("Physician name is required.", code="MISSING_FIELD", status_code=400)
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT patient_id, full_name, assigned_physician FROM patients WHERE patient_id = ?", (patient_id,))
+        patient = cursor.fetchone()
+        if not patient:
+            return error_response(f"Patient #{patient_id} not found.", code="NOT_FOUND", status_code=404)
+
+        old_physician = patient["assigned_physician"] or "Unassigned"
+        cursor.execute(
+            "UPDATE patients SET assigned_physician = ? WHERE patient_id = ?",
+            (new_physician, patient_id)
+        )
+        conn.commit()
+
+    logger.info(f"PATIENT_REASSIGNED | patient_id={patient_id} | from='{old_physician}' | to='{new_physician}'")
+    return success_response(
+        data={
+            "patient_id": patient_id,
+            "full_name": patient["full_name"],
+            "previous_physician": old_physician,
+            "assigned_physician": new_physician,
+        },
+        message=f"Patient {patient['full_name']} successfully reassigned to {new_physician}."
+    )
+
+
+@patients_bp.route("/physicians", methods=["GET"])
+def list_physicians():
+    """Returns directory of hospital physicians, their specialties, and active caseload."""
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT assigned_physician, COUNT(*) as patient_count,
+                   SUM(CASE WHEN pr.risk_tier IN ('Critical', 'High') THEN 1 ELSE 0 END) as high_risk_count
+            FROM patients p
+            LEFT JOIN (
+                SELECT patient_id, risk_tier, MAX(predicted_at) FROM predictions GROUP BY patient_id
+            ) pr ON p.patient_id = pr.patient_id
+            WHERE assigned_physician IS NOT NULL AND assigned_physician != ''
+            GROUP BY assigned_physician
+            ORDER BY patient_count DESC
+        """)
+        rows = cursor.fetchall()
+        physicians = [
+            {
+                "name": r["assigned_physician"],
+                "active_patients": r["patient_count"],
+                "high_risk_patients": r["high_risk_count"] or 0,
+            }
+            for r in rows
+        ]
+
+    return success_response(data=physicians, meta={"total_physicians": len(physicians)})
+

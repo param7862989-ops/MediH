@@ -23,7 +23,12 @@ CREATE TABLE IF NOT EXISTS patients (
     status          TEXT NOT NULL DEFAULT 'Admitted' 
                     CHECK(status IN ('Admitted', 'Observation', 'ICU', 'Discharged')),
     ward            TEXT NOT NULL,                      -- e.g., General Ward A, Cardiac Care, ICU, Pulmonology
-    bed_number      TEXT NOT NULL                       -- e.g., Bed-104, ICU-08
+    bed_number      TEXT NOT NULL,                      -- e.g., Bed-104, ICU-08
+    assigned_physician TEXT DEFAULT 'Dr. Sarah Chen, MD (Attending)',
+    symptoms        TEXT DEFAULT 'Observational monitoring, stable vitals',
+    primary_diagnosis TEXT DEFAULT 'Clinical Admission',
+    blood_group     TEXT DEFAULT 'O+',
+    emergency_contact TEXT DEFAULT '+1 (555) 019-2834'
 );
 
 -- Longitudinal Vitals (High-frequency time-series)

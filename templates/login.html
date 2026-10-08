@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In | MediHaven Clinical Access Gateway{% endblock %}
+
+{% block content %}
+<div class="login-page">
+  <div class="login-wrapper">
+    <!-- Brand & Gateway Header -->
+    <div class="login-header">
+      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="MediHaven Official Logo" class="login-brand-logo-img">
+      <h1 class="login-title">Clinical Access Gateway</h1>
+      <p class="login-subtitle">
+        Secure role-based access for Patient Medical Vault, Physician Clinical Triage, and Hospital Administrator operations
+      </p>
+    </div>
+
+    <!-- Main Authentication Card -->
+    <div class="card login-card">
+      <div id="login-error-alert" class="login-error" style="display: none;"></div>
+
+      <form id="login-form" method="POST" action="/api/auth/login" onsubmit="handleLoginSubmit(event)">
+        <div class="form-group">
+          <label class="form-label" for="username-input">Username / Clinical ID</label>
+          <input 
+            type="text" 
+            id="username-input" 
+            name="username" 
+            class="form-control" 
+            placeholder="e.g. physician1, patient1, or administrator ID" 
+            required 
+            autocomplete="username"
+            autofocus
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password-input">Password</label>
+          <input 
+            type="password" 
+            id="password-input" 
+            name="password" 
+            class="form-control" 
+            placeholder="Enter password" 
+            required 
+            autocomplete="current-password"
+          />
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="btn-login-submit" style="width: 100%; padding: 12px; font-weight: 700; font-size: 14px; margin-top: 8px;">
+          Sign In to Portal →
+        </button>
+      </form>
+
+      <!-- Quick-Fill Demo Helpers -->
+      <div class="demo-credentials-section">
+        <div class="demo-title">TEST DEMO CREDENTIALS</div>
+        <p class="demo-subtext">Click below to auto-fill authorized project credentials for instant evaluation:</p>
+
+        <div class="demo-buttons-grid">
+          <!-- Demo 1: Physician -->
+          <button type="button" class="demo-pill-btn" onclick="fillCredentials('physician1', 'Physician@123')">
+            <span class="demo-role-badge badge-physician">Physician</span>
+            <span class="demo-label">Physician Clinical Triage</span>
+            <span class="demo-hint">physician1 · Physician@123</span>
+          </button>
+
+          <!-- Demo 2: Patient -->
+          <button type="button" class="demo-pill-btn" onclick="fillCredentials('patient1', 'Patient@123')">
+            <span class="demo-role-badge badge-patient">Patient</span>
+            <span class="demo-label">Patient Medical Vault</span>
+            <span class="demo-hint">patient1 · Patient@123</span>
+          </button>
+        </div>
+
+        <div style="margin-top: 12px; font-size: 11px; color: var(--text-muted); background: var(--bg-surface-elevated); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-hairline);">
+          🔒 <strong style="color: #34d399;">Hospital Administrator Access:</strong> Restricted to authorized system staff. Sign in above with your assigned institutional administrator credentials.
+        </div>
+      </div>
+    </div>
+
+    <!-- Gateway Footer -->
+    <div class="login-footer">
+      <a href="/" class="login-back-link">← Return to Home Landing Page</a>
+      <span style="color: var(--border-subtle);">·</span>
+      <span style="color: var(--text-muted); font-size: 12px;">Protected by HMAC-SHA256 &amp; Strict RBAC</span>
+    </div>
+  </div>
+</div>
+
+<style>
+  .login-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 160px);
+    padding: var(--space-xl) var(--space-md);
+  }
+
+  .login-wrapper {
+    max-width: 520px;
+    width: 100%;
+  }
+
+  .login-header {
+    text-align: center;
+    margin-bottom: var(--space-xl);
+  }
+
+  .login-brand-logo-img {
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 20px rgba(2, 132, 199, 0.45);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    display: block;
+    margin: 0 auto var(--space-md);
+    transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+  }
+
+  .login-brand-logo-img:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 24px rgba(56, 189, 248, 0.6);
+  }
+
+  .login-title {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+  }
+
+  .login-subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .login-card {
+    padding: var(--space-xl);
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  }
+
+  .login-error {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: var(--space-md);
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: var(--space-md);
+  }
+
+  .form-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .form-control {
+    background-color: var(--bg-surface-elevated);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-sm);
+    color: #ffffff;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: var(--font-sans);
+    transition: all var(--transition-fast);
+  }
+
+  .form-control:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+  }
+
+  /* Demo Credentials Section */
+  .demo-credentials-section {
+    margin-top: var(--space-xl);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--border-hairline);
+  }
+
+  .demo-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #60a5fa;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+  }
+
+  .demo-subtext {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  .demo-buttons-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .demo-pill-btn {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    text-align: left;
+    transition: all var(--transition-fast);
+    color: inherit;
+    width: 100%;
+  }
+
+  .demo-pill-btn:hover {
+    background: var(--bg-surface-hover);
+    border-color: rgba(96, 165, 240, 0.4);
+    transform: translateX(2px);
+  }
+
+  .demo-role-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .badge-physician { background: rgba(37, 99, 235, 0.2); color: #60a5fa; }
+  .badge-patient { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
+  .badge-admin { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+
+  .demo-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #ffffff;
+    flex: 1;
+  }
+
+  .demo-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  .login-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: var(--space-lg);
+  }
+
+  .login-back-link {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+  }
+
+  .login-back-link:hover {
+    color: #ffffff;
+  }
+</style>
+
+<script>
+  function fillCredentials(username, password) {
+    document.getElementById("username-input").value = username;
+    document.getElementById("password-input").value = password;
+    const errorBox = document.getElementById("login-error-alert");
+    errorBox.style.display = "none";
+  }
+
+  async function handleLoginSubmit(event) {
+    event.preventDefault();
+    const btn = document.getElementById("btn-login-submit");
+    const errorBox = document.getElementById("login-error-alert");
+    const username = document.getElementById("username-input").value.trim();
+    const password = document.getElementById("password-input").value.trim();
+
+    errorBox.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Authenticating...";
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        errorBox.textContent = data.error?.message || "Invalid username or password.";
+        errorBox.style.display = "block";
+        btn.disabled = false;
+        btn.textContent = "Sign In to Portal →";
+        return;
+      }
+
+      // Successful login
+      btn.textContent = "✓ Access Granted. Redirecting...";
+      const dest = data.data?.redirect_url || "/";
+      window.location.href = dest;
+    } catch (err) {
+      errorBox.textContent = "Connection error. Please try again.";
+      errorBox.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Sign In to Portal →";
+    }
+  }
+
+  // Pre-fill error message from URL query params if redirected
+  document.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get("error");
+    if (err) {
+      const errorBox = document.getElementById("login-error-alert");
+      errorBox.textContent = err;
+      errorBox.style.display = "block";
+    }
+  });
+</script>
+{% endblock %}

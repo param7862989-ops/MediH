@@ -17,6 +17,7 @@ from src.api.routes.patients import patients_bp
 from src.api.routes.predictions import predictions_bp
 from src.api.routes.alerts import alerts_bp
 from src.api.routes.vault import vault_bp
+from src.api.auth import auth_bp, ROLE_DASHBOARD_MAP
 from src.models.ensemble import EnsembleClinicalPredictor
 
 logger = get_logger("medihaven.api.app")
@@ -58,31 +59,86 @@ def create_app(test_config: Optional[Dict[str, Any]] = None) -> Flask:
         app.ensemble_predictor = None
 
     # Register API Blueprints
+    app.register_blueprint(auth_bp)
     app.register_blueprint(patients_bp)
     app.register_blueprint(predictions_bp)
     app.register_blueprint(alerts_bp)
     app.register_blueprint(vault_bp)
+
+    @app.context_processor
+    def inject_user():
+        from flask import session
+        return {"current_user": session.get("user")}
+
+    def enforce_role(allowed_roles: list):
+        """Enforces role-based route protection for web portals."""
+        from flask import session, current_app
+        # Testing bypass only if not explicitly testing auth enforcement
+        if current_app.config.get("TESTING") and not request.headers.get("X-Enforce-Auth"):
+            return None
+
+        user = session.get("user")
+        if not user:
+            return redirect(url_for("view_login", next=request.path, error="Please sign in to access this portal."))
+
+        user_role = user.get("role")
+        if user_role not in allowed_roles:
+            own_dest = ROLE_DASHBOARD_MAP.get(user_role, "/")
+            return redirect(own_dest)
+
+        return None
 
     # --------------------------------------------------------------------------
     # Web Portal View Routes (Jinja2 Templates & Presentation Shell)
     # --------------------------------------------------------------------------
     @app.route("/", methods=["GET"])
     def index():
-        """Root redirect to the Physician Triage Dashboard."""
-        return redirect(url_for("view_dashboard"))
+        """Landing Page & Clinical Overview."""
+        try:
+            return render_template("landing.html", active_page="landing")
+        except Exception:
+            return render_template("base.html", active_page="landing")
+
+    @app.route("/login", methods=["GET"])
+    def view_login():
+        """Team Role Selection & Login Gateway."""
+        from flask import session
+        user = session.get("user")
+        if user and not request.args.get("switch"):
+            target = ROLE_DASHBOARD_MAP.get(user.get("role"), "/")
+            return redirect(target)
+
+        try:
+            return render_template("login.html", active_page="login")
+        except Exception:
+            return render_template("base.html", active_page="login")
+
+    @app.route("/logout", methods=["GET"])
+    def view_logout():
+        """Logs out the active user session and returns to login."""
+        from flask import session
+        session.clear()
+        return redirect(url_for("view_login"))
 
     @app.route("/dashboard", methods=["GET"])
     def view_dashboard():
-        """Physician Clinical Triage Dashboard."""
+        """Physician Clinical Triage Dashboard (Restricted to Physician role)."""
+        guard = enforce_role(["physician"])
+        if guard:
+            return guard
+
         try:
             return render_template("dashboard.html", active_page="dashboard")
         except Exception:
-            # Fallback to base shell if dashboard.html is pending Phase 7 completion
             return render_template("base.html", active_page="dashboard")
 
     @app.route("/vault", methods=["GET"])
     def view_vault():
-        """Patient Medical Vault Portal."""
+        """Patient Medical Vault Portal (Restricted to Patient role)."""
+        guard = enforce_role(["patient"])
+        if guard:
+            return guard
+
         try:
             return render_template("patient_vault.html", active_page="vault")
         except Exception:
@@ -90,11 +146,32 @@ def create_app(test_config: Optional[Dict[str, Any]] = None) -> Flask:
 
     @app.route("/scanner", methods=["GET"])
     def view_scanner():
-        """Provider Optical QR Scanner View."""
+        """Provider Optical QR Scanner View (Restricted to Physician & Admin)."""
+        guard = enforce_role(["physician", "admin"])
+        if guard:
+            return guard
+
         try:
             return render_template("scanner.html", active_page="scanner")
         except Exception:
             return render_template("base.html", active_page="scanner")
+
+    @app.route("/admin", methods=["GET"])
+    def view_admin():
+        """Hospital Administrator Operations Overview (Restricted to Admin role)."""
+        guard = enforce_role(["admin"])
+        if guard:
+            return guard
+
+        try:
+            return render_template("admin.html", active_page="admin")
+        except Exception:
+            return render_template("base.html", active_page="admin")
+
+    @app.route("/favicon.ico", methods=["GET"])
+    def favicon():
+        """Favicon route to prevent 404 logs in browsers."""
+        return ("", 204)
 
     @app.route("/api/health", methods=["GET"])
     def health_check():

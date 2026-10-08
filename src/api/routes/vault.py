@@ -86,19 +86,24 @@ def get_vault(patient_id: int):
         return error_response(message=str(e), code="VAULT_FETCH_ERROR", status_code=500)
 
 
+@vault_bp.route("/share", methods=["POST"])
 @vault_bp.route("/<int:patient_id>/share", methods=["POST"])
-def generate_share_token(patient_id: int):
+def generate_share_token(patient_id: Optional[int] = None):
     """Generates a dynamic cryptographic QR access pass with scoped permissions."""
     payload = request.get_json(silent=True) or {}
+    pid = patient_id or payload.get("patient_id")
+    if not pid:
+        return error_response(message="Missing 'patient_id' in request body.", code="VALIDATION_ERROR", status_code=422)
+
     scope = payload.get("scope", ["*"])
-    expires_in_minutes = payload.get("expires_in_minutes", 1440)
+    expires_in_minutes = payload.get("expires_in_minutes") or payload.get("ttl_minutes", 1440)
     max_uses = payload.get("max_uses")
 
     try:
         token_data = generate_vault_access_token(
-            patient_id=patient_id,
+            patient_id=int(pid),
             scope=scope,
-            expires_in_minutes=expires_in_minutes,
+            expires_in_minutes=int(expires_in_minutes),
             max_uses=max_uses,
         )
         # Convenience aliases for frontend clients

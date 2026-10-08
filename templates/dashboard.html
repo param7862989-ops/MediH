@@ -15,10 +15,9 @@
       </p>
     </div>
     <div style="display: flex; gap: var(--space-sm); align-items: center;">
-      <span class="badge badge-low" id="live-polling-badge">● Live 5s Polling</span>
-      <button class="btn btn-outline btn-sm" id="btn-refresh-triage" title="Force Refresh Telemetry">
-        ↻ Refresh
-      </button>
+      <span class="badge badge-low" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); padding: 5px 12px; border-radius: var(--radius-full); font-size: 12px; font-weight: 600;">
+        ● Continuous Telemetry Stream Active
+      </span>
     </div>
   </div>
 
@@ -103,11 +102,11 @@
           <th>Patient / MRN</th>
           <th>Age/Sex</th>
           <th>Ward & Bed</th>
+          <th>Admitting Symptoms</th>
+          <th>Assigned Physician</th>
           <th>Latest Vitals (HR · BP · SpO2)</th>
           <th>Shock Index</th>
-          <th>MAP</th>
-          <th>Recommended Protocol</th>
-          <th style="text-align: right;">Action</th>
+          <th style="text-align: right;">Clinical Actions</th>
         </tr>
       </thead>
       <tbody id="triage-tbody">
@@ -122,7 +121,7 @@
 </div>
 
 <!-- ============================================================================
-     Slide-Over Clinical Chart & Explainability Drawer
+     Centered Focused Clinical Chart & Explainability Modal Overlay
      ============================================================================ -->
 <div class="drawer-backdrop" id="drawer-backdrop" aria-hidden="true">
   <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-patient-name">
@@ -134,10 +133,28 @@
         </div>
         <span class="risk-badge" id="drawer-risk-badge">--</span>
       </div>
-      <button class="drawer-close-btn" id="drawer-close-btn" aria-label="Close Chart Drawer">✕</button>
+      <button class="drawer-close-btn" id="drawer-close-btn" aria-label="Close Chart Modal">✕</button>
     </div>
 
-    <div class="drawer-body">
+    <div class="drawer-body" style="overflow-y: auto; padding: var(--space-xl); display: flex; flex-direction: column; gap: var(--space-md);">
+      <!-- Patient Admitting Symptoms & Clinical Dossier Summary -->
+      <div class="card" style="padding: var(--space-md); background: var(--bg-surface-elevated); border: 1px solid var(--border-hairline);">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 12px;">
+          <div>
+            <span style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 700;">Admitting Symptoms:</span>
+            <div id="drawer-patient-symptoms" style="color: #fbbf24; font-weight: 600; margin-top: 2px;">--</div>
+          </div>
+          <div>
+            <span style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 700;">Primary Diagnosis:</span>
+            <div id="drawer-patient-diagnosis" style="color: #ffffff; font-weight: 600; margin-top: 2px;">--</div>
+          </div>
+          <div>
+            <span style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 700;">Assigned Clinician:</span>
+            <div id="drawer-patient-physician" style="color: #60a5fa; font-weight: 600; margin-top: 2px;">--</div>
+          </div>
+        </div>
+      </div>
+
       <!-- 1. Multi-Model Risk Score Card -->
       <div class="card" style="padding: var(--space-md);">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-sm);">
@@ -171,6 +188,34 @@
         </div>
         <div class="chart-canvas-wrapper">
           <canvas id="vitalsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 2.5. AI Clinical Narrative (Google Gemini Generative AI) -->
+      <div class="card" style="padding: var(--space-md); background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: var(--radius-sm); margin-bottom: var(--space-md);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm); flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 16px;">✨</span>
+            <span class="chart-title" style="margin: 0; color: #ffffff; font-weight: 700;">AI Clinical Narrative (Google Gemini)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <button id="drawer-btn-handover" type="button" class="btn btn-sm" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-size: 11px; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-weight: 600;">
+              👨‍⚕️ Handover
+            </button>
+            <button id="drawer-btn-discharge" type="button" class="btn btn-sm" style="background: transparent; color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2); font-size: 11px; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-weight: 500;">
+              📋 Discharge
+            </button>
+            <button id="drawer-btn-regen-narrative" type="button" title="Regenerate with Gemini" style="background: transparent; border: 1px solid rgba(148, 163, 184, 0.2); color: #94a3b8; cursor: pointer; font-size: 12px; padding: 2px 6px; border-radius: 4px;">
+              🔄
+            </button>
+          </div>
+        </div>
+        <div id="drawer-narrative-content" style="font-size: 12.5px; line-height: 1.6; color: #e2e8f0; background: rgba(30, 41, 59, 0.5); padding: 10px 12px; border-radius: 6px; border-left: 3px solid #38bdf8;">
+          Loading clinical narrative from Gemini...
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 11px; color: #94a3b8;">
+          <span id="drawer-narrative-meta" style="font-family: var(--font-mono);">Model: gemini-3.5-flash-lite</span>
+          <span id="drawer-narrative-latency" style="color: #34d399;">⚡ Live Gemini API</span>
         </div>
       </div>
 

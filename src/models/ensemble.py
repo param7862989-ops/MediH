@@ -309,6 +309,18 @@ class EnsembleClinicalPredictor:
         logger.info("Ensemble Clinical Predictor loaded with all 4 models online.")
         return instance
 
+    @classmethod
+    def train_from_data(cls) -> "EnsembleClinicalPredictor":
+        """Loads train.parquet and fits all 4 underlying clinical models."""
+        train_path = Config.PROCESSED_DATA_DIR / "train.parquet"
+        if not train_path.exists():
+            from src.data.pipeline import run_batch_pipeline
+            run_batch_pipeline()
+        train_df = pd.read_parquet(train_path)
+        instance = cls()
+        instance.train_all(train_df)
+        return instance
+
 
 if __name__ == "__main__":
     train_data = pd.read_parquet(Config.PROCESSED_DATA_DIR / "train.parquet")

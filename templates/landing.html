@@ -1,0 +1,914 @@
+{% extends "base.html" %}
+
+{% block title %}MediHaven | AI-Assisted Clinical Decision Support & Patient Medical Vault{% endblock %}
+
+{% block content %}
+<div class="landing-page">
+  <!-- =========================================================================
+       1. HERO SECTION (Flowy, Animated Clinical Backdrop)
+       ========================================================================= -->
+  <section class="hero-section" aria-label="Hero Section">
+    <!-- Subtle Ambient Glow Orbs -->
+    <div class="hero-glow hero-glow-1" aria-hidden="true"></div>
+    <div class="hero-glow hero-glow-2" aria-hidden="true"></div>
+
+    <div class="hero-content-wrapper">
+      <div class="hero-badge animate-fade-in-1">
+        <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="MediHaven Logo" width="20" height="20" style="border-radius: 4px; display: inline-block;">
+        <span>Clinical Decision Support System · SPIT Computer Engineering Capstone</span>
+      </div>
+
+      <h1 class="hero-title animate-fade-in-2">
+        AI-Assisted Clinical Intelligence for <span class="surgical-gradient-text">Earlier, Safer Care</span>
+      </h1>
+
+      <p class="hero-description animate-fade-in-3">
+        An interpretable clinical decision support platform predicting acute patient deterioration <strong>7 to 14 days
+          in advance</strong> through multi-model consensus — combined with a <strong>sovereign, patient-owned Medical
+          Vault</strong> and zero-trust cryptographic QR passes.
+      </p>
+
+      <div class="hero-cta-group animate-fade-in-4">
+        <a href="/login" class="btn btn-primary hero-btn-main" id="hero-get-started-btn">
+          Get Started →
+        </a>
+        <a href="#features" class="btn btn-outline hero-btn-secondary" id="hero-explore-pillars-btn">
+          Explore Clinical Pillars ↓
+        </a>
+      </div>
+
+      <!-- Verified Clinical Telemetry Stat Counters -->
+      <div class="hero-stats-grid animate-fade-in-5">
+        <div class="stat-card">
+          <div class="stat-number cobalt-text">7–14 Days</div>
+          <div class="stat-label">Early Warning Window</div>
+          <div class="stat-subtext">Pre-symptomatic hemodynamic risk surveillance</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number emerald-text">95.4% AUROC</div>
+          <div class="stat-label">Decision Support Metric</div>
+          <div class="stat-subtext">Stratified cross-validated model consensus</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number mono sky-text">&lt; 15 ms</div>
+          <div class="stat-label">In-Memory Inference</div>
+          <div class="stat-subtext">Pre-cached multi-model response latency</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number indigo-text">Zero Leakage</div>
+          <div class="stat-label">HMAC-SHA256 Vault</div>
+          <div class="stat-subtext">Cryptographic patient scope whitelisting</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       2. THREE CORE FEATURE PILLARS
+       ========================================================================= -->
+  <section class="features-section" id="features" aria-label="Core Capabilities">
+    <div class="section-header">
+      <div class="section-tag">THREE PILLARS OF CLINICAL EXCELLENCE</div>
+      <h2 class="section-title">Bridging Advanced AI with Absolute Clinical Trust</h2>
+      <p class="section-subtitle">
+        Engineered specifically to address black-box AI rejection, hospital data silos, and late patient decompensation.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <!-- Feature 1: Risk Prediction -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper icon-cobalt">
+          <div class="feature-symbol">🩺</div>
+        </div>
+        <h3 class="feature-heading">1. Multimodal Risk Assessment</h3>
+        <p class="feature-body">
+          Synthesizes continuous vital signs, hemodynamic formulas (Mean Arterial Pressure, Shock Index), 72-hour
+          least-squares trajectory slopes, and laboratory biomarkers across 30 engineered features.
+        </p>
+        <ul class="feature-bullets">
+          <li><strong>K-Means Clustering:</strong> Stratifies patients into 4 clinical risk tiers (Low, Medium, High,
+            Critical).</li>
+          <li><strong>Decision Tree Explainability:</strong> Unscaled physiological rules (e.g.,
+            <code>Glucose &le; 111.25 mg/dL</code>) provide clinicians with transparent, human-in-the-loop logic.
+          </li>
+          <li><strong>KNN Precedents (K=5):</strong> Matches patient presentations against historical cohort cases with
+            empirical therapy response insights.</li>
+          <li><strong>Neural Network Inference:</strong> Dual-head deep model assisting in early sepsis detection and
+            30-day readmission risk estimation.</li>
+        </ul>
+        <div class="feature-card-footer">
+          <a href="/login" class="feature-link">Access Physician Triage →</a>
+        </div>
+      </div>
+
+      <!-- Feature 2: Patient Vault -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper icon-indigo">
+          <div class="feature-symbol">🛡️</div>
+        </div>
+        <h3 class="feature-heading">2. Sovereign Patient Medical Vault</h3>
+        <p class="feature-body">
+          Empowers patients with ownership of their personal health data. Records are held in a secure, patient-governed
+          repository rather than locked inside isolated institutional EMR silos.
+        </p>
+        <ul class="feature-bullets">
+          <li><strong>7 Medical Categories:</strong> Allergies, Medications, Lab Reports, Surgeries, Chronic Conditions,
+            Immunizations, and Clinical Notes.</li>
+          <li><strong>Granular Record Uploads:</strong> Direct entry and file attachments with structured clinical
+            parameters.</li>
+          <li><strong>Zero Standing Access:</strong> No facility possesses ambient permanent access; every viewing
+            requires explicit patient-granted authorization.</li>
+          <li><strong>Dual-Stream Audit Trail:</strong> Immutable logging of all access attempts visible directly to the
+            patient.</li>
+        </ul>
+        <div class="feature-card-footer">
+          <a href="/login" class="feature-link">Access Patient Vault →</a>
+        </div>
+      </div>
+
+      <!-- Feature 3: QR Sharing -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper icon-emerald">
+          <div class="feature-symbol">🔑</div>
+        </div>
+        <h3 class="feature-heading">3. Cryptographic QR Sharing</h3>
+        <p class="feature-body">
+          Share authorized medical summaries in seconds without administrative delay or data leakage. Generates signed,
+          tamper-evident QR passes with strict category whitelists.
+        </p>
+        <ul class="feature-bullets">
+          <li><strong>RFC 7519 Signed JWTs:</strong> Signed using HMAC-SHA256 with scoped permissions, expiration
+            epochs, and unique pass hashes.</li>
+          <li><strong>Zero Data Leakage:</strong> If a patient authorizes <em>only Allergies &amp; Medications</em>,
+            sensitive records remain cryptographically sealed.</li>
+          <li><strong>1-Click Instant Revocation:</strong> Patients can revoke any active pass immediately, barring
+            subsequent provider scans.</li>
+          <li><strong>Bedside Optical Scanning:</strong> Fast in-browser decoding via OpenCV and live camera viewfinder.
+          </li>
+        </ul>
+        <div class="feature-card-footer">
+          <a href="/login" class="feature-link">Launch Clinical Scanner →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       3. ROLE-BASED ARCHITECTURE SECTION
+       ========================================================================= -->
+  <section class="roles-section" id="roles" aria-label="Role Portals">
+    <div class="section-header">
+      <div class="section-tag">ROLE-BASED CLINICAL WORKFLOWS</div>
+      <h2 class="section-title">Designed for Every Clinical Stakeholder</h2>
+      <p class="section-subtitle">
+        Dedicated, role-tailored interfaces protecting confidentiality while optimizing care coordination.
+      </p>
+    </div>
+
+    <div class="roles-grid">
+      <!-- Role 1: Patient -->
+      <div class="role-card">
+        <div class="role-badge-tag">ROLE: PATIENT</div>
+        <h3 class="role-title">Patient Medical Vault</h3>
+        <div class="role-persona-tag">Inpatient Sovereign Persona</div>
+        <p class="role-desc">
+          Manage personal sovereign health records, review admitting diagnoses, inspect assigned physician details, and
+          generate scoped QR access passes with 1-click revocation.
+        </p>
+        <a href="/login" class="btn btn-outline" style="width: 100%; text-align: center;">
+          Sign In as Patient →
+        </a>
+      </div>
+
+      <!-- Role 2: Physician -->
+      <div class="role-card highlight-card">
+        <div class="role-badge-tag highlight-badge">ROLE: PHYSICIAN</div>
+        <h3 class="role-title">Physician Clinical Triage</h3>
+        <div class="role-persona-tag" style="color: #38bdf8;">Attending Clinician Persona</div>
+        <p class="role-desc">
+          Surveil admitted ward rosters, evaluate 7–14 day early warning deterioration alerts, inspect 72-hour vitals
+          telemetry curves, and verify explainable Decision Tree rule paths.
+        </p>
+        <a href="/login" class="btn btn-primary" style="width: 100%; text-align: center;">
+          Sign In as Physician →
+        </a>
+      </div>
+
+      <!-- Role 3: Administrator -->
+      <div class="role-card">
+        <div class="role-badge-tag">ROLE: ADMINISTRATOR</div>
+        <h3 class="role-title">Hospital Operations Overview</h3>
+        <div class="role-persona-tag">Operations Administrator Persona</div>
+        <p class="role-desc">
+          Monitor hospital census, ICU bed occupancy, patient-physician assignments, reassign caseloads, supervise
+          high-risk deterioration alerts, and review audit trails.
+        </p>
+        <a href="/login" class="btn btn-outline" style="width: 100%; text-align: center;">
+          Sign In as Administrator →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       4. ABOUT US SECTION
+       ========================================================================= -->
+  <section class="about-section" id="about" aria-label="About Us">
+    <div class="section-header">
+      <div class="section-tag">ABOUT MEDIHAVEN</div>
+      <h2 class="section-title">Ethical AI in Modern Inpatient Healthcare</h2>
+      <p class="section-subtitle">
+        Bridging high-frequency clinical telemetry with physician trust and patient data sovereignty.
+      </p>
+    </div>
+
+    <div class="about-grid">
+      <div class="about-card">
+        <div class="about-icon">🔬</div>
+        <h3 class="about-heading">Our Clinical Mission</h3>
+        <p class="about-text">
+          Hospital-acquired acute deterioration and sepsis remain primary contributors to preventable ICU transfers.
+          MediHaven provides actionable, non-black-box clinical decision support that alerts care teams days before
+          hemodynamic collapse, enabling timely bedside intervention.
+        </p>
+      </div>
+
+
+      <div class="about-card">
+        <div class="about-icon">🧠</div>
+        <h3 class="about-heading">Explainable Multi-Model Consensus</h3>
+        <p class="about-text">
+          Rather than opaque deep networks alone, MediHaven fuses unsupervised K-Means risk clustering, O(d)
+          physiological Decision Trees, KNN precedent retrieval, and dual-head neural networks. Every prediction is
+          paired with human-interpretable biomarker rules.
+        </p>
+      </div>
+
+      <div class="about-card">
+        <div class="about-icon">🛡️</div>
+        <h3 class="about-heading">Zero-Trust Patient Sovereignty</h3>
+        <p class="about-text">
+          Patients retain absolute jurisdiction over their personal health files. Through cryptographic HMAC-SHA256
+          tokens and granular category whitelisting, patients authorize only the records needed for immediate clinical
+          care, backed by immutable audit trails.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       5. CONTACT US SECTION
+       ========================================================================= -->
+  <section class="contact-section" id="contact" aria-label="Contact Us">
+    <div class="section-header">
+      <div class="section-tag">CONNECT WITH US</div>
+      <h2 class="section-title">Contact &amp; Clinical Inquiries</h2>
+      <p class="section-subtitle">
+        Have questions regarding clinical trial validation, hospital integration, or institutional deployment?
+      </p>
+    </div>
+
+    <div class="contact-card">
+      <div class="contact-grid">
+        <div class="contact-info-col">
+          <h3 style="font-size: 18px; color: #ffffff; margin-bottom: 12px; font-weight: 700;">
+            MediHaven Clinical Intelligence Lab
+          </h3>
+          <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 20px;">
+            Department of Computer Engineering<br>
+            Sardar Patel Institute of Technology (SPIT)<br>
+            Bhavan's Campus, Munshi Nagar, Andheri (West), Mumbai 400058
+          </p>
+
+          <div class="contact-detail-row">
+            <span class="contact-label">Clinical Integrations:</span>
+            <span class="contact-value">clinical.ops@medihaven.org</span>
+          </div>
+          <div class="contact-detail-row">
+            <span class="contact-label">Technical Support:</span>
+            <span class="contact-value">support@medihaven.org</span>
+          </div>
+          <div class="contact-detail-row">
+            <span class="contact-label">Hospital Hotline:</span>
+            <span class="contact-value">+1 (555) 019-CARE · 24/7 Triage Desk</span>
+          </div>
+        </div>
+
+        <div class="contact-form-col">
+          <form id="contact-inquiry-form" onsubmit="handleContactSubmit(event)"
+            style="display: flex; flex-direction: column; gap: 12px;">
+            <div>
+              <label for="contact-name"
+                style="font-size: 12px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Your
+                Name</label>
+              <input type="text" id="contact-name" class="form-control" placeholder="Dr. Jane Doe / Hospital Staff"
+                required
+                style="width: 100%; background: var(--bg-surface-elevated); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); color: #fff; padding: 8px 12px; font-size: 13px;" />
+            </div>
+            <div>
+              <label for="contact-email"
+                style="font-size: 12px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Work
+                / Institutional Email</label>
+              <input type="email" id="contact-email" class="form-control" placeholder="j.doe@hospital.org" required
+                style="width: 100%; background: var(--bg-surface-elevated); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); color: #fff; padding: 8px 12px; font-size: 13px;" />
+            </div>
+            <div>
+              <label for="contact-message"
+                style="font-size: 12px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Inquiry
+                or Message</label>
+              <textarea id="contact-message" class="form-control" rows="3"
+                placeholder="Inquire about clinical decision support validation, EMR integration, or academic research..."
+                required
+                style="width: 100%; background: var(--bg-surface-elevated); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); color: #fff; padding: 8px 12px; font-size: 13px;"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" id="btn-submit-inquiry"
+              style="padding: 10px; font-size: 13px; font-weight: 600;">
+              Send Inquiry →
+            </button>
+            <div id="contact-success-msg"
+              style="display: none; font-size: 12px; color: var(--risk-low); text-align: center; padding: 6px 0;">
+              ✓ Message logged. A clinical systems specialist will contact you shortly.
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<style>
+  /* =========================================================================
+     High-Aesthetic Flowy Animated Landing Page Styles
+     ========================================================================= */
+  .landing-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xl);
+    padding: var(--space-md) 0 var(--space-2xl) 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Smooth Enter/Exit Keyframe Animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(22px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulseAura {
+
+    0%,
+    100% {
+      transform: scale(1) translate(0, 0);
+      opacity: 0.28;
+    }
+
+    50% {
+      transform: scale(1.12) translate(15px, -15px);
+      opacity: 0.42;
+    }
+  }
+
+  .animate-fade-in-1 {
+    animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.05s backwards;
+  }
+
+  .animate-fade-in-2 {
+    animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.15s backwards;
+  }
+
+  .animate-fade-in-3 {
+    animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.25s backwards;
+  }
+
+  .animate-fade-in-4 {
+    animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.35s backwards;
+  }
+
+  .animate-fade-in-5 {
+    animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.45s backwards;
+  }
+
+  /* Hero Section */
+  .hero-section {
+    position: relative;
+    text-align: center;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: var(--space-2xl) var(--space-md) var(--space-xl);
+  }
+
+  /* Flowy Ambient Glow Orbs */
+  .hero-glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+    animation: pulseAura 12s infinite ease-in-out;
+  }
+
+  .hero-glow-1 {
+    width: 480px;
+    height: 480px;
+    top: -40px;
+    left: 10%;
+    background: radial-gradient(circle, rgba(37, 99, 235, 0.25) 0%, rgba(30, 64, 175, 0.05) 70%, transparent 100%);
+  }
+
+  .hero-glow-2 {
+    width: 420px;
+    height: 420px;
+    top: 60px;
+    right: 12%;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.18) 0%, rgba(14, 165, 233, 0.08) 70%, transparent 100%);
+    animation-delay: -6s;
+  }
+
+  .hero-content-wrapper {
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 18px;
+    border-radius: var(--radius-full);
+    background: rgba(30, 64, 175, 0.16);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: #60a5fa;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin-bottom: var(--space-lg);
+  }
+
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #38bdf8;
+    box-shadow: 0 0 10px #38bdf8;
+    animation: pulseDot 2s infinite ease-in-out;
+  }
+
+  @keyframes pulseDot {
+
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    50% {
+      opacity: 0.5;
+      transform: scale(0.85);
+    }
+  }
+
+  .hero-title {
+    font-family: var(--font-display);
+    font-size: 46px;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    color: #ffffff;
+    margin-bottom: var(--space-md);
+  }
+
+  .surgical-gradient-text {
+    background: linear-gradient(135deg, #60a5fa 0%, #38bdf8 50%, #34d399 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero-description {
+    font-size: 17px;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    max-width: 840px;
+    margin: 0 auto var(--space-xl);
+  }
+
+  .hero-cta-group {
+    display: flex;
+    gap: var(--space-md);
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: var(--space-2xl);
+  }
+
+  .hero-btn-main {
+    padding: 13px 32px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+    border: 1px solid rgba(96, 165, 250, 0.4);
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+    transition: all var(--transition-normal);
+  }
+
+  .hero-btn-main:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.55);
+  }
+
+  .hero-btn-secondary {
+    padding: 13px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid var(--border-hairline);
+    color: var(--text-primary);
+    transition: all var(--transition-normal);
+  }
+
+  .hero-btn-secondary:hover {
+    background: var(--bg-surface-elevated);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+  }
+
+  /* Polished Stats Grid */
+  .hero-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-md);
+    margin-top: var(--space-xl);
+  }
+
+  .stat-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg) var(--space-md);
+    text-align: center;
+    transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+
+  .stat-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  }
+
+  .stat-number {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+
+  .cobalt-text {
+    color: #60a5fa;
+  }
+
+  .emerald-text {
+    color: #34d399;
+  }
+
+  .sky-text {
+    color: #38bdf8;
+  }
+
+  .indigo-text {
+    color: #a5b4fc;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .stat-subtext {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* Section Headers */
+  .section-header {
+    text-align: center;
+    max-width: 760px;
+    margin: 0 auto var(--space-xl);
+  }
+
+  .section-tag {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #60a5fa;
+    margin-bottom: 6px;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #ffffff;
+    margin-bottom: 8px;
+  }
+
+  .section-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  /* Features Grid */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--space-lg);
+  }
+
+  .feature-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    display: flex;
+    flex-direction: column;
+    transition: transform var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal);
+  }
+
+  .feature-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  }
+
+  .feature-icon-wrapper {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    border: 1px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--space-md);
+  }
+
+  .icon-cobalt {
+    background: rgba(30, 64, 175, 0.18);
+    border-color: rgba(59, 130, 246, 0.35);
+  }
+
+  .icon-indigo {
+    background: rgba(67, 56, 202, 0.18);
+    border-color: rgba(99, 102, 241, 0.35);
+  }
+
+  .icon-emerald {
+    background: rgba(16, 185, 129, 0.18);
+    border-color: rgba(16, 185, 129, 0.35);
+  }
+
+  .feature-symbol {
+    font-size: 22px;
+  }
+
+  .feature-heading {
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 8px;
+  }
+
+  .feature-body {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin-bottom: var(--space-md);
+  }
+
+  .feature-bullets {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-lg);
+  }
+
+  .feature-bullets li::before {
+    content: "✓ ";
+    color: #60a5fa;
+    font-weight: 700;
+  }
+
+  .feature-card-footer {
+    margin-top: auto;
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--border-hairline);
+  }
+
+  .feature-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: #60a5fa;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color var(--transition-fast);
+  }
+
+  .feature-link:hover {
+    color: #93c5fd;
+  }
+
+  /* Roles Grid */
+  .roles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-lg);
+  }
+
+  .role-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    align-items: center;
+    transition: transform var(--transition-normal), border-color var(--transition-normal);
+  }
+
+  .role-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(59, 130, 246, 0.4);
+  }
+
+  .role-card.highlight-card {
+    border-color: rgba(37, 99, 235, 0.45);
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.06) 0%, var(--bg-surface) 100%);
+    box-shadow: 0 0 24px rgba(37, 99, 235, 0.15);
+  }
+
+  .role-badge-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    background: var(--bg-surface-elevated);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-sm);
+  }
+
+  .highlight-badge {
+    background: rgba(37, 99, 235, 0.2);
+    color: #60a5fa;
+  }
+
+  .role-title {
+    font-size: 19px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 2px;
+  }
+
+  .role-persona-tag {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: var(--space-md);
+  }
+
+  .role-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin-bottom: var(--space-lg);
+    flex: 1;
+  }
+
+  /* About Us Grid */
+  .about-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-lg);
+  }
+
+  .about-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    display: flex;
+    flex-direction: column;
+    transition: transform var(--transition-fast), border-color var(--transition-fast);
+  }
+
+  .about-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+
+  .about-icon {
+    font-size: 28px;
+    margin-bottom: var(--space-sm);
+  }
+
+  .about-heading {
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 8px;
+  }
+
+  .about-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  /* Contact Us Card */
+  .contact-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  .contact-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-xl);
+  }
+
+  .contact-detail-row {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+  }
+
+  .contact-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+
+  .contact-value {
+    font-size: 13px;
+    color: #60a5fa;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  @media (max-width: 768px) {
+    .hero-title {
+      font-size: 32px;
+    }
+
+    .hero-stats-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .contact-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+  function handleContactSubmit(event) {
+    event.preventDefault();
+    const btn = document.getElementById("btn-submit-inquiry");
+    const msg = document.getElementById("contact-success-msg");
+    btn.disabled = true;
+    btn.textContent = "Logging Inquiry...";
+    setTimeout(() => {
+      btn.style.display = "none";
+      msg.style.display = "block";
+      document.getElementById("contact-inquiry-form").reset();
+    }, 600);
+  }
+</script>
+{% endblock %}

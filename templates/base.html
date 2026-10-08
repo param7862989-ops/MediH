@@ -3,8 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="MediHaven: Integrated Multimodal Clinical Intelligence System for Patient Risk Assessment and Treatment Optimization">
   <title>{% block title %}MediHaven | Clinical Intelligence System{% endblock %}</title>
+  <!-- Official Favicons & App Icons -->
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}">
+  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='img/favicon-192x192.png') }}">
+  <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='img/favicon-512x512.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/favicon-192x192.png') }}">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
 
   <!-- Professional Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,15 +61,26 @@
     .brand-icon {
       width: 36px;
       height: 36px;
-      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
       border-radius: var(--radius-sm);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
-      font-weight: 800;
-      font-size: 18px;
-      box-shadow: 0 2px 4px rgba(2, 132, 199, 0.3);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .brand-logo-img {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      object-fit: cover;
+      box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+      display: block;
+    }
+    .brand-group:hover .brand-logo-img {
+      transform: scale(1.06);
+      box-shadow: 0 4px 14px rgba(56, 189, 248, 0.55);
     }
     .brand-title {
       font-family: var(--font-display);
@@ -151,37 +168,112 @@
   <!-- Semantic Header & Navigation -->
   <header class="top-nav" role="banner">
     <a href="/" class="brand-group" aria-label="MediHaven Home">
-      <div class="brand-icon">M</div>
+      <div class="brand-icon">
+        <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="MediHaven Logo" class="brand-logo-img" width="36" height="36">
+      </div>
       <div>
         <span class="brand-title">MediHaven</span>
       </div>
-      <span class="brand-badge">Clinical AI v1.0</span>
+      <span class="brand-badge">Clinical Decision Support</span>
     </a>
 
-    <nav role="navigation" aria-label="Main Navigation">
+    {% if active_page == 'landing' %}
+    <!-- Minimal Navbar on Landing Page: Login Only -->
+    <div style="display: flex; align-items: center; gap: 12px;">
+      {% if current_user %}
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+          <span class="status-dot"></span>
+          <span>{{ current_user.display_name }}</span>
+        </span>
+        {% if current_user.role == 'admin' %}
+          <a href="/admin" class="btn btn-primary btn-sm">Admin Dashboard →</a>
+        {% elif current_user.role == 'physician' %}
+          <a href="/dashboard" class="btn btn-primary btn-sm">Physician Triage →</a>
+        {% elif current_user.role == 'patient' %}
+          <a href="/vault" class="btn btn-primary btn-sm">Patient Vault →</a>
+        {% endif %}
+        <a href="/logout" class="btn btn-outline btn-sm">Logout</a>
+      {% else %}
+        <a href="/login" class="nav-link" id="nav-login-btn" style="background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%); color: #ffffff; font-weight: 600; padding: 8px 22px; border-radius: var(--radius-sm); border: 1px solid rgba(59, 130, 246, 0.4); box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);">
+          Login
+        </a>
+      {% endif %}
+    </div>
+    {% else %}
+    <!-- Portal Navigation for Authenticated Clinical Views -->
+    <nav role="navigation" aria-label="Portal Navigation">
       <ul class="nav-links">
         <li>
-          <a href="/dashboard" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" id="nav-dashboard">
-            🩺 Physician Triage
+          <a href="/" class="nav-link {% if active_page == 'landing' %}active{% endif %}" id="nav-home">
+            Home
           </a>
         </li>
+        {% if current_user and current_user.role == 'physician' %}
         <li>
-          <a href="/vault" class="nav-link {% if active_page == 'vault' %}active{% endif %}" id="nav-vault">
-            🛡️ Patient Medical Vault
+          <a href="/dashboard" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" id="nav-dashboard">
+            Physician Triage
           </a>
         </li>
         <li>
           <a href="/scanner" class="nav-link {% if active_page == 'scanner' %}active{% endif %}" id="nav-scanner">
-            📷 QR Scanner
+            QR Scanner
           </a>
         </li>
+        {% elif current_user and current_user.role == 'patient' %}
+        <li>
+          <a href="/vault" class="nav-link {% if active_page == 'vault' %}active{% endif %}" id="nav-vault">
+            Patient Vault
+          </a>
+        </li>
+        {% elif current_user and current_user.role == 'admin' %}
+        <li>
+          <a href="/admin" class="nav-link {% if active_page == 'admin' %}active{% endif %}" id="nav-admin">
+            Admin Overview
+          </a>
+        </li>
+        <li>
+          <a href="/scanner" class="nav-link {% if active_page == 'scanner' %}active{% endif %}" id="nav-scanner">
+            QR Scanner
+          </a>
+        </li>
+        {% else %}
+        <!-- Default fallback during testing / pre-login -->
+        <li>
+          <a href="/dashboard" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" id="nav-dashboard">
+            Physician Triage
+          </a>
+        </li>
+        <li>
+          <a href="/vault" class="nav-link {% if active_page == 'vault' %}active{% endif %}" id="nav-vault">
+            Patient Vault
+          </a>
+        </li>
+        <li>
+          <a href="/admin" class="nav-link {% if active_page == 'admin' %}active{% endif %}" id="nav-admin">
+            Admin
+          </a>
+        </li>
+        {% endif %}
       </ul>
     </nav>
 
-    <div class="system-status" aria-label="System Operational Status">
-      <span class="status-dot"></span>
-      <span>4 Models Online · SPIT CE2026</span>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      {% if current_user %}
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; background: var(--bg-surface-elevated); padding: 6px 14px; border-radius: var(--radius-full); border: 1px solid rgba(255, 255, 255, 0.15);">
+          <span class="status-dot"></span>
+          <span style="color: #ffffff; font-weight: 700;">{{ current_user.display_name }}</span>
+          <span style="color: #38bdf8; font-size: 11px; text-transform: uppercase; font-weight: 700; background: rgba(56, 189, 248, 0.12); padding: 2px 7px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.25);">{{ current_user.role }}</span>
+        </div>
+        <a href="/logout" class="btn btn-logout btn-sm" id="nav-logout-btn" style="background: #1e293b; color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.2); font-weight: 600; padding: 6px 14px; border-radius: 6px;">
+          Log Out
+        </a>
+      {% else %}
+        <a href="/login" class="nav-link" id="nav-role-switcher" style="background: var(--bg-surface-elevated); color: #ffffff !important; font-size: 13px; font-weight: 600; border: 1px solid rgba(255, 255, 255, 0.2); padding: 7px 16px; border-radius: 6px;">
+          <span id="current-user-display">Sign In</span>
+        </a>
+      {% endif %}
     </div>
+    {% endif %}
   </header>
 
   <!-- Main Content Landmark -->
@@ -196,8 +288,9 @@
 
   <!-- Semantic Footer -->
   <footer class="app-footer" role="contentinfo">
-    <div>
-      MediHaven © 2026 · TE Sem V Mini Project I · Sardar Patel Institute of Technology (SPIT)
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="MediHaven Logo" width="20" height="20" style="border-radius: 4px; opacity: 0.9;">
+      <span>MediHaven © 2026 · TE Sem V Mini Project I · Sardar Patel Institute of Technology (SPIT)</span>
     </div>
     <div>
       Department of Computer Engineering | Mapped to CE204 · AS202 · CE205 · CE207 · CE202

@@ -28,15 +28,46 @@ async function initVault() {
     await fetchAccessAuditLog();
   });
 
+  const scrollRevokeBtn = document.getElementById("btn-scroll-revoke");
+  if (scrollRevokeBtn) {
+    scrollRevokeBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const panel = document.getElementById("active-tokens-panel");
+      if (panel) {
+        panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        panel.style.transition = "box-shadow 0.3s ease";
+        panel.style.boxShadow = "0 0 0 2px var(--risk-critical)";
+        setTimeout(() => { panel.style.boxShadow = ""; }, 2000);
+      }
+    });
+  }
+
   await refreshPatientVaultData();
 }
 
 async function refreshPatientVaultData() {
   await Promise.all([
+    fetchPatientProfile(),
     fetchVaultRecords(),
     fetchActiveTokens(),
     fetchAccessAuditLog(),
   ]);
+}
+
+async function fetchPatientProfile() {
+  try {
+    const res = await fetch(`/api/patients/${currentPatientId}`);
+    const json = await res.json();
+    if (!json.success || !json.data) return;
+    const p = json.data;
+
+    const nameEl = document.getElementById("patient-dossier-name");
+    const mrnEl = document.getElementById("patient-dossier-mrn");
+    if (nameEl) nameEl.textContent = p.full_name;
+    if (mrnEl) mrnEl.textContent = p.mrn;
+  } catch (e) {
+    console.warn("Could not load patient profile:", e);
+  }
 }
 
 // ==============================================================================
@@ -138,6 +169,8 @@ async function fetchActiveTokens() {
 
     const tokens = (json.success && json.data) ? json.data : [];
     document.getElementById("active-tokens-count-badge").textContent = `${tokens.length} Active Passes`;
+    const headerCount = document.getElementById("header-revokable-count");
+    if (headerCount) headerCount.textContent = tokens.length;
 
     if (tokens.length === 0) {
       list.innerHTML = `
@@ -385,6 +418,31 @@ function setupModalListeners() {
   closeUploadBtn.addEventListener("click", closeUpload);
   cancelUploadBtn.addEventListener("click", closeUpload);
 
+  // Quick presets for upload
+  document.querySelectorAll(".quick-preset-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.getElementById("record-category").value = btn.dataset.category;
+      document.getElementById("record-title").value = btn.dataset.title;
+      document.getElementById("record-description").value = btn.dataset.desc;
+      document.getElementById("record-json").value = btn.dataset.json;
+    });
+  });
+
+  const fileInput = document.getElementById("record-file");
+  const fileInfo = document.getElementById("record-file-info");
+  if (fileInput && fileInfo) {
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        fileInfo.textContent = `Attached: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        fileInfo.style.color = "#38bdf8";
+      } else {
+        fileInfo.textContent = "Supported: PDF, DICOM, Lab Reports, Clinical Images";
+        fileInfo.style.color = "var(--text-muted)";
+      }
+    });
+  }
+
   submitUploadBtn.addEventListener("click", async () => {
     const category = document.getElementById("record-category").value;
     const title = document.getElementById("record-title").value.trim();
@@ -405,6 +463,16 @@ function setupModalListeners() {
         alert("Invalid JSON format in structured data field.");
         return;
       }
+    }
+
+    if (fileInput && fileInput.files[0]) {
+      const f = fileInput.files[0];
+      if (!structuredData) structuredData = {};
+      structuredData.attached_document = {
+        file_name: f.name,
+        file_size_kb: Math.round(f.size / 1024),
+        file_type: f.type || "application/octet-stream",
+      };
     }
 
     try {
@@ -428,6 +496,11 @@ function setupModalListeners() {
         document.getElementById("record-description").value = "";
         document.getElementById("record-json").value = "";
         document.getElementById("record-sensitive").checked = false;
+        if (fileInput) fileInput.value = "";
+        if (fileInfo) {
+          fileInfo.textContent = "Supported: PDF, DICOM, Lab Reports, Clinical Images";
+          fileInfo.style.color = "var(--text-muted)";
+        }
         await fetchVaultRecords();
       } else {
         alert("Upload error: " + (json.error ? json.error.message : "Failed to add record"));

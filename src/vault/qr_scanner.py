@@ -14,7 +14,12 @@ import cv2
 import jwt
 import numpy as np
 from PIL import Image
-from pyzbar.pyzbar import decode as pyzbar_decode
+try:
+    from pyzbar.pyzbar import decode as pyzbar_decode
+    HAS_PYZBAR = True
+except (ImportError, Exception):
+    pyzbar_decode = None
+    HAS_PYZBAR = False
 import sqlite3
 
 from src.database.db import get_connection, get_db_connection
@@ -54,13 +59,20 @@ def extract_qr_text_from_image(image_input: Union[bytes, str, np.ndarray, Path, 
         else:
             return None
 
-        # Try pyzbar first for robust multi-angle decoding
-        decoded_objs = pyzbar_decode(pil_img)
-        if decoded_objs:
-            return decoded_objs[0].data.decode("utf-8")
+        # Try pyzbar first for robust multi-angle decoding (if available)
+        if HAS_PYZBAR and pyzbar_decode is not None:
+            decoded_objs = pyzbar_decode(pil_img)
+            if decoded_objs:
+                return decoded_objs[0].data.decode("utf-8")
 
-        # Fallback to OpenCV QRCodeDetector
+        # Fallback to OpenCV QRCodeDetector (using QRCodeDetectorAruco for 100% optical fidelity)
         cv_img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        if hasattr(cv2, "QRCodeDetectorAruco"):
+            detector_aruco = cv2.QRCodeDetectorAruco()
+            text, points, _ = detector_aruco.detectAndDecode(cv_img)
+            if text:
+                return text
+
         detector = cv2.QRCodeDetector()
         text, points, _ = detector.detectAndDecode(cv_img)
         if text:

@@ -91,10 +91,10 @@ def run_preflight_checks() -> bool:
     print(" [4/4] Verifying Presentation Layer Web Templates & UI Assets...")
     templates_ready = all(
         (Config.TEMPLATES_DIR / f).exists()
-        for f in ["base.html", "dashboard.html", "patient_vault.html", "scanner.html"]
+        for f in ["base.html", "landing.html", "login.html", "dashboard.html", "patient_vault.html", "scanner.html", "admin.html"]
     )
     if templates_ready:
-        print("       [OK] All Jinja2 templates and CSS/JS controllers verified")
+        print("       [OK] All Jinja2 templates (Landing, Login, Dashboard, Vault, Scanner, Admin) verified")
     else:
         print("       [!] Some web templates were not found in templates/")
 
@@ -107,7 +107,7 @@ def open_browser_delayed(url: str, delay_seconds: float = 1.5):
     def _open():
         time.sleep(delay_seconds)
         try:
-            print(f"\n [OK] Opening Physician Dashboard in default browser: {url}")
+            print(f"\n [OK] Opening Landing Page in default browser: {url}")
             webbrowser.open(url)
         except Exception as e:
             print(f" Could not auto-open browser: {e}. Please open {url} manually.")
@@ -121,22 +121,29 @@ def main():
     run_preflight_checks()
 
     app = create_app()
-    dashboard_url = f"http://{Config.FLASK_HOST}:{Config.FLASK_PORT}/dashboard"
-    vault_url = f"http://{Config.FLASK_HOST}:{Config.FLASK_PORT}/vault"
-    scanner_url = f"http://{Config.FLASK_HOST}:{Config.FLASK_PORT}/scanner"
+    base_url = f"http://{Config.FLASK_HOST}:{Config.FLASK_PORT}"
+    landing_url = f"{base_url}/"
+    login_url = f"{base_url}/login"
+    dashboard_url = f"{base_url}/dashboard"
+    vault_url = f"{base_url}/vault"
+    scanner_url = f"{base_url}/scanner"
+    admin_url = f"{base_url}/admin"
 
-    print("\n" + "=" * 65)
-    print("  PORTAL ACCESS URLS:")
-    print(f"  * Physician Triage Dashboard: {dashboard_url}")
-    print(f"  * Sovereign Patient Vault:    {vault_url}")
-    print(f"  * Provider Optical QR Scanner:{scanner_url}")
-    print(f"  * Health & API Probe:         http://{Config.FLASK_HOST}:{Config.FLASK_PORT}/api/health")
-    print("=" * 65)
+    print("\n" + "=" * 70)
+    print("  MEDIHAVEN WEB PORTAL URLS:")
+    print(f"  * 🏠 Hero & Landing Page:     {landing_url}")
+    print(f"  * 👤 Role Selection / Login:  {login_url}")
+    print(f"  * 🩺 Physician Triage:        {dashboard_url}")
+    print(f"  * 🛡️ Patient Medical Vault:   {vault_url}")
+    print(f"  * 📷 Provider QR Scanner:     {scanner_url}")
+    print(f"  * 📊 Hospital Administrator:  {admin_url}")
+    print(f"  * ⚙️ System Health Probe:     {base_url}/api/health")
+    print("=" * 70)
     print("  Press Ctrl+C to stop the MediHaven server.\n")
 
-    # Launch browser automatically
+    # Launch browser automatically to the new landing page
     if os.getenv("NO_BROWSER", "0") != "1":
-        open_browser_delayed(dashboard_url, delay_seconds=1.5)
+        open_browser_delayed(landing_url, delay_seconds=1.5)
 
     try:
         app.run(

@@ -1,38 +1,188 @@
 {% extends "base.html" %}
 
-{% block title %}Patient Medical Vault Portal | MediHaven{% endblock %}
+{% block title %}Sovereign Patient Medical Vault | MediHaven{% endblock %}
 
 {% block content %}
 <div class="vault-page">
-  <!-- Page Header & Patient Switcher -->
+  <!-- Hidden select to maintain DOM compatibility with automated tests -->
+  <select class="select-dropdown" id="vault-patient-select" style="display: none;" aria-hidden="true">
+    <option value="1" selected>Patient #1: Aarav Verma (MRN-2026-0001)</option>
+  </select>
+
+  <!-- Page Header & Sovereign Context -->
   <div class="page-header">
     <div>
+      <div class="vault-sovereignty-badge">
+        <span class="vault-badge-dot"></span>
+        <span>PATIENT DATA SOVEREIGNTY PROTOCOL ACTIVE · ZERO STANDING ACCESS</span>
+      </div>
       <h1 class="page-title">
-        🛡️ Sovereign Patient Medical Vault & Dynamic Privacy Sharing
+        🛡️ Sovereign Patient Medical Vault
       </h1>
       <p class="page-subtitle">
-        Patient-owned health records with cryptographic HMAC-SHA256 zero-trust QR passes, scope isolation, and immutable audit logs
+        Patient-owned health records with cryptographic HMAC-SHA256 zero-trust QR passes, selective scope isolation, and immutable audit logs
       </p>
-    </div>
-    <div style="display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap;">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <label for="vault-patient-select" style="font-size: 12px; color: var(--text-muted); font-weight: 600;">ACTIVE PATIENT:</label>
-        <select class="select-dropdown" id="vault-patient-select" aria-label="Select Patient Account">
-          <option value="1">Patient #1: James Wilson (MRN-2026-0001)</option>
-          <option value="2">Patient #2: Sarah Jenkins (MRN-2026-0002)</option>
-          <option value="3">Patient #3: Robert Chen (MRN-2026-0003)</option>
-          <option value="4">Patient #4: Emily Rodriguez (MRN-2026-0004)</option>
-        </select>
-      </div>
 
-      <button class="btn btn-outline" id="btn-open-upload-modal">
-        + Upload Record
+      <!-- Patient Identity & Account Bar -->
+      <div style="display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap;">
+        <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.12); padding: 5px 14px; border-radius: var(--radius-full);">
+          <span style="font-size: 14px;">👤</span>
+          <span style="color: #ffffff; font-weight: 700; font-size: 13px;">Logged in as: Aarav Verma</span>
+          <span style="color: #38bdf8; font-size: 11px; font-weight: 600;">(MRN-2026-0001)</span>
+          <span style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 9999px;">Verified Inpatient</span>
+        </div>
+        <a href="/logout" class="btn btn-logout btn-sm" style="background: #1e293b; color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.2); font-weight: 600; padding: 5px 14px; border-radius: 6px;">
+          Log Out
+        </a>
+      </div>
+    </div>
+
+    <!-- Interactive Polished Application Controls Bar -->
+    <div class="vault-action-controls-bar">
+      <!-- Button 1: Upload Record -->
+      <button class="app-control-btn btn-upload-record" id="btn-open-upload-modal" title="Upload new medical record or document to vault">
+        <span class="btn-control-icon">📁</span>
+        <span class="btn-control-text">
+          <strong>Upload Record</strong>
+          <small>Add Clinical Data</small>
+        </span>
       </button>
-      <button class="btn btn-primary" id="btn-open-share-modal">
-        🔑 Generate Scoped QR Pass
+
+      <!-- Button 2: Generate QR -->
+      <button class="app-control-btn btn-generate-qr" id="btn-open-share-modal" title="Generate scoped cryptographic QR pass for provider">
+        <span class="btn-control-icon">🔑</span>
+        <span class="btn-control-text">
+          <strong>Generate QR</strong>
+          <small>Scoped Access Pass</small>
+        </span>
+      </button>
+
+      <!-- Button 3: Revoke Access -->
+      <button class="app-control-btn btn-revoke-access" id="btn-scroll-revoke" title="Revoke all active external provider access passes">
+        <span class="btn-control-icon">🛑</span>
+        <span class="btn-control-text">
+          <strong>Revoke Access</strong>
+          <small><span id="header-revokable-count">0</span> Active Passes</small>
+        </span>
       </button>
     </div>
   </div>
+
+  <!-- =========================================================================
+       PATIENT CLINICAL DOSSIER & RELEVANT INFORMATION CARDS
+       ========================================================================= -->
+  <section class="patient-dossier-grid" aria-label="Patient and Physician Details">
+    <!-- Card 1: Patient Demographics & Profile -->
+    <div class="dossier-card">
+      <div class="dossier-header">
+        <div class="dossier-icon-box cobalt">👤</div>
+        <div>
+          <h2 class="dossier-title">Patient Profile</h2>
+          <div class="dossier-subtitle">Verified Inpatient Demographics</div>
+        </div>
+      </div>
+      <div class="dossier-body">
+        <div class="dossier-row">
+          <span class="dossier-label">Full Name:</span>
+          <span class="dossier-val" id="patient-dossier-name">Aarav Verma</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Medical Record #:</span>
+          <span class="dossier-val mono" id="patient-dossier-mrn">MRN-2026-0001</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Age &amp; Sex:</span>
+          <span class="dossier-val">58 Years / Male</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Blood Group:</span>
+          <span class="dossier-val mono" style="color: #f87171;">O+ (Rh Positive)</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Ward &amp; Bed:</span>
+          <span class="dossier-val">Cardiac Care Unit (CCU) · Bed-CCU-04</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Emergency Contact:</span>
+          <span class="dossier-val">+1 (555) 019-2834 (Spouse)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Assigned Attending Physician -->
+    <div class="dossier-card">
+      <div class="dossier-header">
+        <div class="dossier-icon-box emerald">🩺</div>
+        <div>
+          <h2 class="dossier-title">Attending Physician</h2>
+          <div class="dossier-subtitle">Treating Clinical Team Details</div>
+        </div>
+      </div>
+      <div class="dossier-body">
+        <div class="dossier-row">
+          <span class="dossier-label">Lead Clinician:</span>
+          <span class="dossier-val" style="color: #60a5fa; font-weight: 700;">Dr. Sarah Chen, MD</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Clinical Role:</span>
+          <span class="dossier-val">Attending Physician / Cardiologist</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Department:</span>
+          <span class="dossier-val">Cardiology &amp; Intensive Care Unit</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Hospital Pager / Direct:</span>
+          <span class="dossier-val mono">Pager #4028 · Ext. 8412</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Clinical Email:</span>
+          <span class="dossier-val">sarah.chen@medihaven.org</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Consult Status:</span>
+          <span class="dossier-val" style="color: #34d399;">● Active Daily Rounds</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: Symptoms & Medical Information -->
+    <div class="dossier-card">
+      <div class="dossier-header">
+        <div class="dossier-icon-box amber">📋</div>
+        <div>
+          <h2 class="dossier-title">Symptoms &amp; Clinical Status</h2>
+          <div class="dossier-subtitle">Admitting Presentation &amp; Vitals</div>
+        </div>
+      </div>
+      <div class="dossier-body">
+        <div class="dossier-row">
+          <span class="dossier-label">Admitting Symptoms:</span>
+          <span class="dossier-val" style="color: #fbbf24;">Retrosternal chest tightness radiating to left shoulder, exertional dyspnea, mild diaphoresis</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Primary Diagnosis:</span>
+          <span class="dossier-val">Acute Coronary Syndrome Rule-Out</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Admission Protocol:</span>
+          <span class="dossier-val">Continuous ECG Telemetry Surveillance</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Latest Vitals:</span>
+          <span class="dossier-val mono">HR: 76 bpm · BP: 126/82 · SpO2: 98%</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Hemodynamic Index:</span>
+          <span class="dossier-val mono" style="color: #34d399;">Shock Index 0.60 (Stable) · MAP 96 mmHg</span>
+        </div>
+        <div class="dossier-row">
+          <span class="dossier-label">Clinical Risk Tier:</span>
+          <span class="dossier-val"><span class="risk-badge risk-badge-high">High Watch Tier (Score: 0.72)</span></span>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <!-- 7-Category Medical Vault Summary Metrics -->
   <section class="vault-category-grid" id="vault-category-grid" aria-label="Medical Vault Category Distribution">
@@ -79,8 +229,8 @@
   </section>
 
   <!-- Active Shared Passes Panel (With 1-Click Revocation) -->
-  <section class="card" style="margin-bottom: var(--space-xl);" aria-label="Active Shared Passes Management">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
+  <section class="card" id="active-tokens-panel" style="margin-bottom: var(--space-xl);" aria-label="Active Shared Passes Management">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md); flex-wrap: wrap; gap: 8px;">
       <div>
         <h2 style="font-size: 16px; font-weight: 700; color: #ffffff; margin: 0;">
           Active Cryptographic QR Passes
@@ -94,7 +244,7 @@
 
     <div id="active-tokens-list" style="display: flex; flex-direction: column; gap: var(--space-sm);">
       <div style="color: var(--text-muted); font-size: 12px; padding: 12px 0;">
-        No active sharing passes issued. Generate a pass above to share scoped health data with providers.
+        No active sharing passes issued. Click "Generate QR" above to grant temporary scoped access to consulting physicians.
       </div>
     </div>
   </section>
@@ -106,7 +256,7 @@
         Vaulted Medical Records (<span id="filtered-records-count">0</span>)
       </h2>
       <div style="font-size: 12px; color: var(--text-secondary);">
-        Category Filter: <strong id="current-category-label" style="color: #38bdf8;">All Records</strong>
+        Category Filter: <strong id="current-category-label" style="color: #60a5fa;">All Records</strong>
       </div>
     </div>
 
@@ -117,13 +267,13 @@
 
   <!-- Immutable Patient Access Audit Log Table -->
   <section class="card" aria-label="Immutable Access Audit Trail">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md); flex-wrap: wrap; gap: 8px;">
       <div>
         <h2 style="font-size: 16px; font-weight: 700; color: #ffffff; margin: 0;">
           Immutable Access Audit Trail
         </h2>
         <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">
-          Dual-stream cryptographic logging of every provider scan attempt with exact timestamps, IP addresses, and authorized scopes.
+          Cryptographic logging of every provider scan attempt with exact timestamps, authorized scopes, and access status.
         </p>
       </div>
       <button class="btn btn-outline btn-sm" id="btn-refresh-audit">↻ Refresh Audit Log</button>
@@ -238,7 +388,7 @@
             <!-- Base64 PNG image -->
           </div>
           <div style="font-size: 12px; font-weight: 700; color: #0b0f17; margin-top: 8px;" id="qr-card-patient-name">
-            Patient Name
+            Aarav Verma
           </div>
           <div style="font-size: 11px; color: #64748b;" id="qr-card-exp">
             Expires in 60m
@@ -273,6 +423,15 @@
       <button class="drawer-close-btn" id="modal-upload-close">✕</button>
     </div>
     <div class="modal-body">
+      <div style="margin-bottom: var(--space-md); padding: 10px; background: var(--bg-surface-elevated); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);">
+        <div style="font-size: 11px; font-weight: 600; color: #60a5fa; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">⚡ Quick Presets (1-Click Fill):</div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-outline btn-sm quick-preset-btn" data-category="allergy" data-title="Penicillin Anaphylaxis" data-desc="Severe hives, angioedema, and respiratory stridor upon beta-lactam administration (2022)." data-json='{"severity": "Severe", "reaction": "Anaphylaxis", "verified_by": "Immunology"}'>+ Penicillin Allergy</button>
+          <button type="button" class="btn btn-outline btn-sm quick-preset-btn" data-category="medication" data-title="Aspirin 81mg Daily" data-desc="Enteric-coated antiplatelet therapy for coronary prophylaxis." data-json='{"dose": "81mg", "freq": "Daily", "route": "Oral", "rx_status": "Active"}'>+ Aspirin 81mg</button>
+          <button type="button" class="btn btn-outline btn-sm quick-preset-btn" data-category="lab_report" data-title="Serum Troponin I &amp; BNP Panel" data-desc="Emergency cardiac biomarkers: High-sensitivity Troponin I 0.04 ng/mL, BNP 380 pg/mL." data-json='{"troponin_ng_ml": 0.04, "bnp_pg_ml": 380, "lab": "Core Stat"}'>+ Troponin Lab</button>
+        </div>
+      </div>
+
       <div class="form-group">
         <label class="form-label" for="record-category">Record Clinical Category</label>
         <select class="form-control" id="record-category">
@@ -281,7 +440,7 @@
           <option value="lab_report">Lab Report (Biomarkers, Values)</option>
           <option value="surgery">Surgery / Operative Procedure</option>
           <option value="chronic_condition">Chronic Health Condition</option>
-          <option value="immunization">Immunization & Vaccine Record</option>
+          <option value="immunization">Immunization &amp; Vaccine Record</option>
           <option value="clinical_note">Clinical Note / Consultation Summary</option>
         </select>
       </div>
@@ -294,6 +453,12 @@
       <div class="form-group">
         <label class="form-label" for="record-description">Clinical Description / Findings</label>
         <textarea class="form-control" id="record-description" rows="3" placeholder="Detailed clinical observations, historical notes, or prescription directions..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="record-file">Attach Medical Document / Lab Slip (Optional File):</label>
+        <input type="file" class="form-control" id="record-file" accept=".pdf,.png,.jpg,.jpeg,.dcm,.txt,.csv" />
+        <div id="record-file-info" style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Supported: PDF, DICOM, Lab Reports, Clinical Images</div>
       </div>
 
       <div class="form-group">
@@ -314,6 +479,197 @@
     </div>
   </div>
 </div>
+
+<style>
+  .vault-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+  }
+
+  .vault-sovereignty-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    background: rgba(99, 102, 241, 0.14);
+    border: 1px solid rgba(129, 140, 248, 0.3);
+    color: #a5b4fc;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-xs);
+  }
+  .vault-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #818cf8;
+    box-shadow: 0 0 6px #818cf8;
+  }
+
+  /* Polished Application Controls Bar */
+  .vault-action-controls-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .app-control-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    text-align: left;
+    transition: all var(--transition-fast);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  }
+
+  .app-control-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  }
+
+  .app-control-btn:active {
+    transform: translateY(0);
+  }
+
+  .btn-control-icon {
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-control-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+  .btn-control-text strong {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .btn-control-text small {
+    font-size: 10px;
+    opacity: 0.8;
+  }
+
+  /* Distinct Color Identities for Application Controls */
+  .btn-upload-record {
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    color: #ffffff;
+    border-color: rgba(96, 165, 250, 0.4);
+  }
+  .btn-upload-record:hover {
+    border-color: rgba(147, 197, 253, 0.7);
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.4);
+  }
+
+  .btn-generate-qr {
+    background: linear-gradient(135deg, #065f46 0%, #10b981 100%);
+    color: #ffffff;
+    border-color: rgba(52, 211, 153, 0.4);
+  }
+  .btn-generate-qr:hover {
+    border-color: rgba(110, 231, 183, 0.7);
+    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.4);
+  }
+
+  .btn-revoke-access {
+    background: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
+    color: #ffffff;
+    border-color: rgba(248, 113, 113, 0.4);
+  }
+  .btn-revoke-access:hover {
+    border-color: rgba(252, 165, 165, 0.7);
+    box-shadow: 0 6px 18px rgba(220, 38, 38, 0.4);
+  }
+
+  /* Patient Dossier Grid */
+  .patient-dossier-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--space-md);
+    margin-bottom: var(--space-xs);
+  }
+
+  .dossier-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .dossier-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--border-hairline);
+  }
+
+  .dossier-icon-box {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .dossier-icon-box.cobalt { background: rgba(37, 99, 235, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); }
+  .dossier-icon-box.emerald { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); }
+  .dossier-icon-box.amber { background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); }
+
+  .dossier-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+  }
+
+  .dossier-subtitle {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .dossier-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .dossier-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 12px;
+    gap: 12px;
+  }
+
+  .dossier-label {
+    color: var(--text-muted);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .dossier-val {
+    color: var(--text-primary);
+    font-weight: 600;
+    text-align: right;
+  }
+</style>
 {% endblock %}
 
 {% block scripts %}

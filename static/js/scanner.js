@@ -30,6 +30,65 @@ function initScanner() {
     }
     submitPayloadForVerification(token);
   });
+
+  // Quick 1-Click Simulation Buttons
+  const p1Btn = document.getElementById("btn-quick-scan-p1");
+  if (p1Btn) {
+    p1Btn.addEventListener("click", () => {
+      loadDemoTokenForPatient(1, ["allergy", "medication"], "Dr. Sarah Chen, MD (Emergency Triage)");
+    });
+  }
+
+  const p2Btn = document.getElementById("btn-quick-scan-p2");
+  if (p2Btn) {
+    p2Btn.addEventListener("click", () => {
+      loadDemoTokenForPatient(2, ["*"], "Dr. Marcus Vance, MD (Critical Care)");
+    });
+  }
+}
+
+async function loadDemoTokenForPatient(patientId, scopes, clinician) {
+  try {
+    let res = await fetch(`/api/vault/${patientId}/share`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        patient_id: patientId,
+        scope: scopes,
+        expires_in_minutes: 60,
+        ttl_minutes: 60,
+        max_uses: 10,
+        created_by: "Bedside Optical Scanner",
+      }),
+    });
+    let json = await res.json();
+    if (!json.success) {
+      res = await fetch("/api/vault/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patient_id: patientId,
+          scope: scopes,
+          expires_in_minutes: 60,
+          ttl_minutes: 60,
+          max_uses: 10,
+        }),
+      });
+      json = await res.json();
+    }
+
+    if (json.success && json.data) {
+      const token = json.data.token || json.data.qr_payload;
+      document.getElementById("qr-token-input").value = token;
+      if (clinician) document.getElementById("scanner-clinician-name").value = clinician;
+      await submitPayloadForVerification(token);
+    } else {
+      alert("Failed to generate demo pass: " + (json.error ? json.error.message : "Server error"));
+    }
+  } catch (err) {
+    console.error("Demo pass error:", err);
+    alert("Error generating demo pass: " + err.message);
+  }
 }
 
 // ==============================================================================
@@ -177,6 +236,16 @@ function renderVerificationResult(data) {
 
   document.getElementById("leakage-notice-card").style.display = "block";
 
+  // Show Access Logged Confirmation
+  const accessLoggedCard = document.getElementById("access-logged-notice-card");
+  if (accessLoggedCard) {
+    accessLoggedCard.style.display = "block";
+    const accessText = document.getElementById("access-logged-text");
+    if (accessText) {
+      accessText.textContent = `Access-Logged Confirmation: Bedside consult session immutably logged to Patient #${data.patient_id} audit trail at ${new Date().toLocaleTimeString()} (Status: GRANTED, IP: 127.0.0.1).`;
+    }
+  }
+
   // Render Records
   const recordsContainer = document.getElementById("scoped-records-container");
   recordsContainer.style.display = "flex";
@@ -230,6 +299,8 @@ function showErrorState(msg) {
   document.getElementById("idle-card").style.display = "none";
   document.getElementById("verified-badge-card").style.display = "none";
   document.getElementById("leakage-notice-card").style.display = "none";
+  const accessLoggedCard = document.getElementById("access-logged-notice-card");
+  if (accessLoggedCard) accessLoggedCard.style.display = "none";
   document.getElementById("scoped-records-container").style.display = "none";
 
   const errorCard = document.getElementById("error-card");

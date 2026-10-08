@@ -535,11 +535,27 @@ def test_vault_access_audit_log_and_active_tokens(client: FlaskClient):
 # ==============================================================================
 
 def test_web_portal_view_routes(client: FlaskClient):
-    """Verify HTML template render view routes for Physician, Patient, and Scanner."""
-    # Root redirects to /dashboard
+    """Verify HTML template render view routes for Landing, Login, Admin, Physician, Patient, and Scanner."""
+    # Root renders Landing Page (tagline, branding, CTA)
     root_res = client.get("/")
-    assert root_res.status_code == 302
-    assert "/dashboard" in root_res.headers["Location"]
+    assert root_res.status_code == 200
+    assert b"MediHaven" in root_res.data
+    assert b"Earlier, Safer Care" in root_res.data
+    assert b"Get Started" in root_res.data
+
+    # Login gateway renders Role Selection
+    login_res = client.get("/login")
+    assert login_res.status_code == 200
+    assert b"MediHaven" in login_res.data
+    assert b"Clinical Access Gateway" in login_res.data
+    assert b"Patient Medical Vault" in login_res.data
+    assert b"Physician Clinical Triage" in login_res.data
+    assert b"Hospital Administrator" in login_res.data
+
+    # Admin operations overview
+    admin_res = client.get("/admin")
+    assert admin_res.status_code == 200
+    assert b"Hospital Operations" in admin_res.data
 
     # Dashboard view renders HTML with dashboard.js & triage elements
     dash_res = client.get("/dashboard")
