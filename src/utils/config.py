@@ -43,6 +43,11 @@ class Config:
     FLASK_DEBUG = os.getenv("FLASK_DEBUG", "1").lower() in ("1", "true", "yes")
     FLASK_PORT = int(os.getenv("FLASK_PORT", "5000"))
     FLASK_HOST = os.getenv("FLASK_HOST", "127.0.0.1")
+    # Demo mode lets clinicians mint sample QR passes from the scanner portal.
+    # It bypasses patient consent, so it defaults to on only in development.
+    DEMO_MODE = os.getenv(
+        "DEMO_MODE", "1" if FLASK_ENV == "development" else "0"
+    ).lower() in ("1", "true", "yes")
     FLASK_SECRET_KEY = os.getenv(
         "FLASK_SECRET_KEY", "medihaven_flask_dev_sec_9941a8b7c2e34f6d1a0b5c8e7f2d3a4b"
     )

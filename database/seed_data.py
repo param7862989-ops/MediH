@@ -34,6 +34,40 @@ FIRST_NAMES_M = ["Aarav", "Rohan", "Vikram", "Kabir", "Aditya", "Dev", "Arjun", 
 FIRST_NAMES_F = ["Ananya", "Diya", "Pooja", "Meera", "Neha", "Priya", "Sunita", "Isha", "Kavita", "Rhea"]
 LAST_NAMES = ["Sharma", "Patel", "Mehta", "Deshmukh", "Verma", "Joshi", "Iyer", "Nair", "Kulkarni", "Gupta"]
 
+# Tier-consistent admitting presentations: (symptoms, primary diagnosis)
+CLINICAL_PROFILES = {
+    "Critical": [
+        ("Fever 39.4C, rigors, confusion, hypotension despite fluids", "Septic Shock (A41.9)"),
+        ("Severe dyspnea, SpO2 86% on room air, bilateral crackles", "Acute Respiratory Failure (J96.0)"),
+        ("Cold clammy extremities, oliguria, lactate 4.8 mmol/L", "Cardiogenic Shock (R57.0)"),
+    ],
+    "High": [
+        ("Exertional chest tightness, palpitations, mild diaphoresis", "Unstable Angina (I20.0)"),
+        ("Orthopnea, pedal edema, 3 kg weight gain over 5 days", "Decompensated Heart Failure (I50.9)"),
+        ("Irregular palpitations, dizziness, HR 130s", "Atrial Fibrillation with RVR (I48.91)"),
+    ],
+    "Medium": [
+        ("Polyuria, polydipsia, fatigue, glucose 280 mg/dL", "Uncontrolled Type 2 Diabetes (E11.65)"),
+        ("Headache, BP 168/102, blurred vision", "Hypertensive Urgency (I16.0)"),
+        ("Productive cough, low-grade fever, mild dyspnea", "Community-Acquired Pneumonia (J18.9)"),
+    ],
+    "Low": [
+        ("Post-operative recovery, ambulating, pain controlled", "Post-Laparoscopic Appendectomy (K35.80)"),
+        ("Observational monitoring, stable vitals", "Syncope Work-Up, Resolved (R55)"),
+        ("Mild cellulitis improving on oral antibiotics", "Cellulitis of Lower Limb (L03.115)"),
+    ],
+}
+
+# Attending physicians by tier (names match the admin reassignment directory)
+TIER_PHYSICIANS = {
+    "Critical": ["Dr. Marcus Vance, MD (Critical Care)"],
+    "High": ["Dr. Sarah Chen, MD (Attending)"],
+    "Medium": ["Dr. Elena Rostova, MD (Internal Medicine)", "Dr. Priya Sharma, MD (Hospitalist)"],
+    "Low": ["Dr. Priya Sharma, MD (Hospitalist)", "Dr. Elena Rostova, MD (Internal Medicine)"],
+}
+
+BLOOD_GROUPS = ["O+", "A+", "B+", "AB+", "O-", "A-", "B-"]
+
 
 def generate_patient_name(gender: str) -> str:
     first = random.choice(FIRST_NAMES_M) if gender == "M" else random.choice(FIRST_NAMES_F)
@@ -85,27 +119,39 @@ def seed_database(num_patients: int = 100) -> None:
                 admission_days_ago = random.randint(8, 14)
                 admission_date = now - timedelta(days=admission_days_ago, hours=random.randint(1, 12))
 
-                # Status and ward based on tier
+                # Status and ward based on tier. Beds are numbered sequentially within each
+                # tier so no two patients share one; the random draw is still consumed to
+                # keep the rest of the seeded cohort (names, vitals) reproducible.
                 if risk_tier == "Critical":
                     status = "ICU"
                     ward = "Intensive Care Unit (ICU)"
-                    bed = f"ICU-{random.randint(1, 12):02d}"
+                    random.randint(1, 12)
+                    bed = f"ICU-{i + 1:02d}"
                     age = random.randint(45, 82)
                 elif risk_tier == "High":
                     status = "Admitted"
                     ward = "Cardiac Care Unit (CCU)"
-                    bed = f"CCU-{random.randint(101, 115)}"
+                    random.randint(101, 115)
+                    bed = f"CCU-{101 + i}"
                     age = random.randint(52, 85)
                 elif risk_tier == "Medium":
                     status = random.choice(["Admitted", "Observation"])
                     ward = random.choice(["Endocrine & Metabolic Ward", "Internal Medicine A"])
-                    bed = f"Bed-{random.randint(201, 230)}"
+                    random.randint(201, 230)
+                    bed = f"Bed-{201 + i}"
                     age = random.randint(38, 74)
                 else:  # Low
                     status = random.choice(["Admitted", "Discharged"])
                     ward = random.choice(["General Ward A", "General Ward B", "Surgical Recovery"])
-                    bed = f"Bed-{random.randint(301, 350)}"
+                    random.randint(301, 350)
+                    bed = f"Bed-{301 + i}"
                     age = random.randint(19, 58)
+
+                # Separate per-patient RNG so these fields don't shift the global seeded stream
+                profile_rng = random.Random(patient_idx)
+                symptoms, primary_diagnosis = profile_rng.choice(CLINICAL_PROFILES[risk_tier])
+                assigned_physician = profile_rng.choice(TIER_PHYSICIANS[risk_tier])
+                blood_group = profile_rng.choice(BLOOD_GROUPS)
 
                 discharge_date = (
                     (admission_date + timedelta(days=random.randint(5, 7)))
@@ -115,10 +161,12 @@ def seed_database(num_patients: int = 100) -> None:
 
                 cursor.execute(
                     """
-                    INSERT INTO patients (mrn, full_name, age, gender, admission_date, discharge_date, status, ward, bed_number)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO patients (mrn, full_name, age, gender, admission_date, discharge_date, status, ward, bed_number,
+                                          assigned_physician, symptoms, primary_diagnosis, blood_group)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (mrn, name, age, gender, admission_date, discharge_date, status, ward, bed),
+                    (mrn, name, age, gender, admission_date, discharge_date, status, ward, bed,
+                     assigned_physician, symptoms, primary_diagnosis, blood_group),
                 )
                 patient_id = cursor.lastrowid
 

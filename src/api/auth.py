@@ -12,7 +12,7 @@ Enforces strict role-based access control (RBAC) across three roles:
 
 from functools import wraps
 from typing import Optional, Dict, Any, List
-from flask import Blueprint, request, session, jsonify, redirect, url_for, g
+from flask import Blueprint, current_app, request, session, jsonify, redirect, url_for, g
 
 from src.utils.logger import get_logger
 from src.api.schemas import success_response, error_response
@@ -64,6 +64,8 @@ CREDENTIALS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+CLINICAL_ROLES = ["physician", "admin"]
+
 ROLE_DASHBOARD_MAP = {
     "admin": "/admin",
     "physician": "/dashboard",
@@ -108,11 +110,38 @@ def get_current_user() -> Optional[Dict[str, Any]]:
     return session.get("user")
 
 
+def _auth_bypassed() -> bool:
+    """Mirrors the portal guard: unit tests skip RBAC unless they opt in via X-Enforce-Auth."""
+    return bool(current_app.config.get("TESTING")) and not request.headers.get("X-Enforce-Auth")
+
+
+def patient_access_denied(patient_id: Any):
+    """Returns a 403 response if a patient-role user targets another patient's records, else None."""
+    if _auth_bypassed():
+        return None
+    user = get_current_user() or {}
+    if user.get("role") != "patient":
+        return None
+    try:
+        requested = int(patient_id)
+    except (TypeError, ValueError):
+        requested = None
+    if requested != user.get("patient_id"):
+        return error_response(
+            message="Access denied: patients may only access their own medical vault.",
+            code="FORBIDDEN",
+            status_code=403,
+        )
+    return None
+
+
 def role_required(allowed_roles: List[str]):
     """Decorator for route handlers that restricts access to specified roles."""
     def decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
+            if _auth_bypassed():
+                return fn(*args, **kwargs)
             user = get_current_user()
             if not user:
                 if request.is_json or request.path.startswith("/api/"):

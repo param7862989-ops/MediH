@@ -10,6 +10,7 @@ from flask import Blueprint, request, current_app
 
 from src.database.db import get_connection
 from src.api.schemas import success_response, error_response, validate_required_fields
+from src.api.auth import role_required, CLINICAL_ROLES
 from src.utils.logger import get_logger
 
 logger = get_logger("medihaven.api.alerts")
@@ -21,6 +22,7 @@ ACKNOWLEDGED_ALERTS: Dict[int, Dict[str, Any]] = {}
 
 
 @alerts_bp.route("", methods=["GET"])
+@role_required(CLINICAL_ROLES)
 def get_alerts():
     """Returns priority-sorted feed of early-warning deterioration alerts."""
     min_tier = request.args.get("min_tier", "High").strip()
@@ -130,12 +132,22 @@ def get_alerts():
 
 
 @alerts_bp.route("/<int:patient_id>/acknowledge", methods=["POST"])
+@role_required(CLINICAL_ROLES)
 def acknowledge_alert(patient_id: int):
     """Allows treating physician to acknowledge alert and log clinical intent."""
     payload = request.get_json(silent=True) or {}
     doctor_name = payload.get("doctor_name", "Attending Physician").strip()
     notes = payload.get("notes", "Alert reviewed; clinical intervention planned.").strip()
     now_iso = datetime.now().isoformat()
+
+    with get_connection() as conn:
+        exists = conn.execute("SELECT 1 FROM patients WHERE patient_id = ?", (patient_id,)).fetchone()
+    if not exists:
+        return error_response(
+            message=f"Patient with ID {patient_id} not found.",
+            code="PATIENT_NOT_FOUND",
+            status_code=404,
+        )
 
     ACKNOWLEDGED_ALERTS[patient_id] = {
         "doctor_name": doctor_name,
@@ -180,6 +192,7 @@ CLINICAL_ACTIVITY_LOG: List[Dict[str, Any]] = [
 
 
 @alerts_bp.route("/dispatch", methods=["POST"])
+@role_required(CLINICAL_ROLES)
 def dispatch_alert():
     """Allows an administrator or physician to manually dispatch an escalation alert for high-risk patients."""
     payload = request.get_json(silent=True) or request.form
@@ -251,6 +264,7 @@ def dispatch_alert():
 
 
 @alerts_bp.route("/activity", methods=["GET"])
+@role_required(["admin"])
 def get_activity():
     """Returns chronological log of clinical alerts, escalations, and administrative events."""
     return success_response(

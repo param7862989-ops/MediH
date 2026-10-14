@@ -11,6 +11,7 @@ from flask import Blueprint, request, current_app
 
 from src.database.db import get_connection
 from src.api.schemas import success_response, error_response
+from src.api.auth import role_required, CLINICAL_ROLES
 from src.models.ensemble import EnsembleClinicalPredictor
 from src.nlp.summarizer import summarizer
 from src.utils.logger import get_logger
@@ -31,6 +32,7 @@ def get_ensemble() -> EnsembleClinicalPredictor:
 
 
 @predictions_bp.route("/patients/<int:patient_id>/predict", methods=["GET"])
+@role_required(CLINICAL_ROLES)
 def predict_patient_risk(patient_id: int):
     """Executes live multi-model inference and returns full clinical intelligence packet."""
     try:
@@ -86,6 +88,7 @@ def predict_patient_risk(patient_id: int):
 
 
 @predictions_bp.route("/patients/<int:patient_id>/similar", methods=["GET"])
+@role_required(CLINICAL_ROLES)
 def get_similar_cases(patient_id: int):
     """Retrieves top-K similar historical patient precedents and their outcomes."""
     k = request.args.get("k", default=5, type=int)
@@ -111,6 +114,7 @@ def get_similar_cases(patient_id: int):
 
 
 @predictions_bp.route("/dashboard/summary", methods=["GET"])
+@role_required(CLINICAL_ROLES)
 def get_dashboard_summary():
     """Returns high-level hospital risk distribution and resource utilization metrics."""
     with get_connection() as conn:
@@ -180,6 +184,7 @@ def get_dashboard_summary():
 
 
 @predictions_bp.route("/admin/models", methods=["GET"])
+@role_required(["admin"])
 def get_model_telemetry():
     """Returns AI/ML model architecture, benchmark metrics, and ensemble telemetry."""
     from src.utils.config import Config
@@ -280,6 +285,7 @@ def get_model_telemetry():
 
 
 @predictions_bp.route("/patients/<int:patient_id>/clinical-narrative", methods=["GET", "POST"])
+@role_required(CLINICAL_ROLES)
 def generate_patient_clinical_narrative(patient_id: int):
     """Blueprint C: Synthesizes structured ML prediction, vitals & rules into natural language via Gemini."""
     try:
@@ -328,6 +334,7 @@ def generate_patient_clinical_narrative(patient_id: int):
 
 
 @predictions_bp.route("/admin/gemini/synthesize", methods=["POST"])
+@role_required(["admin"])
 def admin_gemini_synthesize():
     """Admin live testing endpoint for Google Gemini clinical synthesis."""
     try:
