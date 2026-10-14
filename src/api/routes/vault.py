@@ -22,20 +22,56 @@ from src.vault.qr_generator import (
 )
 from src.vault.access_controller import access_vault_with_token
 from src.vault.access_logger import get_patient_access_audit_log
+from src.api.auth import role_required, patient_access_denied, get_current_user, CLINICAL_ROLES
+from src.database.db import get_connection
+from src.utils.config import Config
 from src.utils.logger import get_logger
 
 logger = get_logger("medihaven.api.vault")
 
 vault_bp = Blueprint("vault", __name__, url_prefix="/api/vault")
 
+# Clinicians may mint passes only to drive the scanner demo buttons
+SHARE_ROLES = ["patient"] + (CLINICAL_ROLES if Config.DEMO_MODE else [])
+
+
+def patient_exists(patient_id: int) -> bool:
+    """Returns True if a patient row with this ID exists."""
+    with get_connection() as conn:
+        row = conn.execute("SELECT 1 FROM patients WHERE patient_id = ?", (patient_id,)).fetchone()
+    return row is not None
+
+
+def parse_optional_int(value: Any, field: str, minimum: int = 1):
+    """Parses an optional positive integer field. Returns (value, error_message)."""
+    if value is None or value == "":
+        return None, None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None, f"'{field}' must be an integer."
+    if parsed < minimum:
+        return None, f"'{field}' must be at least {minimum}."
+    return parsed, None
+
 
 @vault_bp.route("/upload", methods=["POST"])
+@role_required(["patient"])
 def upload_vault_record():
     """Adds a new medical record to a patient's Medical Vault."""
     payload = request.get_json(silent=True) or {}
     err = validate_required_fields(payload, ["patient_id", "category", "title"])
     if err:
         return error_response(message=err, code="VALIDATION_ERROR", status_code=422)
+
+    patient_id, err = parse_optional_int(payload["patient_id"], "patient_id")
+    if err:
+        return error_response(message=err, code="VALIDATION_ERROR", status_code=422)
+    denied = patient_access_denied(patient_id)
+    if denied:
+        return denied
+    if not patient_exists(patient_id):
+        return error_response(message=f"Patient with ID {patient_id} not found.", code="PATIENT_NOT_FOUND", status_code=404)
 
     cat = payload["category"].lower().strip()
     if cat not in VALID_VAULT_CATEGORIES:
@@ -47,7 +83,7 @@ def upload_vault_record():
 
     try:
         vault_id = add_vault_record(
-            patient_id=int(payload["patient_id"]),
+            patient_id=patient_id,
             category=cat,
             title=payload["title"],
             description=payload.get("description"),
@@ -66,8 +102,12 @@ def upload_vault_record():
 
 
 @vault_bp.route("/<int:patient_id>", methods=["GET"])
+@role_required(["patient"])
 def get_vault(patient_id: int):
     """Retrieves all medical records and category summary metrics for a patient."""
+    denied = patient_access_denied(patient_id)
+    if denied:
+        return denied
     category = request.args.get("category", "").strip() or None
 
     try:
@@ -88,22 +128,51 @@ def get_vault(patient_id: int):
 
 @vault_bp.route("/share", methods=["POST"])
 @vault_bp.route("/<int:patient_id>/share", methods=["POST"])
+@role_required(SHARE_ROLES)
 def generate_share_token(patient_id: Optional[int] = None):
     """Generates a dynamic cryptographic QR access pass with scoped permissions."""
     payload = request.get_json(silent=True) or {}
-    pid = patient_id or payload.get("patient_id")
+    pid, err = parse_optional_int(patient_id or payload.get("patient_id"), "patient_id")
+    if err:
+        return error_response(message=err, code="VALIDATION_ERROR", status_code=422)
     if not pid:
         return error_response(message="Missing 'patient_id' in request body.", code="VALIDATION_ERROR", status_code=422)
+    denied = patient_access_denied(pid)
+    if denied:
+        return denied
 
     scope = payload.get("scope", ["*"])
-    expires_in_minutes = payload.get("expires_in_minutes") or payload.get("ttl_minutes", 1440)
-    max_uses = payload.get("max_uses")
+    if isinstance(scope, str):
+        scope = [scope]
+    if not isinstance(scope, list) or not scope:
+        return error_response(
+            message="'scope' must be a non-empty list of vault categories (or ['*']).",
+            code="VALIDATION_ERROR",
+            status_code=422,
+        )
+    scope = [str(s).lower().strip() for s in scope]
+    invalid = [s for s in scope if s != "*" and s not in VALID_VAULT_CATEGORIES]
+    if invalid:
+        return error_response(
+            message=f"Invalid scope categories {invalid}. Allowed: {sorted(VALID_VAULT_CATEGORIES)} or '*'.",
+            code="INVALID_SCOPE",
+            status_code=422,
+        )
+
+    expires_in_minutes, err = parse_optional_int(
+        payload.get("expires_in_minutes") or payload.get("ttl_minutes") or 1440, "expires_in_minutes"
+    )
+    if err:
+        return error_response(message=err, code="VALIDATION_ERROR", status_code=422)
+    max_uses, err = parse_optional_int(payload.get("max_uses"), "max_uses")
+    if err:
+        return error_response(message=err, code="VALIDATION_ERROR", status_code=422)
 
     try:
         token_data = generate_vault_access_token(
-            patient_id=int(pid),
+            patient_id=pid,
             scope=scope,
-            expires_in_minutes=int(expires_in_minutes),
+            expires_in_minutes=expires_in_minutes,
             max_uses=max_uses,
         )
         # Convenience aliases for frontend clients
@@ -123,10 +192,13 @@ def generate_share_token(patient_id: Optional[int] = None):
 
 
 @vault_bp.route("/revoke/<int:token_id>", methods=["POST"])
+@role_required(["patient"])
 def revoke_token(token_id: int):
     """Revokes an issued QR pass immediately (1-click patient privacy action)."""
     payload = request.get_json(silent=True) or {}
-    patient_id = payload.get("patient_id")
+    user = get_current_user() or {}
+    # A logged-in patient may only revoke their own passes, whatever the body claims
+    patient_id = user.get("patient_id") if user.get("role") == "patient" else payload.get("patient_id")
 
     revoked = revoke_vault_access_token(token_id=token_id, patient_id=patient_id)
     if not revoked:
@@ -143,6 +215,7 @@ def revoke_token(token_id: int):
 
 
 @vault_bp.route("/access", methods=["POST"])
+@role_required(CLINICAL_ROLES)
 def access_vault():
     """Provider QR scanner endpoint: validates token and returns strictly authorized data."""
     payload = request.get_json(silent=True) or {}
@@ -179,8 +252,12 @@ def access_vault():
 
 
 @vault_bp.route("/<int:patient_id>/access-log", methods=["GET"])
+@role_required(["patient"])
 def get_access_log(patient_id: int):
     """Retrieves chronological access audit log for patient inspection."""
+    denied = patient_access_denied(patient_id)
+    if denied:
+        return denied
     limit = request.args.get("limit", default=50, type=int)
     audit_trail = get_patient_access_audit_log(patient_id=patient_id, limit=limit)
 
@@ -191,8 +268,12 @@ def get_access_log(patient_id: int):
 
 
 @vault_bp.route("/<int:patient_id>/active-tokens", methods=["GET"])
+@role_required(["patient"])
 def get_active_tokens(patient_id: int):
     """Retrieves all active, non-expired, unrevoked tokens for a patient."""
+    denied = patient_access_denied(patient_id)
+    if denied:
+        return denied
     tokens = get_patient_active_tokens(patient_id=patient_id)
     return success_response(
         data=tokens,

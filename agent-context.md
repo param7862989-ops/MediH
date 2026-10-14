@@ -178,7 +178,7 @@ MediH/
   Evaluates the 7–14 day early warning trigger (`SI >= 0.90` or `SpO2 < 92%` or `risk_score >= 0.70`). In-memory inference executes in **~18 ms**.
 
 ### Phase 5: Sovereign Patient Vault & Cryptographic QR Engine
-* **Vault Service (`src/vault/vault_service.py`):** Full CRUD across 7 medical categories: `allergy`, `medication`, `lab_report`, `surgery`, `chronic_condition`, `immunization`, `clinical_note`.
+* **Vault Service (`src/vault/vault_service.py`):** Full CRUD across 7 medical categories: `diagnosis`, `allergy`, `medication`, `lab_report`, `imaging`, `surgery`, `vaccination` (enforced by the `medical_vault` CHECK constraint).
 * **QR Engine (`src/vault/qr_generator.py`):** Generates HMAC-SHA256 signed JWTs with RFC 7519 claims: `iss="MediHaven-Vault"`, `sub=str(patient_id)`, `scope=[...]`, `iat`, `exp`, `jti=token_hash`, `max_uses`. Renders high-contrast Base64 PNG QR code images via Pillow.
 * **Optical Scanner (`src/vault/qr_scanner.py`):** Decodes visual QR images via `pyzbar` / `OpenCV`. Performs 5-point verification: signature, expiration, database active status, revocation flag, and usage quota.
 * **Access Controller (`src/vault/access_controller.py`):** Filters patient vault records at the query layer. Returns strictly the authorized categories. Unselected categories remain sealed.

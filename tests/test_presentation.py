@@ -131,9 +131,9 @@ def test_patient_vault_view_structure_and_bindings(client: FlaskClient):
     assert 'id="count-cat-medication"' in html
     assert 'id="count-cat-lab"' in html
     assert 'id="count-cat-surgery"' in html
-    assert 'id="count-cat-condition"' in html
-    assert 'id="count-cat-immunization"' in html
-    assert 'id="count-cat-notes"' in html
+    assert 'id="count-cat-diagnosis"' in html
+    assert 'id="count-cat-vaccination"' in html
+    assert 'id="count-cat-imaging"' in html
 
     # Records Catalog Grid
     assert 'id="records-grid"' in html

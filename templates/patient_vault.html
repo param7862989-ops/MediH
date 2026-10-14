@@ -6,7 +6,7 @@
 <div class="vault-page">
   <!-- Hidden select to maintain DOM compatibility with automated tests -->
   <select class="select-dropdown" id="vault-patient-select" style="display: none;" aria-hidden="true">
-    <option value="1" selected>Patient #1: Aarav Verma (MRN-2026-0001)</option>
+    <option value="{{ (current_user or {}).get('patient_id') or 1 }}" selected>{{ (current_user or {}).get('display_name', 'Aarav Verma') }} ({{ (current_user or {}).get('mrn', 'MRN-2026-0001') }})</option>
   </select>
 
   <!-- Page Header & Sovereign Context -->
@@ -27,8 +27,8 @@
       <div style="display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap;">
         <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.12); padding: 5px 14px; border-radius: var(--radius-full);">
           <span style="font-size: 14px;">👤</span>
-          <span style="color: #ffffff; font-weight: 700; font-size: 13px;">Logged in as: Aarav Verma</span>
-          <span style="color: #38bdf8; font-size: 11px; font-weight: 600;">(MRN-2026-0001)</span>
+          <span style="color: #ffffff; font-weight: 700; font-size: 13px;">Logged in as: {{ (current_user or {}).get('display_name', 'Aarav Verma') }}</span>
+          <span style="color: #38bdf8; font-size: 11px; font-weight: 600;">({{ (current_user or {}).get('mrn', 'MRN-2026-0001') }})</span>
           <span style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 9999px;">Verified Inpatient</span>
         </div>
         <a href="/logout" class="btn btn-logout btn-sm" style="background: #1e293b; color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.2); font-weight: 600; padding: 5px 14px; border-radius: 6px;">
@@ -92,19 +92,19 @@
         </div>
         <div class="dossier-row">
           <span class="dossier-label">Age &amp; Sex:</span>
-          <span class="dossier-val">58 Years / Male</span>
+          <span class="dossier-val" id="patient-dossier-age-sex">--</span>
         </div>
         <div class="dossier-row">
           <span class="dossier-label">Blood Group:</span>
-          <span class="dossier-val mono" style="color: #f87171;">O+ (Rh Positive)</span>
+          <span class="dossier-val mono" style="color: #f87171;" id="patient-dossier-blood">--</span>
         </div>
         <div class="dossier-row">
           <span class="dossier-label">Ward &amp; Bed:</span>
-          <span class="dossier-val">Cardiac Care Unit (CCU) · Bed-CCU-04</span>
+          <span class="dossier-val" id="patient-dossier-ward">--</span>
         </div>
         <div class="dossier-row">
           <span class="dossier-label">Emergency Contact:</span>
-          <span class="dossier-val">+1 (555) 019-2834 (Spouse)</span>
+          <span class="dossier-val" id="patient-dossier-contact">--</span>
         </div>
       </div>
     </div>
@@ -121,15 +121,15 @@
       <div class="dossier-body">
         <div class="dossier-row">
           <span class="dossier-label">Lead Clinician:</span>
-          <span class="dossier-val" style="color: #60a5fa; font-weight: 700;">Dr. Sarah Chen, MD</span>
+          <span class="dossier-val" style="color: #60a5fa; font-weight: 700;" id="patient-dossier-physician">--</span>
         </div>
         <div class="dossier-row">
           <span class="dossier-label">Clinical Role:</span>
-          <span class="dossier-val">Attending Physician / Cardiologist</span>
+          <span class="dossier-val" id="patient-dossier-phys-role">--</span>
         </div>
         <div class="dossier-row">
           <span class="dossier-label">Department:</span>
-          <span class="dossier-val">Cardiology &amp; Intensive Care Unit</span>
+          <span class="dossier-val" id="patient-dossier-phys-dept">--</span>
         </div>
         <div class="dossier-row">
           <span class="dossier-label">Hospital Pager / Direct:</span>
@@ -137,7 +137,7 @@
         </div>
         <div class="dossier-row">
           <span class="dossier-label">Clinical Email:</span>
-          <span class="dossier-val">sarah.chen@medihaven.org</span>
+          <span class="dossier-val" id="patient-dossier-phys-email">--</span>
         </div>
         <div class="dossier-row">
           <span class="dossier-label">Consult Status:</span>
@@ -158,27 +158,27 @@
       <div class="dossier-body">
         <div class="dossier-row">
           <span class="dossier-label">Admitting Symptoms:</span>
-          <span class="dossier-val" style="color: #fbbf24;">Retrosternal chest tightness radiating to left shoulder, exertional dyspnea, mild diaphoresis</span>
+          <span class="dossier-val" style="color: #fbbf24;" id="patient-dossier-symptoms">--</span>
         </div>
         <div class="dossier-row">
           <span class="dossier-label">Primary Diagnosis:</span>
-          <span class="dossier-val">Acute Coronary Syndrome Rule-Out</span>
+          <span class="dossier-val" id="patient-dossier-diagnosis">--</span>
         </div>
         <div class="dossier-row">
           <span class="dossier-label">Admission Protocol:</span>
-          <span class="dossier-val">Continuous ECG Telemetry Surveillance</span>
+          <span class="dossier-val" id="patient-dossier-protocol">--</span>
         </div>
         <div class="dossier-row">
           <span class="dossier-label">Latest Vitals:</span>
-          <span class="dossier-val mono">HR: 76 bpm · BP: 126/82 · SpO2: 98%</span>
+          <span class="dossier-val mono" id="patient-dossier-vitals">--</span>
         </div>
         <div class="dossier-row">
           <span class="dossier-label">Hemodynamic Index:</span>
-          <span class="dossier-val mono" style="color: #34d399;">Shock Index 0.60 (Stable) · MAP 96 mmHg</span>
+          <span class="dossier-val mono" style="color: #34d399;" id="patient-dossier-hemo">--</span>
         </div>
         <div class="dossier-row">
           <span class="dossier-label">Clinical Risk Tier:</span>
-          <span class="dossier-val"><span class="risk-badge risk-badge-high">High Watch Tier (Score: 0.72)</span></span>
+          <span class="dossier-val"><span class="risk-badge" id="patient-dossier-risk">--</span></span>
         </div>
       </div>
     </div>
@@ -211,20 +211,20 @@
       <div class="vault-cat-title">Surgeries</div>
       <div class="vault-cat-count" id="count-cat-surgery">0</div>
     </div>
-    <div class="vault-cat-card" data-category="chronic_condition">
+    <div class="vault-cat-card" data-category="diagnosis">
       <div class="vault-cat-icon">📋</div>
-      <div class="vault-cat-title">Conditions</div>
-      <div class="vault-cat-count" id="count-cat-condition">0</div>
+      <div class="vault-cat-title">Diagnoses</div>
+      <div class="vault-cat-count" id="count-cat-diagnosis">0</div>
     </div>
-    <div class="vault-cat-card" data-category="immunization">
+    <div class="vault-cat-card" data-category="vaccination">
       <div class="vault-cat-icon">💉</div>
       <div class="vault-cat-title">Immunizations</div>
-      <div class="vault-cat-count" id="count-cat-immunization">0</div>
+      <div class="vault-cat-count" id="count-cat-vaccination">0</div>
     </div>
-    <div class="vault-cat-card" data-category="clinical_note">
-      <div class="vault-cat-icon">📝</div>
-      <div class="vault-cat-title">Clinical Notes</div>
-      <div class="vault-cat-count" id="count-cat-notes">0</div>
+    <div class="vault-cat-card" data-category="imaging">
+      <div class="vault-cat-icon">🩻</div>
+      <div class="vault-cat-title">Imaging</div>
+      <div class="vault-cat-count" id="count-cat-imaging">0</div>
     </div>
   </section>
 
@@ -340,16 +340,16 @@
               🩺 Surgeries
             </label>
             <label class="checkbox-label">
-              <input type="checkbox" name="scope" value="chronic_condition" />
-              📋 Chronic Conditions
+              <input type="checkbox" name="scope" value="diagnosis" />
+              📋 Diagnoses &amp; Conditions
             </label>
             <label class="checkbox-label">
-              <input type="checkbox" name="scope" value="immunization" />
+              <input type="checkbox" name="scope" value="vaccination" />
               💉 Immunizations
             </label>
             <label class="checkbox-label">
-              <input type="checkbox" name="scope" value="clinical_note" />
-              📝 Clinical Notes
+              <input type="checkbox" name="scope" value="imaging" />
+              🩻 Imaging &amp; Scans
             </label>
             <label class="checkbox-label">
               <input type="checkbox" id="scope-wildcard" value="*" />
@@ -439,9 +439,9 @@
           <option value="medication">Medication (Drug, Dosage, Frequency)</option>
           <option value="lab_report">Lab Report (Biomarkers, Values)</option>
           <option value="surgery">Surgery / Operative Procedure</option>
-          <option value="chronic_condition">Chronic Health Condition</option>
-          <option value="immunization">Immunization &amp; Vaccine Record</option>
-          <option value="clinical_note">Clinical Note / Consultation Summary</option>
+          <option value="diagnosis">Diagnosis / Chronic Condition</option>
+          <option value="vaccination">Immunization &amp; Vaccine Record</option>
+          <option value="imaging">Imaging / Radiology Report</option>
         </select>
       </div>
 

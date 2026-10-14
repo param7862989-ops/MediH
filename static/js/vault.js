@@ -61,10 +61,47 @@ async function fetchPatientProfile() {
     if (!json.success || !json.data) return;
     const p = json.data;
 
-    const nameEl = document.getElementById("patient-dossier-name");
-    const mrnEl = document.getElementById("patient-dossier-mrn");
-    if (nameEl) nameEl.textContent = p.full_name;
-    if (mrnEl) mrnEl.textContent = p.mrn;
+    const setText = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+    const genderLabel = { M: "Male", F: "Female" }[p.gender] || p.gender;
+    const v = p.latest_vitals || {};
+    const pred = p.latest_prediction || {};
+
+    setText("patient-dossier-name", p.full_name);
+    setText("patient-dossier-mrn", p.mrn);
+    setText("patient-dossier-age-sex", `${p.age} Years / ${genderLabel}`);
+    setText("patient-dossier-blood", p.blood_group || "--");
+    setText("patient-dossier-ward", `${p.ward} · ${p.bed_number}`);
+    setText("patient-dossier-contact", p.emergency_contact || "--");
+    setText("patient-dossier-physician", p.assigned_physician || "Unassigned");
+    // assigned_physician is stored as "Dr. First Last, MD (Specialty)"
+    const physMatch = (p.assigned_physician || "").match(/^Dr\.\s+([^,]+),[^(]*(?:\(([^)]+)\))?/);
+    if (physMatch) {
+      const specialty = physMatch[2] || "Attending";
+      setText("patient-dossier-phys-role", `Attending Physician / ${specialty}`);
+      setText("patient-dossier-phys-dept", `${p.ward}`);
+      setText("patient-dossier-phys-email", `${physMatch[1].trim().toLowerCase().replace(/\s+/g, ".")}@medihaven.org`);
+    }
+    setText("patient-dossier-symptoms", p.symptoms || "--");
+    setText("patient-dossier-diagnosis", p.primary_diagnosis || "--");
+    setText("patient-dossier-protocol", pred.recommended_protocol || "Standard Monitoring");
+
+    if (v.heart_rate && v.blood_pressure_sys) {
+      const sbp = v.blood_pressure_sys;
+      const dbp = v.blood_pressure_dia;
+      const si = v.heart_rate / Math.max(sbp, 1);
+      const mapVal = dbp + (sbp - dbp) / 3;
+      setText("patient-dossier-vitals", `HR: ${Math.round(v.heart_rate)} bpm · BP: ${Math.round(sbp)}/${Math.round(dbp)} · SpO2: ${Math.round(v.oxygen_saturation)}%`);
+      setText("patient-dossier-hemo", `Shock Index ${si.toFixed(2)} (${si >= 0.9 ? "Elevated" : "Stable"}) · MAP ${Math.round(mapVal)} mmHg`);
+    }
+
+    const riskEl = document.getElementById("patient-dossier-risk");
+    if (riskEl && pred.risk_tier) {
+      riskEl.className = `risk-badge risk-badge-${pred.risk_tier.toLowerCase()}`;
+      riskEl.textContent = `${pred.risk_tier} Tier (Score: ${Number(pred.risk_score).toFixed(2)})`;
+    }
   } catch (e) {
     console.warn("Could not load patient profile:", e);
   }
@@ -88,9 +125,9 @@ async function fetchVaultRecords() {
     document.getElementById("count-cat-medication").textContent = summary.medication || 0;
     document.getElementById("count-cat-lab").textContent = summary.lab_report || 0;
     document.getElementById("count-cat-surgery").textContent = summary.surgery || 0;
-    document.getElementById("count-cat-condition").textContent = summary.chronic_condition || 0;
-    document.getElementById("count-cat-immunization").textContent = summary.immunization || 0;
-    document.getElementById("count-cat-notes").textContent = summary.clinical_note || 0;
+    document.getElementById("count-cat-diagnosis").textContent = summary.diagnosis || 0;
+    document.getElementById("count-cat-vaccination").textContent = summary.vaccination || 0;
+    document.getElementById("count-cat-imaging").textContent = summary.imaging || 0;
 
     renderRecordsGrid();
   } catch (err) {
@@ -138,7 +175,7 @@ function renderRecordsGrid() {
       <div class="record-desc">${escapeHtml(r.description || "No specific details provided.")}</div>
       ${jsonDisplay}
       <div style="font-size: 11px; color: var(--text-muted); margin-top: auto; padding-top: 6px;">
-        Vault ID #${r.vault_id} · Recorded: ${formatTimestamp(r.created_at)}
+        Vault ID #${r.vault_id} · Recorded: ${formatTimestamp(r.uploaded_at)}
       </div>
     `;
 

@@ -64,10 +64,12 @@ def clip_physiological_bounds(
         DataFrame with bounded values.
     """
     cleaned_df = df.copy()
-    for col, (min_val, max_val) in bounds_dict.items():
-        if col in cleaned_df.columns:
-            # Clip numerical values, preserving NaNs for imputation step
-            cleaned_df[col] = cleaned_df[col].clip(lower=min_val, upper=max_val)
+    cols = [col for col in bounds_dict if col in cleaned_df.columns]
+    if cols:
+        # Clip all columns in one vectorized numpy call (np.clip preserves NaNs for imputation step)
+        lower = np.array([bounds_dict[col][0] for col in cols])
+        upper = np.array([bounds_dict[col][1] for col in cols])
+        cleaned_df[cols] = np.clip(cleaned_df[cols].to_numpy(dtype=float), lower, upper)
     return cleaned_df
 
 
@@ -104,11 +106,13 @@ def clean_vitals(df_vitals: pd.DataFrame) -> pd.DataFrame:
     ]
     present_cols = [c for c in vitals_cols if c in df.columns]
 
-    if present_cols:
+    # Imputation is a no-op on complete series, so skip the (slow) pandas fills entirely
+    if present_cols and df[present_cols].isna().to_numpy().any():
         # Group by patient_id: forward fill then backward fill
-        df[present_cols] = df.groupby("patient_id")[present_cols].transform(
-            lambda group: group.ffill().bfill()
-        )
+        # Built-in grouped fills are equivalent to per-group ffill().bfill() but avoid a Python lambda
+        filled = df.groupby("patient_id")[present_cols].ffill()
+        filled["patient_id"] = df["patient_id"]
+        df[present_cols] = filled.groupby("patient_id")[present_cols].bfill()
 
         # Fill any remaining NaNs with standard clinical reference values
         for col in present_cols:
@@ -151,10 +155,12 @@ def clean_lab_results(df_labs: pd.DataFrame) -> pd.DataFrame:
     ]
     present_cols = [c for c in lab_cols if c in df.columns]
 
-    if present_cols:
-        df[present_cols] = df.groupby("patient_id")[present_cols].transform(
-            lambda group: group.ffill().bfill()
-        )
+    # Imputation is a no-op on complete series, so skip the (slow) pandas fills entirely
+    if present_cols and df[present_cols].isna().to_numpy().any():
+        # Built-in grouped fills are equivalent to per-group ffill().bfill() but avoid a Python lambda
+        filled = df.groupby("patient_id")[present_cols].ffill()
+        filled["patient_id"] = df["patient_id"]
+        df[present_cols] = filled.groupby("patient_id")[present_cols].bfill()
 
         # Impute remaining missing values with median or clinical reference
         for col in present_cols:

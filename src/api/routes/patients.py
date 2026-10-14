@@ -11,14 +11,34 @@ import sqlite3
 
 from src.database.db import get_connection
 from src.api.schemas import success_response, error_response, validate_required_fields
+from src.api.auth import role_required, patient_access_denied, CLINICAL_ROLES
 from src.utils.logger import get_logger
 
 logger = get_logger("medihaven.api.patients")
 
 patients_bp = Blueprint("patients", __name__, url_prefix="/api/patients")
 
+VALID_GENDERS = {"M": "M", "MALE": "M", "F": "F", "FEMALE": "F", "OTHER": "Other"}
+VALID_STATUSES = ("Admitted", "Observation", "ICU", "Discharged")
+
+
+def patient_exists(patient_id: int) -> bool:
+    """Returns True if a patient row with this ID exists."""
+    with get_connection() as conn:
+        row = conn.execute("SELECT 1 FROM patients WHERE patient_id = ?", (patient_id,)).fetchone()
+    return row is not None
+
+
+def patient_not_found(patient_id: int):
+    return error_response(
+        message=f"Patient with ID {patient_id} not found.",
+        code="PATIENT_NOT_FOUND",
+        status_code=404,
+    )
+
 
 @patients_bp.route("", methods=["GET"])
+@role_required(CLINICAL_ROLES)
 def list_patients():
     """Returns a filtered list of admitted patients for physician triage."""
     risk_tier = request.args.get("risk_tier", "").strip()
@@ -118,8 +138,13 @@ def list_patients():
 
 
 @patients_bp.route("/<int:patient_id>", methods=["GET"])
+@role_required(CLINICAL_ROLES + ["patient"])
 def get_patient(patient_id: int):
     """Returns full clinical chart details for a specific patient."""
+    denied = patient_access_denied(patient_id)
+    if denied:
+        return denied
+
     with get_connection() as conn:
         cursor = conn.cursor()
 
@@ -203,12 +228,30 @@ def get_patient(patient_id: int):
 
 
 @patients_bp.route("", methods=["POST"])
+@role_required(CLINICAL_ROLES)
 def register_patient():
     """Registers a new patient admission."""
     payload = request.get_json(silent=True) or {}
     err = validate_required_fields(payload, ["full_name", "age", "gender", "ward", "bed_number"])
     if err:
         return error_response(message=err, code="VALIDATION_ERROR", status_code=422)
+
+    try:
+        age = int(payload["age"])
+    except (TypeError, ValueError):
+        age = -1
+    if not 0 <= age <= 130:
+        return error_response(message="'age' must be an integer between 0 and 130.", code="VALIDATION_ERROR", status_code=422)
+
+    gender = VALID_GENDERS.get(str(payload["gender"]).strip().upper())
+    if not gender:
+        return error_response(message="'gender' must be one of: M, F, Other.", code="VALIDATION_ERROR", status_code=422)
+
+    status = payload.get("status", "Admitted")
+    if status not in VALID_STATUSES:
+        return error_response(
+            message=f"'status' must be one of: {', '.join(VALID_STATUSES)}.", code="VALIDATION_ERROR", status_code=422
+        )
 
     now = datetime.now()
     mrn = payload.get("mrn")
@@ -222,13 +265,13 @@ def register_patient():
     """
     params = (
         mrn,
-        payload["full_name"].strip(),
-        int(payload["age"]),
-        payload["gender"].strip().upper(),
+        str(payload["full_name"]).strip(),
+        age,
+        gender,
         now.isoformat(),
-        payload.get("status", "Admitted"),
-        payload["ward"].strip(),
-        payload["bed_number"].strip(),
+        status,
+        str(payload["ward"]).strip(),
+        str(payload["bed_number"]).strip(),
     )
 
     with get_connection() as conn:
@@ -253,8 +296,11 @@ def register_patient():
 
 
 @patients_bp.route("/<int:patient_id>/vitals", methods=["GET"])
+@role_required(CLINICAL_ROLES)
 def get_patient_vitals_series(patient_id: int):
     """Returns chronological vitals time series formatted for Chart.js telemetry charts."""
+    if not patient_exists(patient_id):
+        return patient_not_found(patient_id)
     hours_filter = request.args.get("hours", type=int)
 
     query = """
@@ -304,8 +350,11 @@ def get_patient_vitals_series(patient_id: int):
 
 
 @patients_bp.route("/<int:patient_id>/labs", methods=["GET"])
+@role_required(CLINICAL_ROLES)
 def get_patient_labs(patient_id: int):
     """Returns chronological laboratory biomarker test results."""
+    if not patient_exists(patient_id):
+        return patient_not_found(patient_id)
     query = """
         SELECT recorded_at, glucose, creatinine, cholesterol, 
                wbc_count, bun, hemoglobin, platelets
@@ -326,6 +375,7 @@ def get_patient_labs(patient_id: int):
 
 
 @patients_bp.route("/<int:patient_id>/reassign", methods=["POST"])
+@role_required(["admin"])
 def reassign_patient(patient_id: int):
     """Reassigns a patient to a different physician."""
     data = request.get_json(silent=True) or request.form
@@ -360,6 +410,7 @@ def reassign_patient(patient_id: int):
 
 
 @patients_bp.route("/physicians", methods=["GET"])
+@role_required(CLINICAL_ROLES)
 def list_physicians():
     """Returns directory of hospital physicians, their specialties, and active caseload."""
     with get_connection() as conn:
