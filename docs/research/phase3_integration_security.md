@@ -30,7 +30,7 @@ Remove-Item Env:DATA_MODE   # back to synthetic mode
 ```
 
 Prerequisites for research inference: the Phase 1 dataset (v1.2.0) and Phase 2 run
-(`medihaven_t1_phase2_baselines_v1.0.0`) in `MIMIC_OUTPUT_DIR`. Without them the app still starts,
+(`medihaven_t1_phase2_baselines_v2.0.0`) in `MIMIC_OUTPUT_DIR`. Without them the app still starts,
 but research inference stays disabled and the reason is shown. The demo vault in research mode
 needs the existing demo database; it is never created in research mode.
 
@@ -86,17 +86,17 @@ browser storage. Per-stay predictions over MIMIC patients are deliberately not o
 
 1. `MIMIC_OUTPUT_DIR` is outside the repository and OneDrive.
 2. `run_manifest.json` is valid JSON of the expected shape, matches the optional pin, and names run
-   `medihaven_t1_phase2_baselines` v1.0.0, dataset v1.2.0, task `t1_inhospital_mortality_after_icu24h`
+   `medihaven_t1_phase2_baselines` v2.0.0, dataset v1.2.0, task `t1_inhospital_mortality_after_icu24h`
    v3, feature spec `mimic-iv-t1-features-v1` and **the installed scikit-learn version** (exact match;
    otherwise reinstall the recorded version or retrain).
 3. The training dataset hash equals the current Phase 1 dataset manifest.
-4. Every required file (metrics, feature config, the four models) is listed and stays inside the run
+4. Every required file (metrics, feature config, the reference baseline and the four models) is listed and stays inside the run
    folder. **Each file is read once, its SHA-256 is checked on those bytes, and only those exact bytes
    are parsed or deserialized** — there is no second read between check and load. joblib uses pickle,
    which can execute code, so unverified bytes are never deserialized. A scikit-learn version warning
    raised while loading is treated as a failure.
-5. Each model bundle declares exactly the 88 permitted features (re-checked by the Phase 2 forbidden-
-   name guard), the same dataset/task versions and hash, and a fitted pipeline whose inputs are those
+5. Each model bundle declares exactly the 74 model inputs (the feature spec minus the 14 measurement
+   counts, re-checked by the Phase 2 forbidden-name guard; any other exclusion fails verification), the same dataset/task versions and hash, and a fitted pipeline whose inputs are those
    features. `metrics.json` must have the structure the research endpoints read.
 
 Any failure disables research inference with a reason code while the rest of the app keeps running:

@@ -5,18 +5,22 @@
  * All server text is inserted with textContent (no innerHTML) and nothing is kept in browser storage.
  */
 
-const MODEL_ORDER = ["dummy_prior", "logistic_regression", "decision_tree", "random_forest"];
+const MODEL_ORDER = ["dummy_prior", "logistic_regression", "decision_tree", "random_forest", "neural_network"];
+// The prior-only baseline predicts the training death rate: a reference, not one of the four models
+const REAL_MODELS = MODEL_ORDER.filter((m) => m !== "dummy_prior");
 const MODEL_LABELS = {
-  dummy_prior: "Prior-only baseline",
+  dummy_prior: "Baseline (death rate)",
   logistic_regression: "Logistic regression",
   decision_tree: "Decision tree",
   random_forest: "Random forest",
+  neural_network: "Neural network",
 };
 const MODEL_COLORS = {
   dummy_prior: "#64748b",
   logistic_regression: "#38bdf8",
   decision_tree: "#f59e0b",
   random_forest: "#10b981",
+  neural_network: "#a78bfa",
 };
 const VARIABLE_LABELS = {
   heart_rate: "Heart rate", resp_rate: "Respiratory rate", spo2: "SpO2", temperature: "Temperature",
@@ -269,7 +273,7 @@ function renderFolds(data) {
     type: "line",
     data: {
       labels: folds.map((f) => `Fold ${f.fold}`),
-      datasets: MODEL_ORDER.filter((m) => m !== "dummy_prior").map((m) => ({
+      datasets: REAL_MODELS.map((m) => ({
         label: MODEL_LABELS[m],
         data: data.models[m].per_fold_auroc,
         borderColor: MODEL_COLORS[m],
@@ -489,18 +493,18 @@ function renderWhatIf(result) {
   whatIfChart = new Chart(document.getElementById("researchWhatIfChart"), {
     type: "bar",
     data: {
-      labels: MODEL_ORDER.map((m) => MODEL_LABELS[m]),
+      labels: REAL_MODELS.map((m) => MODEL_LABELS[m]),
       datasets: [
         {
           type: "bar",
           label: "Estimated risk of in-hospital death (%)",
-          data: MODEL_ORDER.map((m) => Math.round(result.probabilities[m] * 1000) / 10),
-          backgroundColor: MODEL_ORDER.map((m) => MODEL_COLORS[m]),
+          data: REAL_MODELS.map((m) => Math.round(result.probabilities[m] * 1000) / 10),
+          backgroundColor: REAL_MODELS.map((m) => MODEL_COLORS[m]),
         },
         {
           type: "line",
-          label: `Cohort death rate (${(prevalence * 100).toFixed(1)}%)`,
-          data: MODEL_ORDER.map(() => Math.round(prevalence * 1000) / 10),
+          label: `Cohort death rate / baseline (${(prevalence * 100).toFixed(1)}%)`,
+          data: REAL_MODELS.map(() => Math.round(prevalence * 1000) / 10),
           borderColor: "#94a3b8",
           borderDash: [5, 4],
           borderWidth: 1,

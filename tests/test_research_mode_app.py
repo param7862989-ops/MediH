@@ -193,7 +193,7 @@ def test_research_status_model_card_and_view(research_env):
     assert "NOT clinically validated" in status["disclaimer"]
     card = client.get("/api/research/model-card", headers=ENFORCE).get_json()["data"]
     assert card["primary"]["population"]["stays"] == 70
-    assert set(card["primary"]["models"]) == {"dummy_prior", "logistic_regression", "decision_tree", "random_forest"}
+    assert set(card["primary"]["models"]) == {"dummy_prior", "logistic_regression", "decision_tree", "random_forest", "neural_network"}
     page = client.get("/research", headers=ENFORCE)
     assert page.status_code == 200
     html = page.get_data(as_text=True)
@@ -208,8 +208,9 @@ def test_research_prediction_uses_permitted_features_only(research_env):
     assert response.status_code == 200
     data = response.get_json()["data"]
     assert data["research_only"] is True and "NOT clinically validated" in data["disclaimer"]
-    assert set(data["probabilities"]) == {"dummy_prior", "logistic_regression", "decision_tree", "random_forest"}
+    assert set(data["probabilities"]) == {"dummy_prior", "logistic_regression", "decision_tree", "random_forest", "neural_network"}
     assert all(0.0 <= p <= 1.0 for p in data["probabilities"].values())
+    assert 0.0 < data["probabilities"]["decision_tree"] < 1.0  # smoothed leaves: never exactly 0% or 100%
     summary = data["input_summary"]
     assert summary["variables_measured"] == ["heart_rate", "lactate"]
     assert len(summary["variables_not_measured"]) == 12 and "sbp" in summary["variables_not_measured"]
@@ -390,9 +391,9 @@ def test_research_dashboard_endpoint_serves_aggregate_chart_data(research_env):
     response = client.get("/api/research/dashboard", headers=ENFORCE)
     assert response.status_code == 200
     data = response.get_json()["data"]
-    assert data["kpis"]["stays"] == 70 and data["kpis"]["features"] == len(feature_columns())
-    assert data["kpis"]["top_model"] in {"logistic_regression", "decision_tree", "random_forest"}
-    assert set(data["models"]) == {"dummy_prior", "logistic_regression", "decision_tree", "random_forest"}
+    assert data["kpis"]["stays"] == 70 and data["kpis"]["features"] == len([c for c in feature_columns() if not c.endswith("_count")])
+    assert data["kpis"]["top_model"] in {"logistic_regression", "decision_tree", "random_forest", "neural_network"}
+    assert set(data["models"]) == {"dummy_prior", "logistic_regression", "decision_tree", "random_forest", "neural_network"}
     assert all(len(m["per_fold_auroc"]) == 5 for m in data["models"].values())
     assert set(data["sensitivity"]) == {"primary", "sensitivity_evaluation_only", "sensitivity_retrained"}
     assert len(data["folds"]) == 5 and "test_positives" in data["folds"][0]
@@ -598,7 +599,7 @@ def test_deserializer_receives_exactly_the_verified_bytes(research_env, monkeypa
         target.write_bytes(original)
     assert app.research_service.available
     assert seen == [hashes[f"models/{m}.joblib"] for m in
-                    ("dummy_prior", "logistic_regression", "decision_tree", "random_forest")]
+                    ("dummy_prior", "logistic_regression", "decision_tree", "random_forest", "neural_network")]
 
 
 def test_missing_manifest_pin_is_reported(research_env, monkeypatch, caplog):

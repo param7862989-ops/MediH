@@ -19,13 +19,14 @@ from src.training.dataset import DatasetValidationError, load_task1_dataset
 from src.training.evaluation import run_analyses
 from src.training.features import (
     EXCLUDED_COLUMNS,
+    MEASUREMENT_COUNT_REASON,
     ForbiddenFeatureError,
     build_feature_matrix,
     forbidden_reason,
     select_features,
 )
 from src.training.metrics import binary_metrics
-from src.training.models import MODEL_ORDER, candidate_models
+from src.training.models import MODEL_ORDER, SmoothedDecisionTree, candidate_models
 from src.training.splits import InsufficientDataError, make_grouped_folds
 from src.training.train_mimic_t1 import main, output_dir_for, training_log_path, train_and_evaluate
 from src.utils.config import Config
@@ -33,6 +34,7 @@ from tests.isolation_utils import PROJECT_ROOT
 from tests.training_fixtures import SUBJECT_BASE, make_task1_frame, write_task1_dataset
 
 FAST = {"n_folds": 5, "seed": 7, "n_boot": 100}
+MODEL_INPUTS = [c for c in feature_columns() if not c.endswith("_count")]
 
 
 def _cli(research_dir, *extra):
@@ -112,7 +114,11 @@ def test_unexpected_column_and_missing_dataset_are_rejected(tmp_path):
 # ------------------------------------------------------------------------------
 def test_feature_spec_passes_leakage_guard():
     permitted, excluded = select_features(feature_columns())
-    assert permitted == feature_columns() and excluded == {}
+    assert permitted == MODEL_INPUTS and len(permitted) == 74
+    # measurement counts are dropped as care-process signals; missingness stays visible via _missing
+    assert set(excluded) == {c for c in feature_columns() if c.endswith("_count")} and len(excluded) == 14
+    assert set(excluded.values()) == {MEASUREMENT_COUNT_REASON}
+    assert all(c.replace("_count", "_missing") in permitted for c in excluded)
 
 
 @pytest.mark.parametrize("column", list(EXCLUDED_COLUMNS) + [
@@ -141,9 +147,9 @@ def test_trained_models_never_see_identifiers_label_or_anomaly_flag(tmp_path):
     forbidden = set(ID_COLUMNS) | {LABEL_COLUMN, ANOMALY_COLUMN, "index_time", "dataset_version", "feature_spec_version"}
     for name in MODEL_ORDER:
         bundle = joblib.load(output_dir_for(tmp_path) / "models" / f"{name}.joblib")
-        assert bundle["features"] == feature_columns()
+        assert bundle["features"] == MODEL_INPUTS
         if name != "dummy_prior":
-            assert list(bundle["pipeline"].feature_names_in_) == feature_columns()
+            assert list(bundle["pipeline"].feature_names_in_) == MODEL_INPUTS
             assert not forbidden & set(bundle["pipeline"].feature_names_in_)
         assert bundle["dataset_version"] == "1.2.0" and bundle["task_version"] == "3"
 
@@ -192,6 +198,23 @@ def test_too_few_positives_fail_safely(tmp_path, capsys):
     assert "Too few" in capsys.readouterr().err
     assert not output_dir_for(tmp_path).exists()
     assert not output_dir_for(tmp_path).with_name(output_dir_for(tmp_path).name + ".staging").exists()
+
+
+def test_smoothed_decision_tree_never_outputs_zero_or_one():
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(80, 3))
+    y = (X[:, 0] > 1.2).astype(int)  # few positives: a plain tree would have pure leaves
+    plain = clone(candidate_models(0)["decision_tree"]).set_params(model__smoothing=0.0).fit(X, y)
+    assert {0.0, 1.0} & set(plain.predict_proba(X)[:, 1])
+    smoothed = SmoothedDecisionTree(max_depth=3, min_samples_leaf=8, smoothing=5.0, random_state=0).fit(X, y)
+    p = smoothed.predict_proba(X)[:, 1]
+    assert ((p > 0) & (p < 1)).all()
+    np.testing.assert_allclose(smoothed.predict_proba(X).sum(axis=1), 1.0)
+    # every leaf rate lies between the leaf's raw rate and the training death rate
+    leaves = smoothed.tree_.apply(X)
+    for leaf, rate in smoothed.leaf_rate_.items():
+        raw = y[leaves == leaf].mean()
+        assert min(raw, smoothed.prior_) - 1e-12 <= rate <= max(raw, smoothed.prior_) + 1e-12
 
 
 # ------------------------------------------------------------------------------

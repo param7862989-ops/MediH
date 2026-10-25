@@ -16,7 +16,7 @@
 
 ## 2. Features and leakage protection
 
-- **Permitted inputs (88):** the feature-spec columns — per-variable min/max/mean/last/count/missing
+- **Model inputs (74, model set v2):** the feature-spec columns — per-variable min/max/mean/last/missing
   over `[intime, index_time]` (with the Phase 1 storetime rule), `map_derived`,
   `bp_source_invasive`, `age` (known at admission) and `sex_male`. Each has a recorded provenance in
   `feature_config.json`; a feature whose availability at the prediction time cannot be established
@@ -28,9 +28,14 @@
   discharge, expire flags, outcomes, identifiers (`src_`, subject, hadm, stay_id, `_id`), index time,
   risk tiers/scores, predictions, ICU outtime, length of stay or versions stops the run
   (`ForbiddenFeatureError`). No synthetic risk tiers, scores or previous predictions are used.
-- Note: `<variable>_count` and `bp_source_invasive` reflect how intensively a patient was monitored in
-  the first 24 h. They are available at the prediction time, but they partly encode clinicians'
-  judgement, which matters when interpreting any model.
+- **Measurement counts are not model inputs (since model set v2.0.0):** the 14 `<variable>_count`
+  columns stay in the dataset but are excluded by `select_features` and listed with their reason in
+  `feature_config.json`. A count reflects how intensively a patient was monitored (a care process
+  partly encoding clinicians' judgement) rather than physiology, and a manually entered what-if
+  input cannot supply a realistic one. Missingness remains visible through `<variable>_missing`.
+  The what-if contract still uses counts to tell measured from unmeasured variables.
+- Note: `bp_source_invasive` likewise reflects monitoring practice, which matters when interpreting
+  any model.
 
 ## 3. Running
 
@@ -48,7 +53,7 @@
 Options: `--dataset-dir`, `--seed` (default 42), `--folds` (default 5), `--bootstrap` (default 2000).
 `--research-dir` defaults to `MIMIC_OUTPUT_DIR`. Locations inside the repository or OneDrive are refused.
 
-Outputs, in `<research-dir>\medihaven_t1_phase2_baselines_v1.0.0\`: `models\*.joblib` (pipelines
+Outputs, in `<research-dir>\medihaven_t1_phase2_baselines_v2.0.0\`: `models\*.joblib` (pipelines
 refitted on all eligible stays, each bundled with its features, dataset/task versions, dataset content
 hash and seed), `metrics.json`, `feature_config.json`, `split_metadata.json`, `report.md` and
 `run_manifest.json` (versions, seed, timestamp, software, command and SHA-256 of every output file).
@@ -66,10 +71,17 @@ scikit-learn Pipeline and is therefore fitted on training folds only.
 
 | Model | Configuration |
 | :--- | :--- |
-| `dummy_prior` | predicts the training prevalence (reference) |
+| `dummy_prior` | predicts the training prevalence — a **reference line**, not one of the four models |
 | `logistic_regression` | median imputation → drop constant → standardize → L2 logistic regression, C = 0.1 |
-| `decision_tree` | median imputation → drop constant → depth ≤ 3, ≥ 5 stays per leaf |
+| `decision_tree` | median imputation → drop constant → depth ≤ 3, ≥ 8 stays per leaf; each leaf reports the m-estimate (deaths + 5 × prior) / (stays + 5), so it never outputs exactly 0 % or 100 % |
 | `random_forest` | median imputation → drop constant → 300 trees, depth ≤ 4, ≥ 3 stays per leaf |
+| `neural_network` | median imputation → drop constant → standardize → MLP, one hidden layer of 16 ReLU units, L2 α = 1.0, L-BFGS |
+
+Model set history: v1.0.0 (88 inputs including counts; three models plus the reference; a plain
+decision tree whose zero-death leaves output exactly 0 %) is kept on disk; v2.0.0 is the current set.
+The v2 changes (count exclusion, leaf smoothing, the neural network) were made to fix the what-if
+behaviour, not chosen to maximise the scores below; they were nonetheless decided after seeing v1
+results on the same data, so v1→v2 differences are not independent evidence of improvement.
 
 K-Means is not used: it is not a supervised mortality predictor.
 
@@ -119,19 +131,30 @@ positive and 19–20 negative test stays each.
 
 | Model | AUROC [95% CI] | Avg. precision [95% CI] | Brier | Sens. / Spec. at prevalence threshold |
 | :--- | :--- | :--- | :--- | :--- |
-| dummy_prior | 0.46 [0.30–0.62] | 0.10 [0.05–0.17] | 0.092 | 1.00 / 0.00 |
-| logistic_regression | 0.73 [0.52–0.89] | 0.35 [0.14–0.62] | 0.086 | 0.64 / 0.76 |
-| decision_tree | 0.62 [0.47–0.79] | 0.17 [0.07–0.44] | 0.109 | 0.36 / 0.86 |
-| random_forest | 0.75 [0.56–0.91] | 0.38 [0.15–0.67] | 0.081 | 0.73 / 0.70 |
+Model set v2.0.0:
+
+| Model | AUROC [95% CI] | Avg. precision [95% CI] | Brier | Sens. / Spec. at prevalence threshold |
+| :--- | :--- | :--- | :--- | :--- |
+| dummy_prior (reference) | 0.46 [0.30–0.62] | 0.10 [0.05–0.17] | 0.092 | 1.00 / 0.00 |
+| logistic_regression | 0.74 [0.57–0.90] | 0.31 [0.14–0.62] | 0.086 | 0.73 / 0.76 |
+| decision_tree | 0.56 [0.35–0.77] | 0.15 [0.07–0.39] | 0.098 | 0.36 / 0.75 |
+| random_forest | 0.73 [0.53–0.91] | 0.34 [0.14–0.66] | 0.082 | 0.64 / 0.62 |
+| neural_network | 0.77 [0.60–0.91] | 0.41 [0.17–0.66] | 0.087 | 0.55 / 0.85 |
 
 Sensitivity analyses (103 stays, 83 subjects, 7 positive / 96 negative):
-A (evaluation-only) — logistic regression AUROC 0.71, random forest 0.76.
-B (retrained, folds with 1–2 positives) — logistic regression AUROC 0.32 [0.03–0.67], decision tree
-0.64, random forest 0.66.
+A (evaluation-only) — logistic regression AUROC 0.73, decision tree 0.52, random forest 0.73,
+neural network 0.78.
+B (retrained, folds with 1–2 positives) — logistic regression 0.40 [0.08–0.76], decision tree 0.61,
+random forest 0.71, neural network 0.39 [0.02–0.78].
 
-Reading: the intervals overlap heavily, the decision tree and logistic regression change markedly
-between analyses, and B shows how fragile any estimate is with 7 positive stays. No model ranking or
-performance claim is supported by these numbers.
+For comparison, v1.0.0 (primary): logistic regression 0.73, decision tree 0.62, random forest 0.75
+AUROC.
+
+Reading: the intervals overlap heavily; the neural network has the highest pooled AUROC and average
+precision but the widest swings between analyses (0.78 in A, 0.39 in B), and logistic regression
+collapses the same way in B. The depth-3 tree has only four distinct outputs and is the weakest
+model. B shows how fragile any estimate is with 7 positive stays. No model ranking or performance
+claim is supported by these numbers.
 
 ## 9. What would be needed before performance claims
 
