@@ -38,6 +38,7 @@ from src.models.knn_model import KNNSimilarityMatcher
 from src.models.neural_network_model import NeuralNetworkRiskModel
 from src.models.ensemble import EnsembleClinicalPredictor
 from src.utils.config import Config
+from src.utils.data_mode import require_synthetic_mode
 from src.utils.logger import get_logger
 
 logger = get_logger("medihaven.evaluation.benchmark")
@@ -67,6 +68,7 @@ def run_clinical_benchmark(
     Returns:
         Structured dictionary of evaluation results and compliance statuses.
     """
+    require_synthetic_mode("The synthetic model benchmark")
     logger.info("Initializing MediHaven Clinical Machine Learning Benchmarking...")
 
     train_path = Config.PROCESSED_DATA_DIR / "train.parquet"

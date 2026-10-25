@@ -23,6 +23,7 @@ from src.data.feature_engineering import (
 )
 from src.data.scaler import ClinicalFeatureScaler
 from src.utils.config import Config
+from src.utils.data_mode import require_synthetic_mode
 from src.utils.logger import get_logger
 
 logger = get_logger("medihaven.data.pipeline")
@@ -43,6 +44,7 @@ def run_batch_pipeline(
     Returns:
         Tuple of (train_df, test_df, fitted_scaler).
     """
+    require_synthetic_mode("The synthetic feature pipeline")
     logger.info("=" * 60)
     logger.info("STARTING BATCH CLINICAL DATA ENGINEERING PIPELINE (Phase 3)")
     logger.info("=" * 60)

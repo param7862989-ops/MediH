@@ -22,6 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
 import jwt
 from src.database.db import get_connection, init_db
 from src.utils.config import Config
+from src.utils.data_mode import require_synthetic_mode
 from src.utils.logger import get_logger
 
 logger = get_logger("medihaven.seeder")
@@ -77,6 +78,7 @@ def generate_patient_name(gender: str) -> str:
 
 def seed_database(num_patients: int = 100) -> None:
     """Generates and inserts clinically realistic patient cohorts and vault records."""
+    require_synthetic_mode("Seeding synthetic clinical patients")
     logger.info(f"Starting database seeding for {num_patients} patients...")
 
     # Ensure schema exists

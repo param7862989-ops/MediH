@@ -30,6 +30,7 @@ if sys.platform == "win32":
         pass
 
 from src.utils.config import Config
+from src.utils.data_mode import ResearchModeNotSupportedError, is_research_mode, require_synthetic_mode
 from src.utils.logger import get_logger
 from src.api.app import create_app
 
@@ -54,6 +55,8 @@ def print_banner():
 
 def run_preflight_checks() -> bool:
     """Verifies that all prerequisite system components and models are ready."""
+    # Self-healing below seeds and trains synthetic assets, which research mode must never do
+    require_synthetic_mode("The demo pre-flight self-healing (auto-seed and auto-train)")
     print(" [1/4] Checking Relational Database & Seed Data...")
     if not Config.DATABASE_PATH.exists():
         print(f"       -> Database not found at {Config.DATABASE_PATH}. Auto-initializing...")
@@ -118,6 +121,12 @@ def open_browser_delayed(url: str, delay_seconds: float = 1.5):
 
 def main():
     print_banner()
+    if is_research_mode():
+        try:
+            require_synthetic_mode("Launching the MediHaven demo server")
+        except ResearchModeNotSupportedError as e:
+            print(f"\n [!] {e}\n", file=sys.stderr)
+            sys.exit(2)
     run_preflight_checks()
 
     app = create_app()

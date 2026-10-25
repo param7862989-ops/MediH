@@ -56,6 +56,12 @@ models_store/*
 logs/*
 !logs/.gitkeep
 
+# Research data (MIMIC-IV) must live outside the repository; never commit it if copied here
+mimic-iv*/
+*.csv.gz
+research_output*/
+medihaven_t1_*/
+
 # IDE & Editor files
 .vscode/
 .idea/

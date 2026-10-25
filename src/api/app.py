@@ -11,6 +11,7 @@ from flask import Flask, render_template, redirect, url_for, request, jsonify
 from flask_cors import CORS
 
 from src.utils.config import Config
+from src.utils.data_mode import require_synthetic_mode
 from src.utils.logger import get_logger
 from src.api.schemas import error_response, success_response
 from src.api.routes.patients import patients_bp
@@ -32,6 +33,9 @@ def create_app(test_config: Optional[Dict[str, Any]] = None) -> Flask:
     Returns:
         Configured Flask application instance.
     """
+    # The web portals only serve the synthetic demo until research serving integration exists
+    require_synthetic_mode("Starting the MediHaven web application")
+
     app = Flask(
         __name__,
         template_folder=str(Config.TEMPLATES_DIR),

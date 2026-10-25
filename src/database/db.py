@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Generator, List, Dict, Any, Optional
 
 from src.utils.config import Config
+from src.utils.data_mode import require_synthetic_mode
 from src.utils.logger import get_logger
+from src.utils.research_paths import is_within
 
 logger = get_logger("medihaven.db")
 
@@ -94,6 +96,16 @@ def init_db(force_recreate: bool = False, db_path: Optional[Path] = None) -> Non
     """
     target_path = db_path or Config.DATABASE_PATH
     schema_path = Config.DATABASE_DIR / "schema.sql"
+
+    # Never create or wipe the application schema inside a research data location
+    for research_dir in (Config.MIMIC_IV_DIR, Config.MIMIC_OUTPUT_DIR):
+        if research_dir is not None and is_within(target_path, research_dir):
+            raise RuntimeError(
+                f"Refusing to initialize the application database at {target_path}: "
+                f"it is inside the research data directory {research_dir}."
+            )
+    if force_recreate:
+        require_synthetic_mode("Recreating the application database")
 
     if not schema_path.exists():
         raise FileNotFoundError(f"Schema file not found at: {schema_path}")

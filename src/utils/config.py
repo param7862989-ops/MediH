@@ -6,8 +6,12 @@ QR tokens, and application logging.
 """
 
 import os
+import warnings
 from pathlib import Path
+from typing import Optional
 from dotenv import load_dotenv
+
+from src.utils.research_paths import unsafe_reasons
 
 # Base Project Root Directory (resolved relative to this file)
 # file -> utils -> src -> MediHaven root
@@ -17,6 +21,33 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 ENV_PATH = BASE_DIR / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 
+# "synthetic" runs the seeded demo; "mimic" is the research mode for real de-identified data
+DATA_MODES = ("synthetic", "mimic")
+
+
+def parse_data_mode(raw_value: Optional[str]) -> str:
+    """Normalizes DATA_MODE, defaulting to the synthetic demo and rejecting unknown modes."""
+    mode = (raw_value or "synthetic").strip().lower()
+    if mode not in DATA_MODES:
+        raise ValueError(f"Invalid DATA_MODE '{raw_value}'. Expected one of: {', '.join(DATA_MODES)}.")
+    return mode
+
+
+def env_path(name: str, default: Path) -> Path:
+    """Reads a directory/file path from the environment; relative paths resolve against the project root."""
+    raw_value = os.getenv(name, "").strip()
+    path = Path(raw_value).expanduser() if raw_value else default
+    return path if path.is_absolute() else BASE_DIR / path
+
+
+def optional_env_path(name: str) -> Optional[Path]:
+    """Like env_path, but returns None when the variable is unset or empty."""
+    raw_value = os.getenv(name, "").strip()
+    if not raw_value:
+        return None
+    path = Path(raw_value).expanduser()
+    return path if path.is_absolute() else BASE_DIR / path
+
 
 class Config:
     """Master configuration class for MediHaven."""
@@ -25,7 +56,7 @@ class Config:
     BASE_DIR = BASE_DIR
     DATA_DIR = BASE_DIR / "data"
     RAW_DATA_DIR = DATA_DIR / "raw"
-    PROCESSED_DATA_DIR = DATA_DIR / "processed"
+    PROCESSED_DATA_DIR = env_path("PROCESSED_DATA_DIR", DATA_DIR / "processed")
     EXTERNAL_DATA_DIR = DATA_DIR / "external"
 
     DATABASE_DIR = BASE_DIR / "database"
@@ -33,10 +64,15 @@ class Config:
     if not DATABASE_PATH.is_absolute():
         DATABASE_PATH = BASE_DIR / DATABASE_PATH
 
-    MODELS_STORE_DIR = BASE_DIR / "models_store"
+    MODELS_STORE_DIR = env_path("MODELS_STORE_DIR", BASE_DIR / "models_store")
     LOGS_DIR = BASE_DIR / "logs"
     TEMPLATES_DIR = BASE_DIR / "templates"
     STATIC_DIR = BASE_DIR / "static"
+
+    # Data mode & research data locations (MIMIC-IV inputs and generated research datasets)
+    DATA_MODE = parse_data_mode(os.getenv("DATA_MODE"))
+    MIMIC_IV_DIR = optional_env_path("MIMIC_IV_DIR")
+    MIMIC_OUTPUT_DIR = optional_env_path("MIMIC_OUTPUT_DIR")
 
     # Application & Server Settings
     FLASK_ENV = os.getenv("FLASK_ENV", "development")
@@ -105,6 +141,24 @@ class Config:
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
 
+    @classmethod
+    def warn_about_unsafe_research_paths(cls):
+        """Warns at startup when research paths sit in the repository or a OneDrive folder.
+
+        The dataset builder refuses such paths outright; this is an early heads-up.
+        """
+        for name, path in (("MIMIC_IV_DIR", cls.MIMIC_IV_DIR), ("MIMIC_OUTPUT_DIR", cls.MIMIC_OUTPUT_DIR)):
+            if path is None:
+                continue
+            reasons = unsafe_reasons(path)
+            if reasons:
+                warnings.warn(
+                    f"{name}={path} is unsafe for research data because " + " and ".join(reasons)
+                    + ". The MIMIC-IV dataset builder will refuse to use it.",
+                    stacklevel=2,
+                )
+
 
 # Auto-ensure directories on import
 Config.ensure_directories()
+Config.warn_about_unsafe_research_paths()
