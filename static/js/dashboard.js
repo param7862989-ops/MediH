@@ -327,6 +327,7 @@ async function openPatientChart(patientId) {
     const consensus = pred.model_consensus || {};
     document.getElementById("vote-kmeans").textContent = consensus.kmeans_tier || "Low";
     document.getElementById("vote-dt").textContent = consensus.decision_tree_tier || "Low";
+    document.getElementById("vote-knn").textContent = consensus.knn_tier || "Low";
     document.getElementById("vote-nn").textContent = consensus.neural_network_tier || "Low";
 
     // 3. Render Longitudinal Vitals Chart (Chart.js)

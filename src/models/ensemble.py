@@ -162,6 +162,7 @@ class EnsembleClinicalPredictor:
             knn_prob /= np.sum(knn_prob)
         else:
             knn_prob = np.ones(4) / 4.0
+        knn_tier = REVERSE_TIER_MAP.get(int(np.argmax(knn_prob)), "Medium")
 
         # 4. Neural Network Prediction
         nn_prob = self.neural_net.predict_proba(vec_2d)[0]
@@ -223,6 +224,7 @@ class EnsembleClinicalPredictor:
             "model_consensus": {
                 "decision_tree_tier": dt_tier,
                 "neural_network_tier": nn_tier,
+                "knn_tier": knn_tier,
                 "kmeans_tier": km_tier,
                 "class_probabilities": {
                     "Low": round(float(consensus_prob[0]), 3),
