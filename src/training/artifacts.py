@@ -34,7 +34,7 @@ import sklearn
 from src.datasources.mimic.mappings import FEATURE_SPEC_VERSION, feature_columns
 from src.tasks.mortality_icu_24h import TASK_ID
 from src.training.dataset import EXPECTED_DATASET_VERSION, EXPECTED_TASK_VERSION, default_dataset_dir
-from src.training.features import ForbiddenFeatureError, select_features
+from src.training.features import MEASUREMENT_COUNT_REASON, ForbiddenFeatureError, select_features
 from src.training.models import MODEL_ORDER
 from src.training.train_mimic_t1 import RUN_ID, RUN_VERSION, output_dir_for
 from src.utils.research_paths import UnsafeResearchPathError, is_within, require_safe_research_path
@@ -173,12 +173,11 @@ def verify_and_load(research_dir: Optional[Path], manifest_pin: str = "") -> Ver
         if relative in REQUIRED_FILES:
             verified[relative] = data
 
-    features = feature_columns()
     try:
-        permitted, excluded = select_features(features)
+        features, excluded = select_features(feature_columns())  # model inputs: spec minus policy exclusions
     except ForbiddenFeatureError as e:  # pragma: no cover - feature spec itself is guarded by tests
         raise ArtifactVerificationError("FORBIDDEN_FEATURE", "The feature specification contains forbidden columns.") from e
-    if excluded or permitted != features:
+    if any(reason != MEASUREMENT_COUNT_REASON for reason in excluded.values()):
         raise ArtifactVerificationError("FEATURE_SCHEMA_MISMATCH", "Feature provenance could not be established.")
     feature_config = _parse_json_object(verified["feature_config.json"], "FEATURE_CONFIG_INVALID", "feature_config.json")
     config_features = feature_config.get("features")

@@ -5,6 +5,7 @@ enforcing categorical whitelist filtering on medical vault records, atomically u
 use quotas, and committing audit log entries.
 """
 
+import json
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Union
 import sqlite3
@@ -52,7 +53,13 @@ def access_vault_with_token(
         token_id = int(token_record.get("token_id", 0)) if token_record else 0
         raw_pid = token_record.get("patient_id") if token_record else (claims.get("sub") if claims else 0)
         patient_id = int(raw_pid) if raw_pid else 0
+        # The stored grant is authoritative; the token claims only identify it
         scope = claims.get("scope", ["*"]) if claims else []
+        if token_record and token_record.get("scope_json"):
+            try:
+                scope = json.loads(token_record["scope_json"])
+            except (TypeError, ValueError):
+                scope = []
 
         # If Token Validation Failed
         if not val_res["is_valid"]:
@@ -77,14 +84,37 @@ def access_vault_with_token(
                 "records": [],
             }
 
-        # Step 2: Query Patient Identity for Clinical Display
+        # Step 2: Atomically claim one use of the pass. Validation read use_count earlier; concurrent scans
+        # of a single-use pass could all pass that check, so only the scan whose UPDATE matches wins.
         cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE vault_access_tokens SET use_count = use_count + 1
+            WHERE token_id = ? AND revoked = 0 AND (max_uses IS NULL OR use_count < max_uses)
+            """,
+            (token_id,),
+        )
+        conn.commit()
+        if cursor.rowcount != 1:
+            log_vault_access(
+                token_id=token_id, patient_id=patient_id, accessed_by=accessed_by,
+                access_status="MAX_USES_EXCEEDED", accessed_scope=scope,
+                ip_address=ip_address, user_agent=user_agent, conn=conn,
+            )
+            return {
+                "access_granted": False,
+                "access_status": "MAX_USES_EXCEEDED",
+                "error_message": "Pass has reached its maximum scan limit.",
+                "records": [],
+            }
+
+        # Step 3: Query Patient Identity for Clinical Display
         cursor.execute("SELECT full_name, mrn, age, gender FROM patients WHERE patient_id = ?", (patient_id,))
         p_row = cursor.fetchone()
         patient_name = p_row["full_name"] if p_row else "Unknown Patient"
         mrn = p_row["mrn"] if p_row else claims.get("mrn", "UNKNOWN")
 
-        # Step 3: Fetch Medical Vault Records with Strict Whitelist Scope Filtering
+        # Step 4: Fetch Medical Vault Records with Strict Whitelist Scope Filtering
         all_patient_records = get_patient_vault_records(
             patient_id=patient_id,
             include_sensitive=True,
@@ -102,13 +132,6 @@ def access_vault_with_token(
                 if rec["is_sensitive"] and is_wildcard_scope and len(scope) == 1:
                     continue
                 filtered_records.append(rec)
-
-        # Step 4: Atomically Increment Token Use Count
-        cursor.execute(
-            "UPDATE vault_access_tokens SET use_count = use_count + 1 WHERE token_id = ?",
-            (token_id,),
-        )
-        conn.commit()
 
         # Step 5: Log Immutable Audit Event
         log_id = log_vault_access(

@@ -5,7 +5,7 @@ Enforces consistent response formats, error standardization, and payload validat
 
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
-from flask import jsonify, Response
+from flask import jsonify, request, Response
 
 
 def success_response(
@@ -84,3 +84,18 @@ def validate_required_fields(payload: Dict[str, Any], required_fields: List[str]
         return f"Missing required parameter(s): {', '.join(missing)}"
 
     return None
+
+
+def request_payload(allow_form: bool = False) -> Dict[str, Any]:
+    """The JSON object body (or form fields if allowed); anything else, e.g. a JSON array, becomes {}."""
+    data = request.get_json(silent=True)
+    if isinstance(data, dict):
+        return data
+    return request.form.to_dict() if allow_form else {}
+
+
+def clean_text(value: Any, default: str, max_length: int = 1000) -> str:
+    """A trimmed, length-capped string from an untrusted field; non-strings and blanks give the default."""
+    if not isinstance(value, str) or not value.strip():
+        return default
+    return value.strip()[:max_length]

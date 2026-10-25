@@ -5,7 +5,7 @@ CORS security, standardized error handlers, and web portal view routes.
 """
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Any
 from flask import Flask, render_template, redirect, url_for, request, jsonify, abort
@@ -14,7 +14,12 @@ from flask_cors import CORS
 from src.utils.config import Config
 from src.utils.data_mode import is_research_mode
 from src.utils.logger import get_logger
-from src.utils.security import require_research_safe_config, weak_secret_reasons
+from src.utils.security import (
+    is_loopback_host,
+    require_production_safe_config,
+    require_research_safe_config,
+    weak_secret_reasons,
+)
 from src.api.schemas import error_response, success_response
 from src.api.routes.patients import patients_bp
 from src.api.routes.predictions import predictions_bp
@@ -25,6 +30,22 @@ from src.api.auth import auth_bp, ROLE_DASHBOARD_MAP
 from src.models.ensemble import EnsembleClinicalPredictor
 
 logger = get_logger("medihaven.api.app")
+
+# Same-origin only, except fonts from Google Fonts. Inline styles remain (used throughout the templates);
+# scripts are all served from /static, so no inline script can run.
+CONTENT_SECURITY_POLICY = "; ".join((
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: blob:",
+    "media-src 'self' blob:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+))
 
 # Synthetic clinical-intelligence APIs that research mode must never serve (no silent synthetic fallback)
 RESEARCH_BLOCKED_API_PREFIXES = ("/api/patients", "/api/dashboard", "/api/alerts", "/api/admin")
@@ -56,6 +77,9 @@ def create_app(test_config: Optional[Dict[str, Any]] = None) -> Flask:
     research = is_research_mode()
     if research:
         require_research_safe_config()
+    elif Config.IS_PRODUCTION or not is_loopback_host(Config.FLASK_HOST):
+        # Weak signing secrets let anyone forge an admin session: never acceptable beyond this machine
+        require_production_safe_config()
     else:
         for reason in weak_secret_reasons():
             logger.warning(f"SECURITY: {reason}; sessions and QR passes can be forged. Set a strong value in .env.")
@@ -73,11 +97,20 @@ def create_app(test_config: Optional[Dict[str, Any]] = None) -> Flask:
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=Config.SESSION_COOKIE_SECURE,
+        PERMANENT_SESSION_LIFETIME=timedelta(hours=Config.SESSION_HOURS),
         MAX_CONTENT_LENGTH=int(Config.MAX_REQUEST_MB * 1024 * 1024),
     )
+    # Flask also reads FLASK_DEBUG from the environment on its own; only Config decides here
+    app.debug = Config.FLASK_DEBUG and not research and not Config.IS_PRODUCTION
 
     if test_config:
         app.config.update(test_config)
+
+    if Config.TRUST_PROXY_HOPS > 0:
+        # Behind a TLS-terminating proxy: take client address and scheme from its X-Forwarded-* headers
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        hops = Config.TRUST_PROXY_HOPS
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=hops, x_host=hops)
 
     # The portals call the API same-origin; cross-origin access only for explicitly listed origins
     if Config.CORS_ORIGINS:
@@ -129,10 +162,24 @@ def create_app(test_config: Optional[Dict[str, Any]] = None) -> Flask:
             )
         return None
 
+    @app.after_request
+    def security_headers(response):
+        response.headers.setdefault("Content-Security-Policy", CONTENT_SECURITY_POLICY)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
+        if request.is_secure:
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+        if request.path.startswith("/api/"):
+            response.headers.setdefault("Cache-Control", "no-store")
+        return response
+
     @app.context_processor
     def inject_user():
         from flask import session
-        return {"current_user": session.get("user")}
+        return {"current_user": session.get("user"), "demo_logins": Config.DEMO_LOGINS,
+                "demo_mode": Config.DEMO_MODE}
 
     def enforce_role(allowed_roles: list):
         """Enforces role-based route protection for web portals."""
@@ -143,7 +190,7 @@ def create_app(test_config: Optional[Dict[str, Any]] = None) -> Flask:
 
         user = session.get("user")
         if not user:
-            return redirect(url_for("view_login", next=request.path, error="Please sign in to access this portal."))
+            return redirect(url_for("view_login", next=request.path, error="signin"))
 
         user_role = user.get("role")
         if user_role not in allowed_roles:
@@ -312,6 +359,6 @@ if __name__ == "__main__":
     app.run(
         host=Config.FLASK_HOST,
         port=Config.FLASK_PORT,
-        # The interactive debugger allows code execution; never enable it in research mode
+        # The interactive debugger allows code execution; never enable it in research mode or production
         debug=Config.FLASK_DEBUG and not is_research_mode(),
     )

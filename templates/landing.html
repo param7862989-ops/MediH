@@ -296,7 +296,7 @@
         </div>
 
         <div class="contact-form-col">
-          <form id="contact-inquiry-form" onsubmit="handleContactSubmit(event)"
+          <form id="contact-inquiry-form"
             style="display: flex; flex-direction: column; gap: 12px;">
             <div>
               <label for="contact-name"
@@ -328,7 +328,7 @@
             </button>
             <div id="contact-success-msg"
               style="display: none; font-size: 12px; color: var(--risk-low); text-align: center; padding: 6px 0;">
-              ✓ Message logged. A clinical systems specialist will contact you shortly.
+              This is a demo form: nothing was sent. Please email support@medihaven.org instead.
             </div>
           </form>
         </div>
@@ -897,18 +897,5 @@
   }
 </style>
 
-<script>
-  function handleContactSubmit(event) {
-    event.preventDefault();
-    const btn = document.getElementById("btn-submit-inquiry");
-    const msg = document.getElementById("contact-success-msg");
-    btn.disabled = true;
-    btn.textContent = "Logging Inquiry...";
-    setTimeout(() => {
-      btn.style.display = "none";
-      msg.style.display = "block";
-      document.getElementById("contact-inquiry-form").reset();
-    }, 600);
-  }
-</script>
+<script src="{{ url_for('static', filename='js/landing.js') }}"></script>
 {% endblock %}

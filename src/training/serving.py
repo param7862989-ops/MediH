@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from src.datasources.mimic.mappings import VARIABLES
+from src.datasources.mimic.mappings import VARIABLES, feature_columns
 from src.training.artifacts import ArtifactVerificationError, VerifiedArtifacts, verify_and_load
 from src.training.features import build_feature_matrix
 from src.training.models import MODEL_ORDER
@@ -218,7 +218,9 @@ class ResearchModelService:
     def predict(self, supplied: object) -> Dict[str, object]:
         """Risk estimates for caller-supplied inputs under the whatif.py contract."""
         features = self.artifacts.features
-        row, input_summary = build_whatif_row(supplied, features)
+        # The contract is validated on the full feature spec (counts define measured/unmeasured);
+        # only the model-input subset is passed to the models
+        row, input_summary = build_whatif_row(supplied, feature_columns())
         X = build_feature_matrix(pd.DataFrame([row], columns=features), features)
         probabilities = {
             name: round(float(self.artifacts.models[name].predict_proba(X)[0, 1]), 4) for name in MODEL_ORDER

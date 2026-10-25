@@ -75,8 +75,11 @@ class Config:
     MIMIC_OUTPUT_DIR = optional_env_path("MIMIC_OUTPUT_DIR")
 
     # Application & Server Settings
-    FLASK_ENV = os.getenv("FLASK_ENV", "development")
-    FLASK_DEBUG = os.getenv("FLASK_DEBUG", "1").lower() in ("1", "true", "yes")
+    FLASK_ENV = os.getenv("FLASK_ENV", "development").strip().lower()
+    # Production (FLASK_ENV=production, the default under wsgi.py) refuses weak secrets, never enables
+    # the debugger and marks the session cookie Secure unless told otherwise (see src/utils/security.py)
+    IS_PRODUCTION = FLASK_ENV == "production"
+    FLASK_DEBUG = os.getenv("FLASK_DEBUG", "0").lower() in ("1", "true", "yes") and not IS_PRODUCTION
     FLASK_PORT = int(os.getenv("FLASK_PORT", "5000"))
     FLASK_HOST = os.getenv("FLASK_HOST", "127.0.0.1")
     # Demo mode lets clinicians mint sample QR passes from the scanner portal.
@@ -84,6 +87,9 @@ class Config:
     DEMO_MODE = os.getenv(
         "DEMO_MODE", "1" if FLASK_ENV == "development" else "0"
     ).lower() in ("1", "true", "yes")
+    # Public demo logins (physician1, patient1) shown on the login page; production needs DEMO_LOGINS=1
+    DEMO_LOGINS = os.getenv("DEMO_LOGINS", "0" if IS_PRODUCTION else "1").lower() in ("1", "true", "yes")
+    SESSION_HOURS = float(os.getenv("SESSION_HOURS", "8"))
     # Public development fallbacks: research mode refuses to start with these (see src/utils/security.py)
     DEFAULT_FLASK_SECRET_KEY = "medihaven_flask_dev_sec_9941a8b7c2e34f6d1a0b5c8e7f2d3a4b"
     DEFAULT_JWT_SECRET_KEY = "medihaven_jwt_vault_sig_7f8e9d0c1b2a3456789abcdef0123456"
@@ -93,7 +99,11 @@ class Config:
     # Comma-separated origins allowed to call /api/* cross-origin; empty = same-origin only
     CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
     # Set to 1 when serving over HTTPS so the session cookie is never sent in clear text
-    SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "0").lower() in ("1", "true", "yes")
+    SESSION_COOKIE_SECURE = os.getenv(
+        "SESSION_COOKIE_SECURE", "1" if IS_PRODUCTION else "0"
+    ).lower() in ("1", "true", "yes")
+    # Number of reverse proxies in front of the app whose X-Forwarded-* headers are trusted (0 = none)
+    TRUST_PROXY_HOPS = int(os.getenv("TRUST_PROXY_HOPS", "0"))
     MAX_REQUEST_MB = float(os.getenv("MAX_REQUEST_MB", "8"))
     # Optional SHA-256 of the Phase 2 run_manifest.json that research mode must load (authenticity pin)
     RESEARCH_ARTIFACT_MANIFEST_SHA256 = os.getenv("RESEARCH_ARTIFACT_MANIFEST_SHA256", "").strip().lower()

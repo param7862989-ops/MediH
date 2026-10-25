@@ -609,8 +609,8 @@ MediH/
 
 ### Step 1: Install Dependencies
 ```bash
-# From the repository root:
-pip install -r requirements.txt
+# From the repository root (Python 3.12; versions are pinned):
+pip install -r requirements-dev.txt   # runtime dependencies + pytest
 ```
 
 ### Step 2: (Optional) Configure Google Gemini API Key
@@ -639,8 +639,17 @@ This will automatically:
 * **🩺 Physician Triage**: [http://127.0.0.1:5000/dashboard](http://127.0.0.1:5000/dashboard) *(Demo: `physician1` / `Physician@123`)*
 * **🛡️ Patient Medical Vault**: [http://127.0.0.1:5000/vault](http://127.0.0.1:5000/vault) *(Demo: `patient1` / `Patient@123`)*
 * **📷 Provider QR Scanner**: [http://127.0.0.1:5000/scanner](http://127.0.0.1:5000/scanner)
-* **📊 Hospital Administrator**: [http://127.0.0.1:5000/admin](http://127.0.0.1:5000/admin) *(Admin Accounts: `vidhi` / `Vidhi@123`, `nirupam` / `Nirupam@123`, `param` / `Param@123`)*
+* **📊 Hospital Administrator**: [http://127.0.0.1:5000/admin](http://127.0.0.1:5000/admin) *(Admin Accounts: `vidhi` / `Vidhi@123`, `nirupam` / `Nirupam@123`, `param` / `Param@123`; development only, refused in production)*
 * **⚙️ System Health Probe**: [http://127.0.0.1:5000/api/health](http://127.0.0.1:5000/api/health)
+
+### Deploying to a Server
+`run_demo.py` is for local demos. For a public deployment use the production entry point (Waitress +
+`wsgi.py`, or the `Dockerfile`), which refuses weak secrets and development passwords:
+```bash
+waitress-serve --host=0.0.0.0 --port=8000 wsgi:app
+```
+See **[docs/deployment.md](docs/deployment.md)** for the required settings, Docker and PaaS steps, and
+security notes. Research mode (`DATA_MODE=mimic`) is never deployable.
 
 ---
 

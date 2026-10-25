@@ -33,6 +33,13 @@ FORBIDDEN_NAME_PATTERNS = (
 )
 
 
+# Measurement counts stay in the dataset (they define <variable>_missing) but are not model inputs:
+# they mostly encode how intensively a patient was monitored, and manual what-if input cannot supply them.
+MEASUREMENT_COUNT_SUFFIX = "_count"
+MEASUREMENT_COUNT_REASON = ("measurement count: reflects monitoring intensity (care process) rather than physiology, "
+                            "and cannot be supplied by manual what-if input; missingness stays visible via <variable>_missing")
+
+
 class ForbiddenFeatureError(ValueError):
     """Raised when a forbidden column would enter the training matrix."""
 
@@ -78,6 +85,8 @@ def select_features(candidates: List[str]) -> Tuple[List[str], Dict[str, str]]:
     for column in candidates:
         if feature_provenance(column) is None:
             excluded[column] = "availability at the prediction time cannot be established"
+        elif column.endswith(MEASUREMENT_COUNT_SUFFIX):
+            excluded[column] = MEASUREMENT_COUNT_REASON
         else:
             permitted.append(column)
     return permitted, excluded

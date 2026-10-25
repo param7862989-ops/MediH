@@ -7,7 +7,7 @@ Usage:
 <research-dir>/medihaven_t1_inhospital_mortality_icu24h_v1.2.0 (override with --dataset-dir), and
 every output is written to a new versioned folder, never into the repository or Phase 1 folders:
 
-    <research-dir>/medihaven_t1_phase2_baselines_v1.0.0/
+    <research-dir>/medihaven_t1_phase2_baselines_v2.0.0/
         models/<model>.joblib     final pipelines fitted on all eligible stays (+ provenance)
         metrics.json              aggregate metrics for the primary and sensitivity analyses
         feature_config.json       permitted features, provenance, exclusions, preprocessing
@@ -56,7 +56,8 @@ from src.utils.config import Config
 from src.utils.research_paths import UnsafeResearchPathError, is_within, require_safe_research_path
 
 RUN_ID = "medihaven_t1_phase2_baselines"
-RUN_VERSION = "1.0.0"
+# 2.0.0: four real models (LR, smoothed tree, RF, MLP) + reference baseline; measurement counts not model inputs
+RUN_VERSION = "2.0.0"
 DEFAULT_SEED = 42
 DEFAULT_FOLDS = 5
 DEFAULT_BOOTSTRAP = 2000

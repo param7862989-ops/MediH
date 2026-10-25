@@ -259,8 +259,8 @@
         Document treating physician review and log immediate clinical intervention intent for this high-risk patient.
       </p>
       <div class="form-group">
-        <label class="form-label" for="ack-doctor-name">Treating Clinician Name</label>
-        <input type="text" class="form-control" id="ack-doctor-name" value="Dr. Sarah Chen, MD (Attending)" />
+        <label class="form-label" for="ack-doctor-name">Treating Clinician (signed-in user)</label>
+        <input type="text" class="form-control" id="ack-doctor-name" value="{{ current_user.display_name if current_user else '' }}" readonly />
       </div>
       <div class="form-group">
         <label class="form-label" for="ack-clinical-notes">Intervention & Clinical Action Plan</label>

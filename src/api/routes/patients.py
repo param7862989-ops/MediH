@@ -233,7 +233,9 @@ def get_patient(patient_id: int):
 @role_required(CLINICAL_ROLES)
 def register_patient():
     """Registers a new patient admission."""
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        payload = {}
     err = validate_required_fields(payload, ["full_name", "age", "gender", "ward", "bed_number"])
     if err:
         return error_response(message=err, code="VALIDATION_ERROR", status_code=422)
@@ -284,7 +286,7 @@ def register_patient():
             new_id = cursor.lastrowid
         except sqlite3.IntegrityError as e:
             return error_response(
-                message=f"Database integrity error: {e}",
+                message="A patient with this MRN already exists.",
                 code="DUPLICATE_MRN",
                 status_code=409,
             )
@@ -304,6 +306,8 @@ def get_patient_vitals_series(patient_id: int):
     if not patient_exists(patient_id):
         return patient_not_found(patient_id)
     hours_filter = request.args.get("hours", type=int)
+    if hours_filter is not None:
+        hours_filter = min(max(hours_filter, 1), 24 * 365 * 10)  # bounded: huge values overflow timedelta
 
     query = """
         SELECT recorded_at, heart_rate, blood_pressure_sys, blood_pressure_dia, 
@@ -380,8 +384,11 @@ def get_patient_labs(patient_id: int):
 @role_required(["admin"])
 def reassign_patient(patient_id: int):
     """Reassigns a patient to a different physician."""
-    data = request.get_json(silent=True) or request.form
-    new_physician = data.get("assigned_physician", "").strip()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = request.form
+    raw_name = data.get("assigned_physician")
+    new_physician = raw_name.strip()[:200] if isinstance(raw_name, str) else ""
     if not new_physician:
         return error_response("Physician name is required.", code="MISSING_FIELD", status_code=400)
 
@@ -399,7 +406,7 @@ def reassign_patient(patient_id: int):
         )
         conn.commit()
 
-    logger.info(f"PATIENT_REASSIGNED | patient_id={patient_id} | from='{old_physician}' | to='{new_physician}'")
+    logger.info(f"PATIENT_REASSIGNED | patient_id={patient_id} | from={old_physician!r} | to={new_physician!r}")
     return success_response(
         data={
             "patient_id": patient_id,

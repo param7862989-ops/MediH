@@ -423,7 +423,11 @@ function setupModalListeners() {
 
       // Render QR image
       const qrContainer = document.getElementById("qr-image-container");
-      qrContainer.innerHTML = `<img src="${tokenData.qr_code_base64 || tokenData.qr_image_url}" alt="Cryptographic QR Access Pass" />`;
+      qrContainer.textContent = "";
+      const qrImg = document.createElement("img");
+      qrImg.src = tokenData.qr_code_base64 || tokenData.qr_image_url;
+      qrImg.alt = "Cryptographic QR Access Pass";
+      qrContainer.appendChild(qrImg);
 
       const patientName = document.querySelector("#vault-patient-select option:checked").textContent;
       document.getElementById("qr-card-patient-name").textContent = patientName;
@@ -471,10 +475,10 @@ function setupModalListeners() {
     fileInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (file) {
-        fileInfo.textContent = `Attached: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        fileInfo.textContent = `Reference: ${file.name} (${(file.size / 1024).toFixed(1)} KB). Only these details are saved; the file is not uploaded.`;
         fileInfo.style.color = "#38bdf8";
       } else {
-        fileInfo.textContent = "Supported: PDF, DICOM, Lab Reports, Clinical Images";
+        fileInfo.textContent = "Demo: only the file's name, size and type are recorded with the entry; the file itself is not uploaded.";
         fileInfo.style.color = "var(--text-muted)";
       }
     });
@@ -535,7 +539,7 @@ function setupModalListeners() {
         document.getElementById("record-sensitive").checked = false;
         if (fileInput) fileInput.value = "";
         if (fileInfo) {
-          fileInfo.textContent = "Supported: PDF, DICOM, Lab Reports, Clinical Images";
+          fileInfo.textContent = "Demo: only the file's name, size and type are recorded with the entry; the file itself is not uploaded.";
           fileInfo.style.color = "var(--text-muted)";
         }
         await fetchVaultRecords();

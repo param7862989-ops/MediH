@@ -73,8 +73,9 @@
   </section>
 
   <!-- =========================================================================
-       INSTANT 1-CLICK DEMO EMERGENCY PASS GENERATOR BAR
+       INSTANT 1-CLICK DEMO EMERGENCY PASS GENERATOR BAR (only when DEMO_MODE lets clinicians mint passes)
        ========================================================================= -->
+  {% if demo_mode %}
   <section class="card" style="padding: var(--space-md) var(--space-lg); margin-bottom: var(--space-xl); background: rgba(2, 132, 199, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: var(--radius-md);">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
       <div>
@@ -95,6 +96,7 @@
       </div>
     </div>
   </section>
+  {% endif %}
 
   <!-- =========================================================================
        CENTERED SCANNER & CAMERA VIEWFINDER SECTION
@@ -132,13 +134,14 @@
       <!-- Clinician ID Input -->
       <div style="margin-top: var(--space-md); text-align: left;">
         <label class="form-label" for="scanner-clinician-name" style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-muted);">
-          Consulting Clinician / Facility Identifier:
+          Consulting Clinician (recorded in the patient's audit log):
         </label>
         <input 
           type="text" 
           class="form-control" 
           id="scanner-clinician-name" 
-          value="Dr. Sarah Chen, MD (Emergency Triage)" 
+          value="{{ current_user.display_name if current_user else '' }}" 
+          readonly 
           style="font-size: 12px; padding: 8px 12px;"
         />
       </div>

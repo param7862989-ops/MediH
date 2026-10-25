@@ -81,7 +81,7 @@ async function fetchDeteriorationAlerts() {
         : `<span class="alert-urgency-pill">⚠️ ${escapeHtml(alert.urgency_level)}</span>`;
 
       const ackButton = isAck
-        ? `<button class="btn btn-sm" style="border: 1px solid rgba(16, 185, 129, 0.45); color: #34d399 !important; background: rgba(16, 185, 129, 0.15); cursor: default; font-weight: 600;" disabled title="Acknowledged at ${alert.acknowledged_at || 'earlier'}">✓ Acknowledged (${escapeHtml(alert.acknowledged_by || 'Dr. Gupta')})</button>`
+        ? `<button class="btn btn-sm" style="border: 1px solid rgba(16, 185, 129, 0.45); color: #34d399 !important; background: rgba(16, 185, 129, 0.15); cursor: default; font-weight: 600;" disabled title="Acknowledged at ${escapeHtml(alert.acknowledged_at || 'earlier')}">✓ Acknowledged (${escapeHtml(alert.acknowledged_by || 'Dr. Gupta')})</button>`
         : `<button class="btn btn-acknowledge btn-sm btn-ack-alert" data-id="${alert.patient_id}" data-name="${escapeHtml(alert.full_name)}">✓ Acknowledge</button>`;
 
       banner.innerHTML = `
@@ -198,7 +198,7 @@ function renderPatientTable() {
     const mapClass = mapVal < 65 ? "hemo-warn" : "hemo-normal";
 
     tr.innerHTML = `
-      <td><span class="risk-badge risk-badge-${p.risk_tier.toLowerCase()}">${escapeHtml(p.risk_tier)}</span></td>
+      <td><span class="risk-badge risk-badge-${escapeHtml(p.risk_tier.toLowerCase())}">${escapeHtml(p.risk_tier)}</span></td>
       <td class="mono" style="font-weight: 700; color: #ffffff;">${p.risk_score.toFixed(2)}</td>
       <td>
         <div class="patient-name-cell">${escapeHtml(p.full_name)}</div>
@@ -278,8 +278,12 @@ function setupFilterEventListeners() {
 // ==============================================================================
 // 4. Slide-Over Clinical Chart Drawer & Live AI
 // ==============================================================================
+// Increments per drawer open, so a slow response for an earlier patient never overwrites a later one
+let drawerRequestSeq = 0;
+
 async function openPatientChart(patientId) {
   currentSelectedPatientId = patientId;
+  const requestSeq = ++drawerRequestSeq;
   const drawer = document.getElementById("drawer-backdrop");
   drawer.classList.add("active");
   drawer.setAttribute("aria-hidden", "false");
@@ -298,11 +302,17 @@ async function openPatientChart(patientId) {
       fetch(`/api/patients/${patientId}/similar?k=5`).then((r) => r.json()),
     ]);
 
-    if (!chartRes.success) return;
+    if (requestSeq !== drawerRequestSeq) return; // another patient was opened meanwhile
+    if (!chartRes.success) {
+      document.getElementById("drawer-patient-name").textContent = "Patient chart unavailable";
+      document.getElementById("drawer-patient-meta").textContent = chartRes.error?.message || "Please try again.";
+      return;
+    }
     const patient = chartRes.data;
-    const pred = predRes.data || {};
-    const vitalsSeries = vitalsRes.data || [];
-    const simData = simRes.data || {};
+    const predictionOk = Boolean(predRes.success && predRes.data);
+    const pred = predictionOk ? predRes.data : {};
+    const vitalsSeries = vitalsRes.success ? vitalsRes.data || [] : [];
+    const simData = simRes.success ? simRes.data || {} : {};
 
     // 1. Populate Demographic Header & Clinical Dossier
     document.getElementById("drawer-patient-name").textContent = patient.full_name;
@@ -315,14 +325,22 @@ async function openPatientChart(patientId) {
     const physEl = document.getElementById("drawer-patient-physician");
     if (physEl) physEl.textContent = patient.assigned_physician || "Dr. Sarah Chen, MD (Attending)";
 
+    // 2. Multi-Model Consensus Metrics: a failed prediction is shown as unavailable, never as a made-up "Low"
     const badge = document.getElementById("drawer-risk-badge");
-    badge.className = `risk-badge risk-badge-${(pred.risk_tier || "low").toLowerCase()}`;
-    badge.textContent = `${pred.risk_tier || "Low"} Risk Tier`;
-
-    // 2. Multi-Model Consensus Metrics
-    document.getElementById("drawer-score-val").textContent = (pred.risk_score || 0.1).toFixed(2);
-    document.getElementById("drawer-confidence-val").textContent = `Confidence: ${Math.round((pred.confidence || 0.85) * 100)}%`;
-    document.getElementById("drawer-readmit-val").textContent = `${Math.round((pred.readmission_30d_risk || 0.15) * 100)}%`;
+    if (predictionOk) {
+      badge.className = `risk-badge risk-badge-${String(pred.risk_tier).toLowerCase()}`;
+      badge.textContent = `${pred.risk_tier} Risk Tier`;
+      document.getElementById("drawer-score-val").textContent = Number(pred.risk_score).toFixed(2);
+      document.getElementById("drawer-confidence-val").textContent = `Confidence: ${Math.round(pred.confidence * 100)}%`;
+      document.getElementById("drawer-readmit-val").textContent = `${Math.round(pred.readmission_30d_risk * 100)}%`;
+    } else {
+      badge.className = "risk-badge";
+      badge.textContent = "Prediction unavailable";
+      badge.title = predRes.error?.message || "The risk models could not produce a prediction.";
+      document.getElementById("drawer-score-val").textContent = "—";
+      document.getElementById("drawer-confidence-val").textContent = "Confidence: —";
+      document.getElementById("drawer-readmit-val").textContent = "—";
+    }
 
     const consensus = pred.model_consensus || {};
     const scores = consensus.model_scores || {};
@@ -352,7 +370,12 @@ function renderModelVote(elementId, view, fallbackTier) {
   const el = document.getElementById(elementId);
   if (!el) return;
   el.textContent = "";
-  const tier = (view && view.tier) || fallbackTier || "Low";
+  el.title = "";
+  const tier = (view && view.tier) || fallbackTier;
+  if (!tier) {
+    el.textContent = "—";
+    return;
+  }
   const badge = document.createElement("span");
   badge.className = `risk-badge risk-badge-${tier.toLowerCase()}`;
   badge.style.cssText = "font-size: 10px; padding: 1px 6px;";
@@ -500,7 +523,9 @@ function renderKnnPrecedents(simData) {
   container.innerHTML = "";
 
   const protoBadge = document.getElementById("drawer-rec-protocol");
-  protoBadge.textContent = `${simData.recommended_protocol || "Protocol S"} (${Math.round((simData.protocol_success_rate || 0.85) * 100)}% Success)`;
+  protoBadge.textContent = simData.recommended_protocol
+    ? `${simData.recommended_protocol} (${Math.round((simData.protocol_success_rate || 0) * 100)}% Success)`
+    : "No recommendation available";
 
   const matches = simData.similar_patients || [];
   if (matches.length === 0) {
@@ -681,10 +706,17 @@ function setupAlertModalEventListeners() {
         closeModal();
         await fetchDeteriorationAlerts();
         await fetchDashboardSummary();
+      } else {
+        alert("Could not acknowledge the alert: " + (json.error?.message || "server error"));
       }
     } catch (err) {
       console.error("Failed to acknowledge alert:", err);
+      alert("Could not acknowledge the alert: connection error.");
     }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && modal.classList.contains("active")) closeModal();
   });
 }
 
