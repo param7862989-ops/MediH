@@ -6,6 +6,10 @@
 
 let videoStream = null;
 let scanInterval = null;
+// One camera frame in flight at a time: overlapping requests flood the server and could each spend a pass use
+let frameScanInFlight = false;
+// Camera frames are downscaled to this width and sent as JPEG (a QR needs far less than a full PNG frame)
+const FRAME_SCAN_WIDTH = 480;
 
 document.addEventListener("DOMContentLoaded", () => {
   initScanner();
@@ -35,52 +39,30 @@ function initScanner() {
   const p1Btn = document.getElementById("btn-quick-scan-p1");
   if (p1Btn) {
     p1Btn.addEventListener("click", () => {
-      loadDemoTokenForPatient(1, ["allergy", "medication"], "Dr. Sarah Chen, MD (Emergency Triage)");
+      loadDemoTokenForPatient(1, ["allergy", "medication"]);
     });
   }
 
   const p2Btn = document.getElementById("btn-quick-scan-p2");
   if (p2Btn) {
     p2Btn.addEventListener("click", () => {
-      loadDemoTokenForPatient(2, ["*"], "Dr. Marcus Vance, MD (Critical Care)");
+      loadDemoTokenForPatient(2, ["*"]);
     });
   }
 }
 
-async function loadDemoTokenForPatient(patientId, scopes, clinician) {
+async function loadDemoTokenForPatient(patientId, scopes) {
   try {
-    let res = await fetch(`/api/vault/${patientId}/share`, {
+    const res = await fetch(`/api/vault/${patientId}/share`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        patient_id: patientId,
-        scope: scopes,
-        expires_in_minutes: 60,
-        ttl_minutes: 60,
-        max_uses: 10,
-        created_by: "Bedside Optical Scanner",
-      }),
+      body: JSON.stringify({ scope: scopes, expires_in_minutes: 60, max_uses: 10 }),
     });
-    let json = await res.json();
-    if (!json.success) {
-      res = await fetch("/api/vault/share", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patient_id: patientId,
-          scope: scopes,
-          expires_in_minutes: 60,
-          ttl_minutes: 60,
-          max_uses: 10,
-        }),
-      });
-      json = await res.json();
-    }
+    const json = await res.json();
 
     if (json.success && json.data) {
       const token = json.data.token || json.data.qr_payload;
       document.getElementById("qr-token-input").value = token;
-      if (clinician) document.getElementById("scanner-clinician-name").value = clinician;
       await submitPayloadForVerification(token);
     } else {
       alert("Failed to generate demo pass: " + (json.error ? json.error.message : "Server error"));
@@ -143,19 +125,25 @@ function stopCamera() {
   video.srcObject = null;
 }
 
-function captureAndScanFrame() {
+async function captureAndScanFrame() {
   const video = document.getElementById("scanner-video");
   const canvas = document.getElementById("qr-canvas");
-  if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+  if (frameScanInFlight || !video || video.readyState !== video.HAVE_ENOUGH_DATA) return;
 
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  const scale = Math.min(1, FRAME_SCAN_WIDTH / video.videoWidth);
+  canvas.width = Math.round(video.videoWidth * scale);
+  canvas.height = Math.round(video.videoHeight * scale);
   const ctx = canvas.getContext("2d");
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  const dataUrl = canvas.toDataURL("image/png");
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
   // Submit frame to backend for pyzbar optical decode & verification
-  submitPayloadForVerification(dataUrl, true);
+  frameScanInFlight = true;
+  try {
+    await submitPayloadForVerification(dataUrl, true);
+  } finally {
+    frameScanInFlight = false;
+  }
 }
 
 // ==============================================================================
@@ -177,16 +165,12 @@ function handleFileUpload(e) {
 // 3. Verification & Access Submission
 // ==============================================================================
 async function submitPayloadForVerification(payload, isSilentScan = false) {
-  const clinicianName = document.getElementById("scanner-clinician-name").value.trim() || "Consulting Clinician";
-
   try {
+    // The server records the signed-in clinician in the audit log
     const res = await fetch("/api/vault/access", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: payload,
-        accessed_by: clinicianName,
-      }),
+      body: JSON.stringify({ token: payload }),
     });
 
     const json = await res.json();
@@ -242,7 +226,7 @@ function renderVerificationResult(data) {
     accessLoggedCard.style.display = "block";
     const accessText = document.getElementById("access-logged-text");
     if (accessText) {
-      accessText.textContent = `Access-Logged Confirmation: Bedside consult session immutably logged to Patient #${data.patient_id} audit trail at ${new Date().toLocaleTimeString()} (Status: GRANTED, IP: 127.0.0.1).`;
+      accessText.textContent = `Access-Logged Confirmation: consult by ${data.accessed_by || "you"} logged to Patient #${data.patient_id}'s audit trail at ${new Date().toLocaleTimeString()} (Status: GRANTED).`;
     }
   }
 
@@ -284,7 +268,7 @@ function renderVerificationResult(data) {
     card.innerHTML = `
       <div class="record-header">
         <span class="record-cat-pill">${escapeHtml(r.category.replace("_", " "))}</span>
-        <span style="font-size: 11px; color: var(--text-muted);">Vault Record #${r.vault_id}</span>
+        <span style="font-size: 11px; color: var(--text-muted);">Vault Record #${escapeHtml(r.vault_id)}</span>
       </div>
       <div class="record-title">${escapeHtml(r.title)}</div>
       <div class="record-desc">${escapeHtml(r.description || "No specific observations documented.")}</div>

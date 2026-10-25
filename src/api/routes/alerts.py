@@ -9,8 +9,8 @@ from typing import Dict, List, Optional, Any
 from flask import Blueprint, request, current_app
 
 from src.database.db import get_connection
-from src.api.schemas import success_response, error_response, validate_required_fields
-from src.api.auth import role_required, CLINICAL_ROLES
+from src.api.schemas import success_response, error_response, validate_required_fields, request_payload, clean_text
+from src.api.auth import role_required, acting_user_name, CLINICAL_ROLES
 from src.utils.logger import get_logger
 
 logger = get_logger("medihaven.api.alerts")
@@ -135,9 +135,9 @@ def get_alerts():
 @role_required(CLINICAL_ROLES)
 def acknowledge_alert(patient_id: int):
     """Allows treating physician to acknowledge alert and log clinical intent."""
-    payload = request.get_json(silent=True) or {}
-    doctor_name = payload.get("doctor_name", "Attending Physician").strip()
-    notes = payload.get("notes", "Alert reviewed; clinical intervention planned.").strip()
+    payload = request_payload()
+    doctor_name = acting_user_name(payload.get("doctor_name"), "Attending Physician")
+    notes = clean_text(payload.get("notes"), "Alert reviewed; clinical intervention planned.")
     now_iso = datetime.now().isoformat()
 
     with get_connection() as conn:
@@ -157,7 +157,7 @@ def acknowledge_alert(patient_id: int):
 
     logger.info(
         f"ALERT_ACKNOWLEDGED | patient_id={patient_id} | "
-        f"doctor='{doctor_name}' | notes='{notes}'"
+        f"doctor={doctor_name!r} | notes={notes!r}"
     )
 
     return success_response(
@@ -195,12 +195,11 @@ CLINICAL_ACTIVITY_LOG: List[Dict[str, Any]] = [
 @role_required(CLINICAL_ROLES)
 def dispatch_alert():
     """Allows an administrator or physician to manually dispatch an escalation alert for high-risk patients."""
-    payload = request.get_json(silent=True) or request.form
+    payload = request_payload(allow_form=True)
     patient_id = payload.get("patient_id")
-    urgency_level = payload.get("urgency_level", "CRITICAL ACTION REQUIRED")
-    triggers = payload.get("triggers", ["Clinician Escalation: Acute Hemodynamic Deterioration Suspected"])
-    dispatch_notes = payload.get("notes", "Rapid escalation dispatched via Administrator Console.")
-    dispatched_by = payload.get("dispatched_by", "Hospital Administrator")
+    urgency_level = clean_text(payload.get("urgency_level"), "CRITICAL ACTION REQUIRED", 100)
+    dispatch_notes = clean_text(payload.get("notes"), "Rapid escalation dispatched via Administrator Console.")
+    dispatched_by = acting_user_name(payload.get("dispatched_by"), "Hospital Administrator")
     now_iso = datetime.now().isoformat()
 
     if not patient_id:
@@ -208,7 +207,7 @@ def dispatch_alert():
 
     try:
         patient_id = int(patient_id)
-    except ValueError:
+    except (TypeError, ValueError):
         return error_response("patient_id must be an integer.", code="INVALID_FIELD", status_code=400)
 
     # Re-open any previously acknowledged alerts for this patient
@@ -248,7 +247,7 @@ def dispatch_alert():
     if len(CLINICAL_ACTIVITY_LOG) > 50:
         CLINICAL_ACTIVITY_LOG.pop()
 
-    logger.warning(f"ESCALATION_ALERT_DISPATCHED | patient_id={patient_id} | by='{dispatched_by}'")
+    logger.warning(f"ESCALATION_ALERT_DISPATCHED | patient_id={patient_id} | by={dispatched_by!r}")
     return success_response(
         data={
             "patient_id": patient_id,

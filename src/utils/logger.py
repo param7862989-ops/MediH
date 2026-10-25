@@ -5,8 +5,25 @@ tamper-evident audit logging for the Patient Medical Vault and QR access events.
 """
 
 import logging
+import sys
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from typing import Optional
+
 from src.utils.config import Config
+
+
+def _rotating_file_handler(path: Path, max_bytes: int, backups: int) -> Optional[RotatingFileHandler]:
+    """A rotating file handler, or None if the location is not writable (e.g. a read-only container).
+
+    Console logging keeps working either way; vault access events are also stored in the database.
+    """
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return RotatingFileHandler(filename=str(path), maxBytes=max_bytes, backupCount=backups, encoding="utf-8")
+    except OSError as e:
+        print(f"[medihaven] File logging disabled for {path.name}: {type(e).__name__}", file=sys.stderr)
+        return None
 
 
 def get_logger(name: str = "medihaven") -> logging.Logger:
@@ -41,16 +58,11 @@ def get_logger(name: str = "medihaven") -> logging.Logger:
     logger.addHandler(console_handler)
 
     # Rotating File Handler (10MB per file, up to 5 backups)
-    Config.LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    file_handler = RotatingFileHandler(
-        filename=str(Config.LOG_FILE),
-        maxBytes=10 * 1024 * 1024,
-        backupCount=5,
-        encoding="utf-8",
-    )
-    file_handler.setLevel(log_level)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    file_handler = _rotating_file_handler(Config.LOG_FILE, 10 * 1024 * 1024, 5)
+    if file_handler:
+        file_handler.setLevel(log_level)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
 
     return logger
 
@@ -77,15 +89,10 @@ def get_audit_logger(name: str = "medihaven.audit") -> logging.Logger:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    Config.AUDIT_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    audit_file_handler = RotatingFileHandler(
-        filename=str(Config.AUDIT_LOG_FILE),
-        maxBytes=20 * 1024 * 1024,
-        backupCount=10,
-        encoding="utf-8",
-    )
-    audit_file_handler.setLevel(logging.INFO)
-    audit_file_handler.setFormatter(audit_formatter)
-    audit_logger.addHandler(audit_file_handler)
+    # Without a writable audit file, audit events go to stderr instead of being lost
+    audit_handler = _rotating_file_handler(Config.AUDIT_LOG_FILE, 20 * 1024 * 1024, 10) or logging.StreamHandler()
+    audit_handler.setLevel(logging.INFO)
+    audit_handler.setFormatter(audit_formatter)
+    audit_logger.addHandler(audit_handler)
 
     return audit_logger

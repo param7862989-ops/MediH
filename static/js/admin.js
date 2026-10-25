@@ -73,12 +73,12 @@ async function fetchAdminSummary() {
     const d = json.data;
     const dist = d.risk_distribution || {};
 
-    document.getElementById("admin-total-patients").textContent = d.total_admitted || 100;
+    document.getElementById("admin-total-patients").textContent = d.total_admitted ?? "—";
     document.getElementById("admin-critical-count").textContent = dist.Critical || 0;
     document.getElementById("admin-high-count").textContent = dist.High || 0;
     document.getElementById("admin-medium-count").textContent = dist.Medium || 0;
     document.getElementById("admin-low-count").textContent = dist.Low || 0;
-    document.getElementById("admin-icu-count").textContent = `${d.icu_occupancy || 18} / 20`;
+    document.getElementById("admin-icu-count").textContent = `${d.icu_occupancy ?? "—"} / 20`;
 
     const highRiskTotal = (dist.Critical || 0) + (dist.High || 0);
     const badgeEl = document.getElementById("tab-count-high-risk");
@@ -126,7 +126,7 @@ function renderHighRiskTable() {
   highRisk.forEach((p) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><span class="risk-badge risk-badge-${p.risk_tier.toLowerCase()}">${escapeHtml(p.risk_tier)}</span></td>
+      <td><span class="risk-badge risk-badge-${escapeHtml(p.risk_tier.toLowerCase())}">${escapeHtml(p.risk_tier)}</span></td>
       <td class="mono" style="font-weight: 700; color: #ffffff;">${p.risk_score.toFixed(2)}</td>
       <td>
         <div class="patient-name-cell">${escapeHtml(p.full_name)}</div>
@@ -203,7 +203,7 @@ function renderAssignmentsTable() {
       <td class="mono">${escapeHtml(p.mrn)}</td>
       <td>${escapeHtml(p.ward)} · <span class="mono">${escapeHtml(p.bed_number)}</span></td>
       <td><span style="color: #60a5fa; font-weight: 600;">${escapeHtml(p.assigned_physician || "Dr. Sarah Chen, MD")}</span></td>
-      <td><span class="risk-badge risk-badge-${p.risk_tier.toLowerCase()}">${escapeHtml(p.risk_tier)}</span></td>
+      <td><span class="risk-badge risk-badge-${escapeHtml(p.risk_tier.toLowerCase())}">${escapeHtml(p.risk_tier)}</span></td>
       <td style="font-size: 12px; color: var(--text-secondary); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
         ${escapeHtml(p.primary_diagnosis || "Inpatient Care")}
       </td>
@@ -457,6 +457,11 @@ function initGeminiStudio() {
     btnCopy.addEventListener("click", () => {
       const text = document.getElementById("gemini-narrative-text")?.textContent?.trim() || "";
       if (text) {
+        // The Clipboard API exists only on secure origins (HTTPS or localhost)
+        if (!navigator.clipboard) {
+          alert("Copying needs HTTPS. Select the text and copy it manually.");
+          return;
+        }
         navigator.clipboard.writeText(text).then(() => {
           const original = btnCopy.textContent;
           btnCopy.textContent = "✓ Copied!";
@@ -465,7 +470,7 @@ function initGeminiStudio() {
             btnCopy.textContent = original;
             btnCopy.style.color = "#94a3b8";
           }, 2000);
-        });
+        }).catch(() => alert("Copy failed. Select the text and copy it manually."));
       }
     });
   }

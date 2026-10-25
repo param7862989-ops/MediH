@@ -28,6 +28,9 @@ from src.utils.logger import get_logger
 
 logger = get_logger("medihaven.vault.scanner")
 
+# A QR frame never needs more; larger images could expand to gigabytes of pixel buffers when decoded
+MAX_QR_IMAGE_PIXELS = 4096 * 4096
+
 
 def extract_qr_text_from_image(image_input: Union[bytes, str, np.ndarray, Path, Image.Image]) -> Optional[str]:
     """Decodes QR code text payload from an image in various input formats.
@@ -57,6 +60,11 @@ def extract_qr_text_from_image(image_input: Union[bytes, str, np.ndarray, Path, 
         elif isinstance(image_input, np.ndarray):
             pil_img = Image.fromarray(cv2.cvtColor(image_input, cv2.COLOR_BGR2RGB))
         else:
+            return None
+
+        # Image.open only reads the header, so the size is known before the pixels are decoded
+        if pil_img.width * pil_img.height > MAX_QR_IMAGE_PIXELS:
+            logger.warning(f"QR image rejected: {pil_img.width}x{pil_img.height} exceeds the size limit")
             return None
 
         # Try pyzbar first for robust multi-angle decoding (if available)

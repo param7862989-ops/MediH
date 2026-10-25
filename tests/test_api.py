@@ -564,7 +564,7 @@ def test_web_portal_view_routes(client: FlaskClient):
     assert b"MediHaven" in dash_res.data
     assert b"Physician Clinical Triage" in dash_res.data
     assert b"dashboard.js" in dash_res.data
-    assert b"chart.umd.min.js" in dash_res.data
+    assert b"vendor/chart.umd.js" in dash_res.data  # self-hosted Chart.js
 
     # Vault view renders HTML with vault.js & patient sovereignty components
     vault_res = client.get("/vault")

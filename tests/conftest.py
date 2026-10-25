@@ -125,3 +125,12 @@ def test_root() -> Path:
 def persistent_snapshot_before():
     """Checksums of the persistent database/artifacts taken before any test code ran."""
     return PERSISTENT_SNAPSHOT_BEFORE
+
+
+@pytest.fixture(autouse=True)
+def fresh_rate_limits():
+    """Rate-limit counters are per process; each test starts with none, as a new client would."""
+    from src.api.rate_limit import reset_rate_limits
+    reset_rate_limits()
+    yield
+    reset_rate_limits()

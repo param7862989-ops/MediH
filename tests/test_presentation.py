@@ -107,7 +107,7 @@ def test_dashboard_view_structure_and_bindings(client: FlaskClient):
 
     # JavaScript Controller & Chart.js Binding
     assert 'dashboard.js' in html
-    assert 'chart.umd.min.js' in html
+    assert 'vendor/chart.umd.js' in html  # self-hosted Chart.js
 
 
 # ==============================================================================

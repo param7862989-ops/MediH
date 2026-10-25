@@ -18,7 +18,7 @@
     <div class="card login-card">
       <div id="login-error-alert" class="login-error" style="display: none;"></div>
 
-      <form id="login-form" method="POST" action="/api/auth/login" onsubmit="handleLoginSubmit(event)">
+      <form id="login-form" method="POST" action="/api/auth/login">
         <div class="form-group">
           <label class="form-label" for="username-input">Username / Clinical ID</label>
           <input 
@@ -51,26 +51,28 @@
         </button>
       </form>
 
-      <!-- Quick-Fill Demo Helpers -->
+      <!-- Quick-Fill Demo Helpers (only when DEMO_LOGINS is on) -->
       <div class="demo-credentials-section">
+        {% if demo_logins %}
         <div class="demo-title">TEST DEMO CREDENTIALS</div>
         <p class="demo-subtext">Click below to auto-fill authorized project credentials for instant evaluation:</p>
 
         <div class="demo-buttons-grid">
           <!-- Demo 1: Physician -->
-          <button type="button" class="demo-pill-btn" onclick="fillCredentials('physician1', 'Physician@123')">
+          <button type="button" class="demo-pill-btn" data-demo-username="physician1" data-demo-password="Physician@123">
             <span class="demo-role-badge badge-physician">Physician</span>
             <span class="demo-label">Physician Clinical Triage</span>
             <span class="demo-hint">physician1 · Physician@123</span>
           </button>
 
           <!-- Demo 2: Patient -->
-          <button type="button" class="demo-pill-btn" onclick="fillCredentials('patient1', 'Patient@123')">
+          <button type="button" class="demo-pill-btn" data-demo-username="patient1" data-demo-password="Patient@123">
             <span class="demo-role-badge badge-patient">Patient</span>
             <span class="demo-label">Patient Medical Vault</span>
             <span class="demo-hint">patient1 · Patient@123</span>
           </button>
         </div>
+        {% endif %}
 
         <div style="margin-top: 12px; font-size: 11px; color: var(--text-muted); background: var(--bg-surface-elevated); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-hairline);">
           🔒 <strong style="color: #34d399;">Hospital Administrator Access:</strong> Restricted to authorized system staff. Sign in above with your assigned institutional administrator credentials.
@@ -281,63 +283,5 @@
   }
 </style>
 
-<script>
-  function fillCredentials(username, password) {
-    document.getElementById("username-input").value = username;
-    document.getElementById("password-input").value = password;
-    const errorBox = document.getElementById("login-error-alert");
-    errorBox.style.display = "none";
-  }
-
-  async function handleLoginSubmit(event) {
-    event.preventDefault();
-    const btn = document.getElementById("btn-login-submit");
-    const errorBox = document.getElementById("login-error-alert");
-    const username = document.getElementById("username-input").value.trim();
-    const password = document.getElementById("password-input").value.trim();
-
-    errorBox.style.display = "none";
-    btn.disabled = true;
-    btn.textContent = "Authenticating...";
-
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        errorBox.textContent = data.error?.message || "Invalid username or password.";
-        errorBox.style.display = "block";
-        btn.disabled = false;
-        btn.textContent = "Sign In to Portal →";
-        return;
-      }
-
-      // Successful login
-      btn.textContent = "✓ Access Granted. Redirecting...";
-      const dest = data.data?.redirect_url || "/";
-      window.location.href = dest;
-    } catch (err) {
-      errorBox.textContent = "Connection error. Please try again.";
-      errorBox.style.display = "block";
-      btn.disabled = false;
-      btn.textContent = "Sign In to Portal →";
-    }
-  }
-
-  // Pre-fill error message from URL query params if redirected
-  document.addEventListener("DOMContentLoaded", () => {
-    const params = new URLSearchParams(window.location.search);
-    const err = params.get("error");
-    if (err) {
-      const errorBox = document.getElementById("login-error-alert");
-      errorBox.textContent = err;
-      errorBox.style.display = "block";
-    }
-  });
-</script>
+<script src="{{ url_for('static', filename='js/login.js') }}"></script>
 {% endblock %}

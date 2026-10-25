@@ -159,9 +159,30 @@
       justify-content: space-between;
       align-items: center;
       background-color: var(--bg-surface);
+    }
+    /* Narrow screens: let the header and footer wrap instead of overflowing horizontally */
+    @media (max-width: 900px) {
+      .top-nav {
+        height: auto;
+        min-height: 64px;
+        flex-wrap: wrap;
+        gap: var(--space-sm);
+        padding: var(--space-sm) var(--space-md);
+      }
+      .brand-badge, .system-status { display: none; }
+      .nav-links { flex-wrap: wrap; }
+      main.main-content { padding: var(--space-md); }
+      footer.app-footer {
+        flex-direction: column;
+        gap: var(--space-xs);
+        text-align: center;
+        padding: var(--space-md);
+      }
+    }
   </style>
-  <!-- Chart.js for High-Precision Longitudinal Clinical Telemetry Charts -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Chart.js 4.4.1 (self-hosted, MIT) for clinical telemetry charts; common.js handles expired sessions -->
+  <script src="{{ url_for('static', filename='vendor/chart.umd.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/common.js') }}"></script>
   {% block extra_head %}{% endblock %}
 </head>
 <body>

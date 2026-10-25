@@ -12,6 +12,7 @@ from flask import Blueprint, request, current_app
 from src.database.db import get_connection
 from src.api.schemas import success_response, error_response
 from src.api.auth import role_required, CLINICAL_ROLES
+from src.api.rate_limit import rate_limited
 from src.models.ensemble import EnsembleClinicalPredictor
 from src.nlp.summarizer import summarizer
 from src.utils.logger import get_logger
@@ -81,7 +82,7 @@ def predict_patient_risk(patient_id: int):
     except Exception as e:
         logger.error(f"Inference error for patient {patient_id}: {e}", exc_info=True)
         return error_response(
-            message=f"Clinical inference error: {e}",
+            message="The risk models could not produce a prediction for this patient.",
             code="INFERENCE_FAILED",
             status_code=500,
         )
@@ -91,7 +92,7 @@ def predict_patient_risk(patient_id: int):
 @role_required(CLINICAL_ROLES)
 def get_similar_cases(patient_id: int):
     """Retrieves top-K similar historical patient precedents and their outcomes."""
-    k = request.args.get("k", default=5, type=int)
+    k = min(max(request.args.get("k", default=5, type=int) or 5, 1), 50)
 
     try:
         ensemble = get_ensemble()
@@ -110,7 +111,9 @@ def get_similar_cases(patient_id: int):
     except ValueError as e:
         return error_response(message=str(e), code="PATIENT_NOT_FOUND", status_code=404)
     except Exception as e:
-        return error_response(message=str(e), code="SIMILARITY_SEARCH_ERROR", status_code=500)
+        logger.error(f"Similarity search error for patient {patient_id}: {e}", exc_info=True)
+        return error_response(message="Similar-case search is unavailable.", code="SIMILARITY_SEARCH_ERROR",
+                              status_code=500)
 
 
 @predictions_bp.route("/dashboard/summary", methods=["GET"])
@@ -150,10 +153,22 @@ def get_dashboard_summary():
         cursor.execute("SELECT COUNT(*) FROM patients WHERE status = 'ICU' OR ward LIKE '%ICU%'")
         icu_occupancy = cursor.fetchone()[0]
 
-        # 4. Active high deterioration risk alerts count (minus acknowledged alerts)
+        # 4. Active high deterioration risk alerts: Critical/High admitted patients not yet acknowledged
         from src.api.routes.alerts import ACKNOWLEDGED_ALERTS
-        raw_alerts = tier_distribution["Critical"] + tier_distribution["High"]
-        active_alerts_count = max(0, raw_alerts - len(ACKNOWLEDGED_ALERTS))
+        cursor.execute(
+            """
+            SELECT pr.patient_id
+            FROM (
+                SELECT patient_id, risk_tier, MAX(predicted_at)
+                FROM predictions
+                GROUP BY patient_id
+            ) pr
+            JOIN patients p ON pr.patient_id = p.patient_id
+            WHERE p.status IN ('Admitted', 'Observation', 'ICU') AND pr.risk_tier IN ('Critical', 'High')
+            """
+        )
+        alerting_ids = {row[0] for row in cursor.fetchall()}
+        active_alerts_count = len(alerting_ids - set(ACKNOWLEDGED_ALERTS))
 
         # 5. Average readmission risk
         cursor.execute("SELECT AVG(readmission_30d_risk) FROM predictions")
@@ -287,14 +302,12 @@ def get_model_telemetry():
 
 @predictions_bp.route("/patients/<int:patient_id>/clinical-narrative", methods=["GET", "POST"])
 @role_required(CLINICAL_ROLES)
+@rate_limited("narrative", limit=30, window_seconds=300)  # each call may hit the paid Gemini API
 def generate_patient_clinical_narrative(patient_id: int):
     """Blueprint C: Synthesizes structured ML prediction, vitals & rules into natural language via Gemini."""
     try:
-        narrative_type = "handover"
-        if request.is_json and request.json:
-            narrative_type = request.json.get("type", "handover")
-        elif request.args.get("type"):
-            narrative_type = request.args.get("type", "handover")
+        body = request.get_json(silent=True)
+        narrative_type = (body.get("type") if isinstance(body, dict) else None) or request.args.get("type") or "handover"
 
         # 1. Fetch patient demographic and admission profile
         with get_connection() as conn:
@@ -328,7 +341,7 @@ def generate_patient_clinical_narrative(patient_id: int):
     except Exception as e:
         logger.error(f"Failed to generate clinical narrative for patient {patient_id}: {e}", exc_info=True)
         return error_response(
-            message=f"Clinical narrative synthesis error: {e}",
+            message="The clinical narrative could not be generated.",
             code="NARRATIVE_GENERATION_FAILED",
             status_code=500,
         )
@@ -339,13 +352,14 @@ def generate_patient_clinical_narrative(patient_id: int):
 def admin_gemini_synthesize():
     """Admin live testing endpoint for Google Gemini clinical synthesis."""
     try:
-        data = request.get_json(silent=True) or {}
-        patient_id = int(data.get("patient_id", 1))
+        data = request.get_json(silent=True)
+        patient_id = int(data.get("patient_id", 1)) if isinstance(data, dict) else 1
+        # The narrative endpoint applies the shared rate limit
         return generate_patient_clinical_narrative(patient_id)
     except Exception as e:
         logger.error(f"Admin Gemini synthesis failed: {e}", exc_info=True)
         return error_response(
-            message=f"Gemini synthesis failed: {e}",
+            message="Gemini synthesis failed.",
             code="GEMINI_ERROR",
             status_code=500,
         )

@@ -30,10 +30,11 @@ if sys.platform == "win32":
         pass
 
 from src.utils.config import Config
-from src.utils.data_mode import is_research_mode, require_synthetic_mode
+from src.utils.data_mode import is_research_mode
 from src.utils.security import ResearchModeConfigError
 from src.utils.logger import get_logger
 from src.api.app import create_app
+from src.bootstrap import prepare_synthetic_assets
 
 logger = get_logger("medihaven.demo")
 
@@ -56,41 +57,8 @@ def print_banner():
 
 def run_preflight_checks() -> bool:
     """Verifies that all prerequisite system components and models are ready."""
-    # Self-healing below seeds and trains synthetic assets, which research mode must never do
-    require_synthetic_mode("The demo pre-flight self-healing (auto-seed and auto-train)")
-    print(" [1/4] Checking Relational Database & Seed Data...")
-    if not Config.DATABASE_PATH.exists():
-        print(f"       -> Database not found at {Config.DATABASE_PATH}. Auto-initializing...")
-        from src.database.seed_data import seed_clinical_database
-        seed_clinical_database(num_patients=100)
-    else:
-        print(f"       [OK] SQLite database verified ({Config.DATABASE_PATH.name})")
-
-    print(" [2/4] Checking Clinical Feature Engineering Artifacts...")
-    train_parquet = Config.PROCESSED_DATA_DIR / "train.parquet"
-    if not train_parquet.exists() or not Config.SCALER_PATH.exists():
-        print("       -> Processed feature store missing. Running data engineering pipeline...")
-        from src.data.pipeline import run_batch_pipeline
-        run_batch_pipeline()
-    else:
-        print("       [OK] Processed clinical feature store verified (train & test parquets)")
-
-    print(" [3/4] Checking Machine Learning Model Artifacts...")
-    models_ready = all(
-        p.exists()
-        for p in [
-            Config.KMEANS_MODEL_PATH,
-            Config.DECISION_TREE_MODEL_PATH,
-            Config.KNN_MODEL_PATH,
-            Config.NEURAL_NETWORK_MODEL_PATH,
-        ]
-    )
-    if not models_ready:
-        print("       -> Model weights missing. Fitting and serializing 4-model ensemble...")
-        from src.models.ensemble import EnsembleClinicalPredictor
-        EnsembleClinicalPredictor.train_from_data()
-    else:
-        print("       [OK] 4-Model Ensemble verified (K-Means, Decision Tree, KNN, MLP)")
+    # Seeds and trains whatever synthetic assets are missing; refuses to run in research mode
+    prepare_synthetic_assets(total_steps=4)
 
     print(" [4/4] Verifying Presentation Layer Web Templates & UI Assets...")
     templates_ready = all(

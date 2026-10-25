@@ -7,7 +7,7 @@ Provides endpoints for patient record uploads, dynamic QR pass issuance,
 from typing import Dict, List, Optional, Any
 from flask import Blueprint, request, jsonify
 
-from src.api.schemas import success_response, error_response, validate_required_fields
+from src.api.schemas import success_response, error_response, validate_required_fields, request_payload, clean_text
 from src.vault.vault_service import (
     add_vault_record,
     get_patient_vault_records,
@@ -22,7 +22,7 @@ from src.vault.qr_generator import (
 )
 from src.vault.access_controller import access_vault_with_token
 from src.vault.access_logger import get_patient_access_audit_log
-from src.api.auth import role_required, patient_access_denied, get_current_user, CLINICAL_ROLES
+from src.api.auth import role_required, patient_access_denied, get_current_user, acting_user_name, CLINICAL_ROLES
 from src.database.db import get_connection
 from src.utils.config import Config
 from src.utils.logger import get_logger
@@ -33,6 +33,8 @@ vault_bp = Blueprint("vault", __name__, url_prefix="/api/vault")
 
 # Clinicians may mint passes only to drive the scanner demo buttons
 SHARE_ROLES = ["patient"] + (CLINICAL_ROLES if Config.DEMO_MODE else [])
+MAX_PASS_MINUTES = 30 * 24 * 60  # a QR pass lives at most 30 days
+MAX_PASS_USES = 1000
 
 
 def patient_exists(patient_id: int) -> bool:
@@ -42,16 +44,20 @@ def patient_exists(patient_id: int) -> bool:
     return row is not None
 
 
-def parse_optional_int(value: Any, field: str, minimum: int = 1):
-    """Parses an optional positive integer field. Returns (value, error_message)."""
+def parse_optional_int(value: Any, field: str, minimum: int = 1, maximum: Optional[int] = None):
+    """Parses an optional bounded integer field. Returns (value, error_message)."""
     if value is None or value == "":
         return None, None
+    if isinstance(value, bool):
+        return None, f"'{field}' must be an integer."
     try:
         parsed = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None, f"'{field}' must be an integer."
     if parsed < minimum:
         return None, f"'{field}' must be at least {minimum}."
+    if maximum is not None and parsed > maximum:
+        return None, f"'{field}' must be at most {maximum}."
     return parsed, None
 
 
@@ -59,7 +65,7 @@ def parse_optional_int(value: Any, field: str, minimum: int = 1):
 @role_required(["patient"])
 def upload_vault_record():
     """Adds a new medical record to a patient's Medical Vault."""
-    payload = request.get_json(silent=True) or {}
+    payload = request_payload()
     err = validate_required_fields(payload, ["patient_id", "category", "title"])
     if err:
         return error_response(message=err, code="VALIDATION_ERROR", status_code=422)
@@ -73,7 +79,10 @@ def upload_vault_record():
     if not patient_exists(patient_id):
         return error_response(message=f"Patient with ID {patient_id} not found.", code="PATIENT_NOT_FOUND", status_code=404)
 
-    cat = payload["category"].lower().strip()
+    cat = str(payload["category"]).lower().strip()
+    title = clean_text(payload["title"], "", 200)
+    if not title:
+        return error_response(message="'title' must be a non-empty string.", code="VALIDATION_ERROR", status_code=422)
     if cat not in VALID_VAULT_CATEGORIES:
         return error_response(
             message=f"Invalid category '{cat}'. Allowed: {sorted(VALID_VAULT_CATEGORIES)}",
@@ -85,20 +94,20 @@ def upload_vault_record():
         vault_id = add_vault_record(
             patient_id=patient_id,
             category=cat,
-            title=payload["title"],
-            description=payload.get("description"),
+            title=title,
+            description=clean_text(payload.get("description"), "", 5000) or None,
             structured_data=payload.get("structured_data"),
             file_path=payload.get("file_path"),
             is_sensitive=bool(payload.get("is_sensitive", False)),
         )
         return success_response(
-            data={"vault_id": vault_id, "category": cat, "title": payload["title"]},
+            data={"vault_id": vault_id, "category": cat, "title": title},
             message="Medical record added to vault successfully.",
             status_code=201,
         )
     except Exception as e:
         logger.error(f"Error adding vault record: {e}", exc_info=True)
-        return error_response(message=f"Database error: {e}", code="VAULT_ERROR", status_code=500)
+        return error_response(message="The record could not be saved.", code="VAULT_ERROR", status_code=500)
 
 
 @vault_bp.route("/<int:patient_id>", methods=["GET"])
@@ -123,7 +132,8 @@ def get_vault(patient_id: int):
             }
         )
     except Exception as e:
-        return error_response(message=str(e), code="VAULT_FETCH_ERROR", status_code=500)
+        logger.error(f"Error reading vault of patient {patient_id}: {e}", exc_info=True)
+        return error_response(message="The vault could not be loaded.", code="VAULT_FETCH_ERROR", status_code=500)
 
 
 @vault_bp.route("/share", methods=["POST"])
@@ -131,7 +141,7 @@ def get_vault(patient_id: int):
 @role_required(SHARE_ROLES)
 def generate_share_token(patient_id: Optional[int] = None):
     """Generates a dynamic cryptographic QR access pass with scoped permissions."""
-    payload = request.get_json(silent=True) or {}
+    payload = request_payload()
     pid, err = parse_optional_int(patient_id or payload.get("patient_id"), "patient_id")
     if err:
         return error_response(message=err, code="VALIDATION_ERROR", status_code=422)
@@ -160,11 +170,12 @@ def generate_share_token(patient_id: Optional[int] = None):
         )
 
     expires_in_minutes, err = parse_optional_int(
-        payload.get("expires_in_minutes") or payload.get("ttl_minutes") or 1440, "expires_in_minutes"
+        payload.get("expires_in_minutes") or payload.get("ttl_minutes") or 1440, "expires_in_minutes",
+        maximum=MAX_PASS_MINUTES,
     )
     if err:
         return error_response(message=err, code="VALIDATION_ERROR", status_code=422)
-    max_uses, err = parse_optional_int(payload.get("max_uses"), "max_uses")
+    max_uses, err = parse_optional_int(payload.get("max_uses"), "max_uses", maximum=MAX_PASS_USES)
     if err:
         return error_response(message=err, code="VALIDATION_ERROR", status_code=422)
 
@@ -188,14 +199,14 @@ def generate_share_token(patient_id: Optional[int] = None):
         return error_response(message=str(e), code="PATIENT_NOT_FOUND", status_code=404)
     except Exception as e:
         logger.error(f"QR generation error: {e}", exc_info=True)
-        return error_response(message=f"Token error: {e}", code="QR_GEN_ERROR", status_code=500)
+        return error_response(message="The access pass could not be generated.", code="QR_GEN_ERROR", status_code=500)
 
 
 @vault_bp.route("/revoke/<int:token_id>", methods=["POST"])
 @role_required(["patient"])
 def revoke_token(token_id: int):
     """Revokes an issued QR pass immediately (1-click patient privacy action)."""
-    payload = request.get_json(silent=True) or {}
+    payload = request_payload()
     user = get_current_user() or {}
     # A logged-in patient may only revoke their own passes, whatever the body claims
     patient_id = user.get("patient_id") if user.get("role") == "patient" else payload.get("patient_id")
@@ -218,7 +229,7 @@ def revoke_token(token_id: int):
 @role_required(CLINICAL_ROLES)
 def access_vault():
     """Provider QR scanner endpoint: validates token and returns strictly authorized data."""
-    payload = request.get_json(silent=True) or {}
+    payload = request_payload()
     qr_payload = payload.get("qr_payload") or payload.get("token")
     if not qr_payload:
         return error_response(
@@ -226,9 +237,17 @@ def access_vault():
             code="VALIDATION_ERROR",
             status_code=422,
         )
+    # Only a pass token or a camera/upload image (data URI); never a server file path or other objects
+    if not isinstance(qr_payload, str) or not (qr_payload.startswith("data:image/") or qr_payload.strip().count(".") == 2):
+        return error_response(
+            message="'qr_payload' must be a QR pass token or an image data URI.",
+            code="VALIDATION_ERROR",
+            status_code=422,
+        )
 
-    accessed_by = payload.get("accessed_by", "Consulting Clinician").strip()
-    client_ip = request.remote_addr or "127.0.0.1"
+    # The audit trail records the signed-in clinician, not a name typed into the scanner form
+    accessed_by = acting_user_name(payload.get("accessed_by"), "Consulting Clinician")
+    client_ip = request.remote_addr or "unknown"
     user_agent = request.headers.get("User-Agent", "MediHaven Provider Scanner")
 
     res = access_vault_with_token(
@@ -258,7 +277,7 @@ def get_access_log(patient_id: int):
     denied = patient_access_denied(patient_id)
     if denied:
         return denied
-    limit = request.args.get("limit", default=50, type=int)
+    limit = min(max(request.args.get("limit", default=50, type=int) or 50, 1), 500)
     audit_trail = get_patient_access_audit_log(patient_id=patient_id, limit=limit)
 
     return success_response(

@@ -2,7 +2,8 @@
 
 Research mode (DATA_MODE=mimic) fails closed on weak configuration: public default or placeholder
 secrets, a debugger, or a non-loopback bind address (research artifacts must stay on this machine).
-Synthetic mode keeps its existing behavior but reports the same weaknesses as warnings.
+Synthetic mode reports the same secret weaknesses as warnings in development and refuses to start
+with them in production (FLASK_ENV=production).
 
 Bind address and debugger: run_demo.py and ``python -m src.api.app`` pass Config.FLASK_HOST to
 app.run() and force the debugger off in research mode, so those settings are enforced. The ``flask``
@@ -28,6 +29,10 @@ SECRET_HELP = 'Generate one with: python -c "import secrets; print(secrets.token
 
 class ResearchModeConfigError(RuntimeError):
     """Raised when research mode would start with an unsafe configuration."""
+
+
+class ProductionConfigError(RuntimeError):
+    """Raised when a production deployment (FLASK_ENV=production) would start with weak secrets."""
 
 
 def weak_secret_reasons() -> List[str]:
@@ -88,4 +93,14 @@ def require_research_safe_config(host: str = None, debug: bool = False) -> None:
     if problems:
         raise ResearchModeConfigError(
             "Research mode refuses to start: " + "; ".join(problems) + f". {SECRET_HELP}"
+        )
+
+
+def require_production_safe_config() -> None:
+    """Production fails closed on public default, placeholder or short signing secrets."""
+    problems = weak_secret_reasons()
+    if problems:
+        raise ProductionConfigError(
+            "Production (FLASK_ENV=production) refuses to start: " + "; ".join(problems)
+            + ". Anyone could forge sessions and QR passes. " + SECRET_HELP
         )
