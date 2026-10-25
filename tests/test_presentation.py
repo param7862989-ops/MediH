@@ -184,3 +184,15 @@ def test_provider_scanner_view_structure_and_bindings(client: FlaskClient):
 
     # JavaScript Controller
     assert 'scanner.js' in html
+
+
+def test_chart_drawer_shows_each_model_tier_and_score(client: FlaskClient):
+    """The drawer's four model slots render a tier badge plus that model's own risk score."""
+    html = client.get("/dashboard").get_data(as_text=True)
+    for element in ("vote-kmeans", "vote-dt", "vote-knn", "vote-nn"):
+        assert f'id="{element}"' in html
+    script = (Config.STATIC_DIR / "js" / "dashboard.js").read_text(encoding="utf-8")
+    assert "function renderModelVote(" in script and "consensus.model_scores" in script
+    for element in ("vote-kmeans", "vote-dt", "vote-knn", "vote-nn"):
+        assert f'renderModelVote("{element}"' in script
+    assert "risk-badge risk-badge-${tier.toLowerCase()}" in script and "view.risk_score.toFixed(2)" in script

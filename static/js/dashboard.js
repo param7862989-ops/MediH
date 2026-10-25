@@ -325,10 +325,11 @@ async function openPatientChart(patientId) {
     document.getElementById("drawer-readmit-val").textContent = `${Math.round((pred.readmission_30d_risk || 0.15) * 100)}%`;
 
     const consensus = pred.model_consensus || {};
-    document.getElementById("vote-kmeans").textContent = consensus.kmeans_tier || "Low";
-    document.getElementById("vote-dt").textContent = consensus.decision_tree_tier || "Low";
-    document.getElementById("vote-knn").textContent = consensus.knn_tier || "Low";
-    document.getElementById("vote-nn").textContent = consensus.neural_network_tier || "Low";
+    const scores = consensus.model_scores || {};
+    renderModelVote("vote-kmeans", scores.kmeans, consensus.kmeans_tier);
+    renderModelVote("vote-dt", scores.decision_tree, consensus.decision_tree_tier);
+    renderModelVote("vote-knn", scores.knn, consensus.knn_tier);
+    renderModelVote("vote-nn", scores.neural_network, consensus.neural_network_tier);
 
     // 3. Render Longitudinal Vitals Chart (Chart.js)
     renderVitalsChart(vitalsSeries);
@@ -343,6 +344,27 @@ async function openPatientChart(patientId) {
     loadDrawerClinicalNarrative(patientId, currentNarrativeMode);
   } catch (err) {
     console.error("Failed to load full clinical chart:", err);
+  }
+}
+
+function renderModelVote(elementId, view, fallbackTier) {
+  // Shows one model's tier (Low / Medium / High / Critical) with its own risk score (0-1, same scale as the consensus)
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.textContent = "";
+  const tier = (view && view.tier) || fallbackTier || "Low";
+  const badge = document.createElement("span");
+  badge.className = `risk-badge risk-badge-${tier.toLowerCase()}`;
+  badge.style.cssText = "font-size: 10px; padding: 1px 6px;";
+  badge.textContent = tier;
+  el.appendChild(badge);
+  if (view && typeof view.risk_score === "number") {
+    const score = document.createElement("span");
+    score.className = "mono";
+    score.style.cssText = "margin-left: 6px;";
+    score.textContent = view.risk_score.toFixed(2);
+    el.appendChild(score);
+    el.title = `Risk score ${view.risk_score.toFixed(2)} · confidence ${Math.round(view.confidence * 100)}%`;
   }
 }
 

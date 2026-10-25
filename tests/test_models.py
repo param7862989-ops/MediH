@@ -202,3 +202,35 @@ def test_ensemble_early_warning_deterioration_triggers():
     assert res_low["risk_tier"] == "Low"
     assert res_low["early_warning_alert"] is False
     assert res_low["risk_score"] < 0.40
+
+
+def test_each_model_reports_its_tier_and_risk_score():
+    """The chart drawer shows every model's tier with its own 0-1 risk score."""
+    ensemble = EnsembleClinicalPredictor.load()
+    result = ensemble.predict_patient(1)
+    scores = result["model_consensus"]["model_scores"]
+    assert set(scores) == {"kmeans", "decision_tree", "knn", "neural_network"}
+    for view in scores.values():
+        assert view["tier"] in {"Low", "Medium", "High", "Critical"}
+        assert 0.0 <= view["risk_score"] <= 1.0 and 0.0 <= view["confidence"] <= 1.0
+    consensus = result["model_consensus"]
+    assert scores["kmeans"]["tier"] == consensus["kmeans_tier"]
+    assert scores["decision_tree"]["tier"] == consensus["decision_tree_tier"]
+    assert scores["knn"]["tier"] == consensus["knn_tier"]
+    assert scores["neural_network"]["tier"] == consensus["neural_network_tier"]
+
+
+def test_kmeans_probabilities_are_aligned_to_tiers_before_fusion():
+    """Cluster numbers are arbitrary; K-Means pseudo-probabilities must be re-ordered by tier code."""
+    from src.data.pipeline import transform_single_patient
+    ensemble = EnsembleClinicalPredictor.load()
+    sample_vec, raw = transform_single_patient(86, scaler=ensemble.scaler)
+    distances = ensemble.kmeans.get_cluster_distances(sample_vec)[0]
+    by_cluster = (1.0 / (1.0 + distances)) / np.sum(1.0 / (1.0 + distances))
+    aligned = np.zeros(4)
+    for cluster, prob in enumerate(by_cluster):
+        aligned[ensemble.kmeans.cluster_to_tier_code[cluster]] += prob
+    expected_score = round(float(np.sum(aligned * np.array([0.10, 0.45, 0.78, 0.94]))), 2)
+    result = ensemble.predict(sample_vec, raw_features=raw)
+    assert result["model_consensus"]["model_scores"]["kmeans"]["risk_score"] == expected_score
+    assert int(np.argmax(aligned)) == TIER_MAP[result["model_consensus"]["kmeans_tier"]]
