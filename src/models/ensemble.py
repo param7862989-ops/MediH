@@ -144,7 +144,11 @@ class EnsembleClinicalPredictor:
         km_distances = self.kmeans.get_cluster_distances(vec_2d)[0]
         # Invert distances for pseudo-probabilities
         km_sims = 1.0 / (1.0 + km_distances)
-        km_prob = km_sims / np.sum(km_sims)
+        km_prob_by_cluster = km_sims / np.sum(km_sims)
+        # Cluster numbers are arbitrary: re-order the pseudo-probabilities by tier code before fusing
+        km_prob = np.zeros(4)
+        for cluster_idx, cluster_prob in enumerate(km_prob_by_cluster):
+            km_prob[self.kmeans.cluster_to_tier_code.get(cluster_idx, 1)] += cluster_prob
         km_tier = REVERSE_TIER_MAP.get(int(km_codes[0]), "Medium")
 
         # 2. Decision Tree Prediction & Path (Evaluated on natural physiological scale)
@@ -201,6 +205,21 @@ class EnsembleClinicalPredictor:
         continuous_risk_score = float(np.sum(consensus_prob * score_weights))
         confidence = float(consensus_prob[consensus_tier_code])
 
+        def model_view(prob: np.ndarray, tier: str) -> Dict[str, Any]:
+            """Per-model tier with its own risk score (same 0-1 scale as the consensus) and confidence."""
+            return {
+                "tier": tier,
+                "risk_score": round(float(np.sum(prob * score_weights)), 2),
+                "confidence": round(float(np.max(prob)), 2),
+            }
+
+        model_scores = {
+            "kmeans": model_view(p_km, km_tier),
+            "decision_tree": model_view(p_dt, dt_tier),
+            "knn": model_view(p_knn, knn_tier),
+            "neural_network": model_view(p_nn, nn_tier),
+        }
+
         # 6. Early-Warning Alert Trigger Logic (7-14 Day Deterioration Window)
         si_val = float(raw_features.get("shock_index", 0.6)) if raw_features else 0.6
         map_val = float(raw_features.get("mean_arterial_pressure", 90.0)) if raw_features else 90.0
@@ -228,6 +247,7 @@ class EnsembleClinicalPredictor:
                 "neural_network_tier": nn_tier,
                 "knn_tier": knn_tier,
                 "kmeans_tier": km_tier,
+                "model_scores": model_scores,
                 "class_probabilities": {
                     "Low": round(float(consensus_prob[0]), 3),
                     "Medium": round(float(consensus_prob[1]), 3),

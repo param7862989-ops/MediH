@@ -7,10 +7,12 @@ outcome/anomaly columns and other forbidden names are rejected, unmeasured varia
 in training, and contradictory or impossible inputs are refused.
 """
 
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 
+from src.datasources.mimic.mappings import VARIABLES
 from src.training.artifacts import ArtifactVerificationError, VerifiedArtifacts, verify_and_load
 from src.training.features import build_feature_matrix
 from src.training.models import MODEL_ORDER
@@ -102,6 +104,115 @@ class ResearchModelService:
             "primary": summarize(analyses["primary"]),
             "sensitivity_evaluation_only": summarize(analyses["sensitivity_evaluation_only"]),
             "sensitivity_retrained": summarize(analyses["sensitivity_retrained"]),
+        }
+
+    def dashboard(self) -> Dict[str, object]:
+        """Everything the research dashboard charts: cohort-level aggregates and model-level weights only."""
+        analyses = self.artifacts.metrics["analyses"]
+        primary = analyses["primary"]
+        population = primary["population"]
+        models = {}
+        for name in MODEL_ORDER:
+            result = primary["models"][name]
+            pooled = result["pooled_out_of_fold"]
+            models[name] = {
+                **{k: pooled[k] for k in ("auroc", "average_precision", "brier_score", "sensitivity",
+                                          "specificity", "precision", "f1")},
+                "confusion_matrix": pooled["confusion_matrix"],
+                "ci_95": {k: {"low": v.get("low"), "high": v.get("high")} for k, v in result["bootstrap_ci_95"].items()},
+                "per_fold_auroc": [f.get("auroc") for f in result.get("per_fold", [])],
+            }
+        candidates = [n for n in MODEL_ORDER if n != "dummy_prior" and models[n]["auroc"] is not None]
+        top = max(candidates, key=lambda n: models[n]["auroc"]) if candidates else None
+
+        sensitivity = {}
+        for key in ("primary", "sensitivity_evaluation_only", "sensitivity_retrained"):
+            analysis = analyses[key]
+            sensitivity[key] = {
+                "population": analysis["population"],
+                "evaluation": analysis["evaluation"],
+                "auroc": ({n: analysis["models"][n]["pooled_out_of_fold"]["auroc"] for n in MODEL_ORDER}
+                          if "models" in analysis else None),
+                "average_precision": ({n: analysis["models"][n]["pooled_out_of_fold"]["average_precision"]
+                                       for n in MODEL_ORDER} if "models" in analysis else None),
+            }
+
+        return {
+            "disclaimer": DISCLAIMER,
+            "task": TASK_DESCRIPTION,
+            "prediction_point": PREDICTION_POINT,
+            "dataset": self.status()["dataset"],
+            "manifest_pinned": self.manifest_pinned,
+            "kpis": {
+                "stays": population["stays"],
+                "subjects": population["subjects"],
+                "deaths": population["positives"],
+                "prevalence": population["prevalence"],
+                "features": len(self.artifacts.features),
+                "evaluation_status": primary["evaluation"]["status"],
+                "top_model": top,
+                "top_auroc": models[top]["auroc"] if top else None,
+                "top_auroc_ci": models[top]["ci_95"].get("auroc") if top else None,
+            },
+            "evaluation": primary["evaluation"],
+            "folds": primary["split"]["folds"],
+            "models": models,
+            "sensitivity": sensitivity,
+            "cohort": self._cohort_charts(),
+            "feature_weights": self._feature_weights(),
+            "definitions": self.artifacts.metrics["definitions"],
+            "whatif_variables": [
+                {"name": v.name, "unit": v.unit, "min": v.plausible_min, "max": v.plausible_max} for v in VARIABLES
+            ],
+        }
+
+    def _cohort_charts(self) -> Optional[Dict[str, object]]:
+        cohort = self.artifacts.cohort
+        if not cohort:
+            return None
+        exclusions = dict(cohort["exclusions"])
+        remaining = exclusions.get("icu_stays_in_source")
+        flow = [{"step": "ICU stays in source", "excluded": 0, "remaining": remaining}]
+        for step, excluded in exclusions.items():
+            if step in ("icu_stays_in_source", "cohort_size", "positive_labels", "negative_labels") or remaining is None:
+                continue
+            remaining -= excluded
+            flow.append({"step": step.replace("_", " "), "excluded": excluded, "remaining": remaining})
+        quality = cohort["observation_quality"]
+        reasons = ("outside_window", "stored_after_index", "non_numeric", "unit_mismatch", "implausible")
+        return {
+            "source_release": cohort["source_release"],
+            "flow": flow,
+            "ambiguous_outcome_reasons": {k: v for k, v in cohort["ambiguous_outcome_reasons"].items() if v},
+            "outcome_anomalies": cohort["outcome_anomalies"].get("positive_deathtime_after_discharge"),
+            "coverage": cohort["variable_coverage"],
+            "data_quality": {
+                "kept": sum(int(q.get("kept", 0)) for q in quality.values()),
+                "dropped": {r: sum(int(q.get(r, 0)) for q in quality.values()) for r in reasons},
+            } if quality else None,
+        }
+
+    def _feature_weights(self, top_n: int = 10) -> Optional[Dict[str, List[Dict[str, object]]]]:
+        """Model-level weights of the final models (no patient data). None if a pipeline has another shape."""
+        features = self.artifacts.features
+
+        def kept(pipeline) -> List[str]:
+            selector = pipeline.named_steps.get("drop_constant")
+            mask = selector.get_support() if selector is not None else np.ones(len(features), dtype=bool)
+            return [f for f, keep in zip(features, mask) if keep]
+
+        try:
+            forest = self.artifacts.models["random_forest"]
+            importance = forest.named_steps["model"].feature_importances_
+            forest_top = sorted(zip(kept(forest), importance), key=lambda x: -x[1])[:top_n]
+            logistic = self.artifacts.models["logistic_regression"]
+            coefficients = logistic.named_steps["model"].coef_[0]
+            logistic_top = sorted(zip(kept(logistic), coefficients), key=lambda x: -abs(x[1]))[:top_n]
+        except (AttributeError, KeyError, IndexError, ValueError):
+            return None
+        return {
+            "random_forest_importance": [{"feature": f, "weight": round(float(w), 4)} for f, w in forest_top],
+            "logistic_regression_coefficient": [{"feature": f, "weight": round(float(w), 4)} for f, w in logistic_top],
         }
 
     def predict(self, supplied: object) -> Dict[str, object]:

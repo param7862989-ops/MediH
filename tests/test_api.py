@@ -245,6 +245,7 @@ def test_predict_patient_risk_live(client: FlaskClient):
     assert 0.0 <= pred["risk_score"] <= 1.0
     assert "model_consensus" in pred
     assert "kmeans_tier" in pred["model_consensus"]
+    assert set(pred["model_consensus"]["model_scores"]) == {"kmeans", "decision_tree", "knn", "neural_network"}
     assert "decision_tree_explanation" in pred
     assert isinstance(pred["decision_tree_explanation"], list)
     assert "similar_patients" in pred

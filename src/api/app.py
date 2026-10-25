@@ -244,13 +244,8 @@ def create_app(test_config: Optional[Dict[str, Any]] = None) -> Flask:
         guard = enforce_role(["physician", "admin"])
         if guard:
             return guard
-        service = app.research_service
-        return render_template(
-            "research.html",
-            active_page="research",
-            status=service.status(),
-            card=service.model_card() if service.available else None,
-        )
+        # Charts load aggregate data from /api/research/dashboard; the page itself renders status only
+        return render_template("research.html", active_page="research", status=app.research_service.status())
 
     @app.route("/favicon.ico", methods=["GET"])
     def favicon():
