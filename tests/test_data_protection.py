@@ -121,9 +121,11 @@ def test_research_mode_blocks_synthetic_predictions(research_mode):
         EnsembleClinicalPredictor().predict_patient(1)
 
 
-def test_research_mode_blocks_web_app(research_mode):
+def test_research_mode_web_app_fails_closed_on_unsafe_config(research_mode):
+    """Phase 3: the web app may run in research mode, but never with the public default secrets."""
     from src.api.app import create_app
-    with pytest.raises(ResearchModeNotSupportedError, match="web application"):
+    from src.utils.security import ResearchModeConfigError
+    with pytest.raises(ResearchModeConfigError, match="public default"):
         create_app({"TESTING": True})
 
 
@@ -135,9 +137,9 @@ def test_research_mode_demo_launcher_fails_safely(research_mode, monkeypatch, ca
 
     monkeypatch.setattr(run_demo, "run_preflight_checks", must_not_run)
     with pytest.raises(SystemExit) as exit_info:
-        run_demo.main()
+        run_demo.main()  # default secrets -> refuses before serving anything
     assert exit_info.value.code == 2
-    assert "DATA_MODE=mimic" in capsys.readouterr().err
+    assert "Research mode refuses to start" in capsys.readouterr().err
 
     monkeypatch.undo()
     monkeypatch.setattr(Config, "DATA_MODE", "mimic")

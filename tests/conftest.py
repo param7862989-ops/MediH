@@ -39,6 +39,13 @@ os.environ.update({
     "MIMIC_OUTPUT_DIR": "",
     "GEMINI_API_KEY": "",
     "NO_BROWSER": "1",
+    # Tests never read the real .env secrets: pin the documented public development values, so results do
+    # not depend on (or expose) local secrets. Tests that need strong secrets set them explicitly.
+    "FLASK_SECRET_KEY": "medihaven_flask_dev_sec_9941a8b7c2e34f6d1a0b5c8e7f2d3a4b",
+    "JWT_SECRET_KEY": "medihaven_jwt_vault_sig_7f8e9d0c1b2a3456789abcdef0123456",
+    # Ambient launcher settings must not leak into tests either
+    "FLASK_RUN_HOST": "",
+    "FLASK_RUN_FROM_CLI": "",
 })
 
 PERSISTENT_SNAPSHOT_BEFORE = snapshot_persistent_artifacts()

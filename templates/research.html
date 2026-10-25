@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Research Mode — Task 1 Model | MediHaven{% endblock %}
+
+{% block content %}
+<section style="max-width: 1100px; margin: 0 auto; padding: var(--space-xl) var(--space-md); display: flex; flex-direction: column; gap: var(--space-lg);">
+
+  <div role="alert" style="border: 1px solid rgba(245, 158, 11, 0.55); background: rgba(245, 158, 11, 0.12); border-radius: var(--radius-md); padding: var(--space-md) var(--space-lg);">
+    <strong style="color: #fbbf24;">RESEARCH MODE — NOT FOR PATIENT CARE</strong>
+    <p style="margin: 6px 0 0; color: var(--text-secondary); font-size: 13px;">{{ status.disclaimer }}</p>
+    <p style="margin: 6px 0 0; color: var(--text-secondary); font-size: 13px;">
+      Synthetic clinical predictions are disabled in this mode. The patient vault, QR sharing and scanner
+      remain the synthetic demo; no MIMIC-IV record is ever shown here.
+    </p>
+  </div>
+
+  {% if not status.research_inference_available %}
+  <div style="border: 1px solid rgba(239, 68, 68, 0.5); background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-md); padding: var(--space-md) var(--space-lg);">
+    <strong style="color: #f87171;">Research model unavailable ({{ status.reason_code }})</strong>
+    <p style="margin: 6px 0 0; color: var(--text-secondary); font-size: 13px;">{{ status.reason }}</p>
+    <p style="margin: 6px 0 0; color: var(--text-muted); font-size: 12px;">Inference stays disabled until the Phase 2 artifacts pass verification.</p>
+  </div>
+  {% else %}
+  <div>
+    <h1 style="font-size: 22px; margin: 0 0 6px;">{{ card.task }}</h1>
+    <p style="margin: 0; color: var(--text-secondary); font-size: 13px;">
+      Prediction point: {{ card.prediction_point }}.<br>
+      Dataset {{ status.dataset.dataset_id }} v{{ status.dataset.dataset_version }} · task v{{ status.dataset.task_version }}
+      · source {{ status.dataset.source_release }} · {{ status.feature_count }} permitted features
+      · artifacts {{ status.run.run_id }} v{{ status.run.run_version }} (verified)
+      {% if not status.manifest_pinned %}<br><span style="color: var(--text-muted);">Manifest pin not set: hashes detect corruption, not deliberate replacement (set RESEARCH_ARTIFACT_MANIFEST_SHA256).</span>{% endif %}
+    </p>
+  </div>
+
+  {% for key, title in [("primary", "Primary analysis — all eligible stays"),
+                        ("sensitivity_evaluation_only", "Sensitivity A — anomaly stays removed from scoring"),
+                        ("sensitivity_retrained", "Sensitivity B — anomaly stays removed before training")] %}
+  {% set analysis = card[key] %}
+  <div>
+    <h2 style="font-size: 16px; margin: 0 0 4px;">{{ title }}</h2>
+    <p style="margin: 0 0 8px; color: var(--text-secondary); font-size: 12px;">
+      {{ analysis.population.stays }} stays · {{ analysis.population.subjects }} subjects ·
+      {{ analysis.population.positives }} deaths / {{ analysis.population.negatives }} survivors ·
+      evaluation status: <strong>{{ analysis.evaluation.status }}</strong> — {{ analysis.evaluation.reason }}
+    </p>
+    {% if analysis.models %}
+    <div class="table-container">
+      <table class="clinical-table">
+        <thead>
+          <tr><th>Model</th><th>AUROC (95% CI)</th><th>Average precision (95% CI)</th><th>Brier</th><th>Sensitivity</th><th>Specificity</th></tr>
+        </thead>
+        <tbody>
+          {% for name, m in analysis.models.items() %}
+          <tr>
+            <td>{{ name }}</td>
+            <td class="mono">{{ "%.2f"|format(m.auroc) if m.auroc is not none else "n/a" }}
+              {% if m.ci_95.auroc.low is not none %}({{ "%.2f"|format(m.ci_95.auroc.low) }}–{{ "%.2f"|format(m.ci_95.auroc.high) }}){% endif %}</td>
+            <td class="mono">{{ "%.2f"|format(m.average_precision) if m.average_precision is not none else "n/a" }}
+              {% if m.ci_95.average_precision.low is not none %}({{ "%.2f"|format(m.ci_95.average_precision.low) }}–{{ "%.2f"|format(m.ci_95.average_precision.high) }}){% endif %}</td>
+            <td class="mono">{{ "%.3f"|format(m.brier_score) if m.brier_score is not none else "n/a" }}</td>
+            <td class="mono">{{ "%.2f"|format(m.sensitivity) if m.sensitivity is not none else "n/a" }}</td>
+            <td class="mono">{{ "%.2f"|format(m.specificity) if m.specificity is not none else "n/a" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <div style="color: var(--text-secondary); font-size: 12px;">
+    <p style="margin: 0;">Threshold: {{ card.definitions.threshold_rule }}. Average precision: {{ card.definitions.average_precision }}.
+      Intervals: {{ card.definitions.bootstrap }}.</p>
+    <p style="margin: 6px 0 0;">What-if estimates for manually entered summaries are available to clinical roles at
+      <code>POST /api/research/predict</code>. Variables you do not supply are treated as not measured, exactly as in
+      training; measured variables need their measurement count. They are research outputs, not clinical advice.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

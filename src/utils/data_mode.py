@@ -14,8 +14,8 @@ class ResearchModeNotSupportedError(RuntimeError):
 
 RESEARCH_MODE_HELP = (
     "Research mode (DATA_MODE=mimic) never seeds synthetic patients, trains the synthetic models, "
-    "or serves synthetic predictions, and the web application cannot run on research data until "
-    "serving integration is implemented. To build the MIMIC-IV research dataset run: "
+    "or serves synthetic predictions; the web application runs a research-only view over verified "
+    "Phase 2 artifacts instead. To build the MIMIC-IV research dataset run: "
     "python -m src.tasks.build_mimic_t1 --mimic-dir <MIMIC-IV demo folder> --output-dir <output folder>. "
     "To run the synthetic demo, unset DATA_MODE or set DATA_MODE=synthetic."
 )

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Generator, List, Dict, Any, Optional
 
 from src.utils.config import Config
-from src.utils.data_mode import require_synthetic_mode
+from src.utils.data_mode import is_research_mode, require_synthetic_mode
 from src.utils.logger import get_logger
 from src.utils.research_paths import is_within
 
@@ -35,11 +35,15 @@ def get_db_connection(db_path: Optional[Path] = None) -> sqlite3.Connection:
     target_path = db_path or Config.DATABASE_PATH
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Research mode never creates the application database; it may only open an existing one
+    database = (f"{Path(target_path).resolve().as_uri()}?mode=rw" if is_research_mode()
+                else str(target_path))
     conn = sqlite3.connect(
-        database=str(target_path),
+        database=database,
         timeout=30.0,
         detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
         check_same_thread=False,
+        uri=is_research_mode(),
     )
 
     # Enable SQLite Pragmas for concurrency and integrity

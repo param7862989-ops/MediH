@@ -84,14 +84,22 @@ class Config:
     DEMO_MODE = os.getenv(
         "DEMO_MODE", "1" if FLASK_ENV == "development" else "0"
     ).lower() in ("1", "true", "yes")
-    FLASK_SECRET_KEY = os.getenv(
-        "FLASK_SECRET_KEY", "medihaven_flask_dev_sec_9941a8b7c2e34f6d1a0b5c8e7f2d3a4b"
-    )
+    # Public development fallbacks: research mode refuses to start with these (see src/utils/security.py)
+    DEFAULT_FLASK_SECRET_KEY = "medihaven_flask_dev_sec_9941a8b7c2e34f6d1a0b5c8e7f2d3a4b"
+    DEFAULT_JWT_SECRET_KEY = "medihaven_jwt_vault_sig_7f8e9d0c1b2a3456789abcdef0123456"
+    FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", DEFAULT_FLASK_SECRET_KEY)
+
+    # Web security settings
+    # Comma-separated origins allowed to call /api/* cross-origin; empty = same-origin only
+    CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+    # Set to 1 when serving over HTTPS so the session cookie is never sent in clear text
+    SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "0").lower() in ("1", "true", "yes")
+    MAX_REQUEST_MB = float(os.getenv("MAX_REQUEST_MB", "8"))
+    # Optional SHA-256 of the Phase 2 run_manifest.json that research mode must load (authenticity pin)
+    RESEARCH_ARTIFACT_MANIFEST_SHA256 = os.getenv("RESEARCH_ARTIFACT_MANIFEST_SHA256", "").strip().lower()
 
     # Cryptographic Vault Token & QR Security
-    JWT_SECRET_KEY = os.getenv(
-        "JWT_SECRET_KEY", "medihaven_jwt_vault_sig_7f8e9d0c1b2a3456789abcdef0123456"
-    )
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", DEFAULT_JWT_SECRET_KEY)
     JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
     DEFAULT_TOKEN_TTL_MINUTES = int(os.getenv("DEFAULT_TOKEN_TTL_MINUTES", "1440"))  # 24h
 

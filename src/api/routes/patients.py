@@ -12,6 +12,7 @@ import sqlite3
 from src.database.db import get_connection
 from src.api.schemas import success_response, error_response, validate_required_fields
 from src.api.auth import role_required, patient_access_denied, CLINICAL_ROLES
+from src.utils.data_mode import is_research_mode
 from src.utils.logger import get_logger
 
 logger = get_logger("medihaven.api.patients")
@@ -221,7 +222,8 @@ def get_patient(patient_id: int):
             "latest_vitals": dict(v_row) if v_row else None,
             "latest_labs": dict(l_row) if l_row else None,
             "active_medications": [dict(m) for m in med_rows],
-            "latest_prediction": dict(pred_row) if pred_row else None,
+            # Research mode serves no synthetic clinical predictions, including in the demo vault profile
+            "latest_prediction": dict(pred_row) if pred_row and not is_research_mode() else None,
         }
 
     return success_response(data=chart)
