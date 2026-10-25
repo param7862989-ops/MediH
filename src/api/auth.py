@@ -10,6 +10,7 @@ Enforces strict role-based access control (RBAC) across three roles:
 3. Patient: Demo credentials (patient1 | Patient@123, linked to Patient #1)
 """
 
+import hmac
 from functools import wraps
 from typing import Optional, Dict, Any, List
 from flask import Blueprint, current_app, request, session, jsonify, redirect, url_for, g
@@ -84,15 +85,8 @@ def authenticate_user(username: str, password: str) -> Optional[Dict[str, Any]]:
     if not user_record:
         return None
 
-    entered_pw = password.strip()
-    valid = (entered_pw == user_record["password"])
-    if not valid:
-        if clean_user == "physician1" and entered_pw in ("Physician@123", "physician123"):
-            valid = True
-        elif clean_user == "patient1" and entered_pw in ("Patient@123", "patient123"):
-            valid = True
-
-    if not valid:
+    # Exact match only (constant-time); undocumented weak alternate passwords are no longer accepted
+    if not hmac.compare_digest(password.strip().encode("utf-8"), user_record["password"].encode("utf-8")):
         return None
 
     return {

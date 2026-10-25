@@ -1,0 +1,145 @@
+# Phase 2 — Task 1 Model Training and Evaluation (research only)
+
+> These are research baselines trained and evaluated on the **MIMIC-IV Clinical Database Demo**.
+> The results validate the pipeline; they are **not** evidence of clinical validity. The models are
+> not clinically validated, not production-ready and must not be used for patient-care decisions.
+
+## 1. Task and versions
+
+- **Task:** in-hospital mortality among adult ICU stays, predicted at **ICU intime + 24 hours**
+  using only information available at that time (`t1_inhospital_mortality_after_icu24h`, task v3).
+- **Dataset:** `medihaven_t1_inhospital_mortality_icu24h` **v1.2.0**, feature spec
+  `mimic-iv-t1-features-v1` (see [mimic_iv_task1_dataset.md](mimic_iv_task1_dataset.md)).
+- Training is pinned to these versions. `src/training/dataset.py` refuses to run if the manifest
+  version, task, feature spec, column layout, labels (0/1, no missing), anomaly rows (must be
+  positive), one-row-per-stay rule or the dataset content hash do not match.
+
+## 2. Features and leakage protection
+
+- **Permitted inputs (88):** the feature-spec columns — per-variable min/max/mean/last/count/missing
+  over `[intime, index_time]` (with the Phase 1 storetime rule), `map_derived`,
+  `bp_source_invasive`, `age` (known at admission) and `sex_male`. Each has a recorded provenance in
+  `feature_config.json`; a feature whose availability at the prediction time cannot be established
+  is excluded and listed.
+- **Never inputs (excluded by name, not position):** `src_subject_id`, `src_hadm_id`,
+  `src_stay_id`, `index_time`, `label_inhospital_mortality`,
+  `outcome_anomaly_deathtime_after_discharge`, `dataset_version`, `feature_spec_version`.
+- **Name guard:** any column whose name suggests labels, anomalies, mortality, death, `dod`,
+  discharge, expire flags, outcomes, identifiers (`src_`, subject, hadm, stay_id, `_id`), index time,
+  risk tiers/scores, predictions, ICU outtime, length of stay or versions stops the run
+  (`ForbiddenFeatureError`). No synthetic risk tiers, scores or previous predictions are used.
+- Note: `<variable>_count` and `bp_source_invasive` reflect how intensively a patient was monitored in
+  the first 24 h. They are available at the prediction time, but they partly encode clinicians'
+  judgement, which matters when interpreting any model.
+
+## 3. Running
+
+```powershell
+# Train and evaluate (reads the v1.2.0 dataset, writes a new versioned folder)
+.\.venv\Scripts\python.exe -m src.training.train_mimic_t1 --research-dir C:\research\medihaven-output
+
+# Re-run and replace this version's outputs
+.\.venv\Scripts\python.exe -m src.training.train_mimic_t1 --research-dir C:\research\medihaven-output --overwrite
+
+# Tests (synthetic fixtures only; temporary paths)
+.\.venv\Scripts\python.exe -m pytest tests/test_training_t1.py -q
+```
+
+Options: `--dataset-dir`, `--seed` (default 42), `--folds` (default 5), `--bootstrap` (default 2000).
+`--research-dir` defaults to `MIMIC_OUTPUT_DIR`. Locations inside the repository or OneDrive are refused.
+
+Outputs, in `<research-dir>\medihaven_t1_phase2_baselines_v1.0.0\`: `models\*.joblib` (pipelines
+refitted on all eligible stays, each bundled with its features, dataset/task versions, dataset content
+hash and seed), `metrics.json`, `feature_config.json`, `split_metadata.json`, `report.md` and
+`run_manifest.json` (versions, seed, timestamp, software, command and SHA-256 of every output file).
+The aggregate log is `<research-dir>\logs\train_mimic_t1.log`. No patient-level predictions or
+identifiers are written. Outputs are built in a staging folder and swapped into place only on success.
+If that final swap fails (e.g. a Windows file lock), the previous run is restored, the completed new run
+is kept in `<run folder>.staging`, and the command exits with an error; no complete run is deleted
+during cleanup. The next invocation first restores any run orphaned by an interrupted swap.
+
+## 4. Models
+
+Fixed hyperparameters chosen a priori for a very small dataset; **nothing is tuned** on evaluation data.
+All learned preprocessing (median imputation, zero-variance filtering, scaling) is inside each
+scikit-learn Pipeline and is therefore fitted on training folds only.
+
+| Model | Configuration |
+| :--- | :--- |
+| `dummy_prior` | predicts the training prevalence (reference) |
+| `logistic_regression` | median imputation → drop constant → standardize → L2 logistic regression, C = 0.1 |
+| `decision_tree` | median imputation → drop constant → depth ≤ 3, ≥ 5 stays per leaf |
+| `random_forest` | median imputation → drop constant → 300 trees, depth ≤ 4, ≥ 3 stays per leaf |
+
+K-Means is not used: it is not a supervised mortality predictor.
+
+## 5. Evaluation design and its limitations
+
+- **Split:** subject-grouped, stratified 5-fold cross-validation (`StratifiedGroupKFold`, seed 42).
+  All stays of a subject are in the same fold, so no subject is in both training and test data. Every
+  stay is predicted once, by a model that never saw that subject; metrics use the **pooled
+  out-of-fold predictions**.
+- **Why not a holdout set:** with 11 positive stays, a 20% holdout would contain about 2 deaths,
+  which cannot support any metric. Cross-validation uses every stay for testing exactly once.
+- **Safety checks:** the run stops (no fallback to an ungrouped or unstratified split) if positives or
+  negatives are fewer than the folds, or if any training/test part of a fold would hold one class.
+- **Status flag:** evaluations with fewer than 100 positive stays are labelled `limited`.
+- **Limitations:** no external or temporal validation; tiny positive count; per-fold estimates vary
+  widely; the saved models are refitted on all stays and their expected performance is the CV estimate.
+
+## 6. Metrics
+
+- **AUROC**; **average precision** = `sklearn.metrics.average_precision_score` (step-wise; not a
+  trapezoidal PR-AUC; its no-skill value is the prevalence); **Brier score**.
+- **Thresholded metrics** (sensitivity, specificity, precision, F1, confusion matrix): a stay is
+  predicted positive when its risk is ≥ the outcome prevalence of the training folds that produced it.
+- **Undefined metrics** (e.g. AUROC with one class, precision with no predicted positives, F1 when
+  precision and sensitivity are both 0) are reported as null with the reason — never as 0.
+- **95% intervals:** percentile intervals from 2,000 subject-level bootstrap resamples of the pooled
+  out-of-fold predictions. They capture case-mix sampling only, not model-refitting variability, so
+  they understate the true uncertainty.
+- **Prior-only baseline caveat:** pooling folds gives it an AUROC that differs from 0.5 (each fold
+  predicts its own training prevalence); its per-fold AUROC is exactly 0.5.
+
+## 7. Timestamp-anomaly sensitivity analysis
+
+The 4 stays flagged `outcome_anomaly_deathtime_after_discharge` (flag 1 + DIED, deathtime after
+dischtime) are positive in the primary analysis. The flag is never a model input.
+
+- **A. Evaluation-only exclusion:** primary out-of-fold predictions re-scored without the anomaly
+  stays (same folds and models) — isolates the change in the evaluation population.
+- **B. Exclusion before splitting and training:** anomaly stays removed first, folds re-drawn over
+  the smaller population. B is not fold-for-fold comparable with the primary analysis. If the reduced
+  data cannot support the grouped stratified split, B is reported as `not_evaluable`.
+
+## 8. Results on the MIMIC-IV Demo 2.2 (limited evaluation)
+
+Primary population: 107 stays, 86 subjects, 11 positive / 96 negative (10.3%). Folds held 2–3
+positive and 19–20 negative test stays each.
+
+| Model | AUROC [95% CI] | Avg. precision [95% CI] | Brier | Sens. / Spec. at prevalence threshold |
+| :--- | :--- | :--- | :--- | :--- |
+| dummy_prior | 0.46 [0.30–0.62] | 0.10 [0.05–0.17] | 0.092 | 1.00 / 0.00 |
+| logistic_regression | 0.73 [0.52–0.89] | 0.35 [0.14–0.62] | 0.086 | 0.64 / 0.76 |
+| decision_tree | 0.62 [0.47–0.79] | 0.17 [0.07–0.44] | 0.109 | 0.36 / 0.86 |
+| random_forest | 0.75 [0.56–0.91] | 0.38 [0.15–0.67] | 0.081 | 0.73 / 0.70 |
+
+Sensitivity analyses (103 stays, 83 subjects, 7 positive / 96 negative):
+A (evaluation-only) — logistic regression AUROC 0.71, random forest 0.76.
+B (retrained, folds with 1–2 positives) — logistic regression AUROC 0.32 [0.03–0.67], decision tree
+0.64, random forest 0.66.
+
+Reading: the intervals overlap heavily, the decision tree and logistic regression change markedly
+between analyses, and B shows how fragile any estimate is with 7 positive stays. No model ranking or
+performance claim is supported by these numbers.
+
+## 9. What would be needed before performance claims
+
+- The full credentialed MIMIC-IV (tens of thousands of ICU stays), obtained and handled under the
+  PhysioNet data use agreement.
+- A pre-specified analysis plan; a held-out test set (ideally temporal, e.g. by `anchor_year_group`)
+  untouched during development; hyperparameter tuning only within training data (nested CV).
+- Calibration assessment (calibration curves, slope/intercept), decision-curve analysis and alert-burden
+  estimates at clinically chosen thresholds.
+- Subgroup and fairness analyses (age, sex, race, care unit) and missing-data sensitivity analyses.
+- External validation on another population (e.g. eICU-CRD) and clinical review before any use.

@@ -276,7 +276,8 @@ def get_model_telemetry():
             "model": "gemini-3.5-flash-lite",
             "configured": summarizer.is_configured(),
             "status": "Online & Ready" if summarizer.is_configured() else "Awaiting API Key",
-            "masked_key": f"{summarizer.api_key[:6]}...{summarizer.api_key[-4:]}" if summarizer.is_configured() else None,
+            # Key fragments are never returned; at most the last 4 characters identify which key is set
+            "masked_key": f"…{summarizer.api_key[-4:]}" if summarizer.is_configured() else None,
             "capabilities": ["Clinical Handover Generation", "Plain-Language Discharge Notes", "Physician AI Copilot"]
         }
     }

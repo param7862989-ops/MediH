@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Generator, List, Dict, Any, Optional
 
 from src.utils.config import Config
+from src.utils.data_mode import is_research_mode, require_synthetic_mode
 from src.utils.logger import get_logger
+from src.utils.research_paths import is_within
 
 logger = get_logger("medihaven.db")
 
@@ -33,11 +35,15 @@ def get_db_connection(db_path: Optional[Path] = None) -> sqlite3.Connection:
     target_path = db_path or Config.DATABASE_PATH
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Research mode never creates the application database; it may only open an existing one
+    database = (f"{Path(target_path).resolve().as_uri()}?mode=rw" if is_research_mode()
+                else str(target_path))
     conn = sqlite3.connect(
-        database=str(target_path),
+        database=database,
         timeout=30.0,
         detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
         check_same_thread=False,
+        uri=is_research_mode(),
     )
 
     # Enable SQLite Pragmas for concurrency and integrity
@@ -94,6 +100,16 @@ def init_db(force_recreate: bool = False, db_path: Optional[Path] = None) -> Non
     """
     target_path = db_path or Config.DATABASE_PATH
     schema_path = Config.DATABASE_DIR / "schema.sql"
+
+    # Never create or wipe the application schema inside a research data location
+    for research_dir in (Config.MIMIC_IV_DIR, Config.MIMIC_OUTPUT_DIR):
+        if research_dir is not None and is_within(target_path, research_dir):
+            raise RuntimeError(
+                f"Refusing to initialize the application database at {target_path}: "
+                f"it is inside the research data directory {research_dir}."
+            )
+    if force_recreate:
+        require_synthetic_mode("Recreating the application database")
 
     if not schema_path.exists():
         raise FileNotFoundError(f"Schema file not found at: {schema_path}")

@@ -20,6 +20,7 @@ from src.models.decision_tree_model import DecisionTreeRiskClassifier
 from src.models.knn_model import KNNSimilarityMatcher
 from src.models.neural_network_model import NeuralNetworkRiskModel
 from src.utils.config import Config
+from src.utils.data_mode import require_synthetic_mode
 from src.utils.logger import get_logger
 
 logger = get_logger("medihaven.models.ensemble")
@@ -60,6 +61,7 @@ class EnsembleClinicalPredictor:
         Returns:
             Fitted EnsembleClinicalPredictor instance.
         """
+        require_synthetic_mode("Training the synthetic ensemble models")
         logger.info("=" * 60)
         logger.info("TRAINING ALL 4 CLINICAL MODELS (Phase 4)")
         logger.info("=" * 60)
@@ -253,6 +255,7 @@ class EnsembleClinicalPredictor:
         Returns:
             Complete clinical risk prediction and explanation dictionary.
         """
+        require_synthetic_mode("Serving synthetic clinical predictions")
         scaled_vec, raw_feats = transform_single_patient(
             patient_id=patient_id,
             scaler=self.scaler,
@@ -314,6 +317,7 @@ class EnsembleClinicalPredictor:
     @classmethod
     def train_from_data(cls) -> "EnsembleClinicalPredictor":
         """Loads train.parquet and fits all 4 underlying clinical models."""
+        require_synthetic_mode("Training the synthetic ensemble models")
         train_path = Config.PROCESSED_DATA_DIR / "train.parquet"
         if not train_path.exists():
             from src.data.pipeline import run_batch_pipeline

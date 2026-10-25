@@ -10,6 +10,7 @@ Validates that:
 """
 
 import json
+import random
 import time
 import pytest
 import sqlite3
@@ -21,10 +22,12 @@ from src.utils.config import Config
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_test_database():
-    """Ensure database is initialized and seeded before running database tests."""
+def setup_test_database(test_root):
+    """Recreate and seed the session's temporary database (never the persistent demo database)."""
     from database.seed_data import seed_database
+    assert test_root in Config.DATABASE_PATH.parents, "Refusing to recreate a non-temporary database"
     init_db(force_recreate=True)
+    random.seed(42)  # reproduce the canonical seeded cohort
     seed_database(100)
 
 

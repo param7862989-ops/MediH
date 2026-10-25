@@ -30,6 +30,8 @@ if sys.platform == "win32":
         pass
 
 from src.utils.config import Config
+from src.utils.data_mode import is_research_mode, require_synthetic_mode
+from src.utils.security import ResearchModeConfigError
 from src.utils.logger import get_logger
 from src.api.app import create_app
 
@@ -54,6 +56,8 @@ def print_banner():
 
 def run_preflight_checks() -> bool:
     """Verifies that all prerequisite system components and models are ready."""
+    # Self-healing below seeds and trains synthetic assets, which research mode must never do
+    require_synthetic_mode("The demo pre-flight self-healing (auto-seed and auto-train)")
     print(" [1/4] Checking Relational Database & Seed Data...")
     if not Config.DATABASE_PATH.exists():
         print(f"       -> Database not found at {Config.DATABASE_PATH}. Auto-initializing...")
@@ -116,8 +120,41 @@ def open_browser_delayed(url: str, delay_seconds: float = 1.5):
     thread.start()
 
 
+def run_research_server():
+    """Research mode: no pre-flight self-healing (never seeds or trains); serves verified artifacts only."""
+    print(" RESEARCH MODE (DATA_MODE=mimic): synthetic seeding, training and clinical predictions are disabled.")
+    try:
+        app = create_app()
+    except ResearchModeConfigError as e:
+        print(f"\n [!] {e}\n", file=sys.stderr)
+        sys.exit(2)
+
+    status = app.research_service.status()
+    if status["research_inference_available"]:
+        print(f" [OK] Research artifacts verified ({status['run']['run_id']} v{status['run']['run_version']}).")
+    else:
+        print(f" [!] Research inference disabled ({status['reason_code']}): {status['reason']}")
+    base_url = f"http://{Config.FLASK_HOST}:{Config.FLASK_PORT}"
+    print("\n" + "=" * 70)
+    print(f"  * Research view (physician/admin): {base_url}/research")
+    print(f"  * Login:                           {base_url}/login")
+    print(f"  * Health probe:                    {base_url}/api/health")
+    print("  Research-only outputs on demo data. Not for patient-care decisions.")
+    print("=" * 70)
+    print("  Press Ctrl+C to stop the MediHaven server.\n")
+    if os.getenv("NO_BROWSER", "0") != "1":
+        open_browser_delayed(f"{base_url}/login", delay_seconds=1.5)
+    try:
+        app.run(host=Config.FLASK_HOST, port=Config.FLASK_PORT, debug=False, use_reloader=False)
+    except KeyboardInterrupt:
+        print("\n\n MediHaven server stopped cleanly. Goodbye!\n")
+
+
 def main():
     print_banner()
+    if is_research_mode():
+        run_research_server()
+        return
     run_preflight_checks()
 
     app = create_app()
