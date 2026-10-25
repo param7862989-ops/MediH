@@ -1,12 +1,20 @@
 """Clinical Narrative Summarization Engine using Google Gemini Generative AI.
 
-Synthesizes multi-model ML risk scores, longitudinal vitals trajectories, Decision Tree
-rule breadcrumbs, and KNN treatment protocols into natural-language physician shift
-handovers and patient discharge summaries.
+Synthesizes multi-model ML outputs into natural-language physician shift handovers and patient
+discharge summaries.
+
+Data-protection rules for the external Gemini call:
+- TLS certificates and host names are always verified (default SSL context).
+- The API key travels in the ``x-goog-api-key`` header, never in the URL, and is never logged.
+- The prompt is de-identified: no name, identifier, age, sex, ward, symptoms, diagnosis or raw
+  measurements. Only coarse model outputs (risk tier, rounded scores, protocol label) are sent, with
+  the placeholder "[PATIENT]", which is replaced by the name locally after the response arrives.
+- In research mode (DATA_MODE=mimic) no external call is ever made; the local synthesizer is used.
 """
 
 import os
 import json
+import re
 import time
 import ssl
 import urllib.request
@@ -14,6 +22,7 @@ import urllib.error
 from datetime import datetime
 from typing import Dict, Any, Optional
 
+from src.utils.data_mode import is_research_mode
 from src.utils.logger import get_logger
 
 logger = get_logger("medihaven.nlp.summarizer")
@@ -23,7 +32,9 @@ GEMINI_MODELS = [
     "gemini-3.5-flash-lite",
     "gemini-flash-latest",
 ]
-
+GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+PATIENT_PLACEHOLDER = "[PATIENT]"
+RISK_TIERS = {"Low", "Medium", "High", "Critical"}
 
 
 class ClinicalNarrativeSummarizer:
@@ -36,6 +47,10 @@ class ClinicalNarrativeSummarizer:
         """Returns True if a non-empty Gemini API key is present."""
         return bool(self.api_key)
 
+    def external_calls_allowed(self) -> bool:
+        """External AI is never used in research mode, whatever the configuration."""
+        return self.is_configured() and not is_research_mode()
+
     def generate(
         self,
         patient_data: Dict[str, Any],
@@ -45,7 +60,7 @@ class ClinicalNarrativeSummarizer:
         """Synthesizes clinical intelligence into natural language.
 
         Args:
-            patient_data: Dictionary of patient demographic and clinical fields.
+            patient_data: Dictionary of patient demographic and clinical fields (kept local).
             prediction_data: Dictionary of Ensemble prediction outputs.
             narrative_type: 'handover' for physician shift handover or 'discharge' for patient summary.
 
@@ -55,20 +70,20 @@ class ClinicalNarrativeSummarizer:
         start_time = time.time()
         narrative_type = narrative_type.lower() if narrative_type in ["handover", "discharge"] else "handover"
 
-        if self.is_configured():
+        if self.external_calls_allowed():
             try:
-                result = self._call_gemini(patient_data, prediction_data, narrative_type)
-                latency_ms = round((time.time() - start_time) * 1000, 1)
-                result["latency_ms"] = latency_ms
+                result = self._call_gemini(prediction_data, narrative_type)
+                result["narrative"] = self._personalize(result["narrative"], patient_data)
+                result["latency_ms"] = round((time.time() - start_time) * 1000, 1)
                 return result
             except Exception as e:
-                logger.warning(f"Gemini API call failed ({e}). Falling back to rule-based synthesis.")
+                logger.warning(f"Gemini API call failed ({type(e).__name__}). Falling back to rule-based synthesis.")
 
-        # Deterministic clinical fallback if API key is missing or offline
+        # Deterministic clinical fallback if API key is missing, offline, or research mode
         fallback_text = self._generate_fallback(patient_data, prediction_data, narrative_type)
         latency_ms = round((time.time() - start_time) * 1000, 1)
 
-        return {
+        result = {
             "narrative": fallback_text,
             "model": "Rule-Based Clinical Synthesizer (Offline Fallback)",
             "provider": "MediHaven Deterministic NLP",
@@ -77,19 +92,14 @@ class ClinicalNarrativeSummarizer:
             "type": narrative_type,
             "generated_at": datetime.now().isoformat(),
         }
+        if is_research_mode():
+            result["external_ai"] = "disabled in research mode; no data left this machine"
+        return result
 
-    def _call_gemini(
-        self,
-        patient_data: Dict[str, Any],
-        prediction_data: Dict[str, Any],
-        narrative_type: str,
-    ) -> Dict[str, Any]:
-        """Calls Google Gemini v1beta REST API with SSL fallback for macOS environments."""
-        prompt = self._build_prompt(patient_data, prediction_data, narrative_type)
-
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+    def _call_gemini(self, prediction_data: Dict[str, Any], narrative_type: str) -> Dict[str, Any]:
+        """Calls the Gemini REST API with certificate verification and a de-identified prompt."""
+        prompt = self._build_prompt(prediction_data, narrative_type)
+        ctx = ssl.create_default_context()  # verifies certificates and host names
 
         payload = json.dumps({
             "contents": [{"parts": [{"text": prompt}]}],
@@ -102,11 +112,10 @@ class ClinicalNarrativeSummarizer:
 
         last_error = None
         for model in GEMINI_MODELS:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
             req = urllib.request.Request(
-                url,
+                GEMINI_ENDPOINT.format(model=model),
                 data=payload,
-                headers={"Content-Type": "application/json"},
+                headers={"Content-Type": "application/json", "x-goog-api-key": self.api_key},
             )
             try:
                 with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
@@ -115,9 +124,8 @@ class ClinicalNarrativeSummarizer:
                     if candidates and "content" in candidates[0]:
                         parts = candidates[0]["content"].get("parts", [])
                         if parts and "text" in parts[0]:
-                            text = parts[0]["text"].strip()
                             return {
-                                "narrative": text,
+                                "narrative": parts[0]["text"].strip(),
                                 "model": model,
                                 "provider": "Google Gemini (Live API)",
                                 "is_live": True,
@@ -125,72 +133,67 @@ class ClinicalNarrativeSummarizer:
                                 "generated_at": datetime.now().isoformat(),
                             }
             except urllib.error.HTTPError as e:
-                err_body = e.read().decode("utf-8", errors="ignore")
-                logger.info(f"Gemini model {model} returned HTTP {e.code}: {err_body}")
-                last_error = e
+                logger.info(f"Gemini model {model} returned HTTP {e.code}")  # response body not logged
+                last_error = f"HTTP {e.code}"
                 continue
             except Exception as e:
-                logger.info(f"Gemini model {model} failed: {e}")
-                last_error = e
+                logger.info(f"Gemini model {model} failed: {type(e).__name__}")
+                last_error = type(e).__name__
                 continue
 
         raise RuntimeError(f"All Gemini model candidate endpoints failed: {last_error}")
 
-    def _build_prompt(
-        self,
-        patient_data: Dict[str, Any],
-        prediction_data: Dict[str, Any],
-        narrative_type: str,
-    ) -> str:
-        """Constructs an expert medical prompt grounded in clinical features and ML breadcrumbs."""
-        name = patient_data.get("full_name") or patient_data.get("name") or "Inpatient"
-        age = patient_data.get("age", "--")
-        gender = patient_data.get("gender", "--")
-        ward = patient_data.get("ward", "General Care")
-        status = patient_data.get("status", "Admitted")
-        symptoms = patient_data.get("symptoms", "Monitoring")
-        diagnosis = patient_data.get("primary_diagnosis", "Clinical Observation")
+    @staticmethod
+    def _coarse_outputs(prediction_data: Dict[str, Any]) -> Dict[str, str]:
+        """Only coarse, non-identifying model outputs are allowed into an external prompt."""
+        tier = prediction_data.get("risk_tier")
+        tier = tier if tier in RISK_TIERS else "Unknown"
+        protocol = str(prediction_data.get("recommended_protocol") or "Standard Monitoring")
+        protocol = re.split(r"[(:]", protocol)[0].strip()[:40] or "Standard Monitoring"  # generic label only
 
-        risk_tier = prediction_data.get("risk_tier", "Moderate")
-        risk_score = prediction_data.get("risk_score", 0.5)
-        protocol = prediction_data.get("recommended_protocol", "Standard Monitoring")
-        readmission_risk = prediction_data.get("readmission_30d_risk", 0.15)
-        dt_rules = prediction_data.get("decision_tree_explanation", [])
-        rules_text = "; ".join(dt_rules[:3]) if dt_rules else "Stable glucose and vital boundaries observed."
+        def pct(value, default):
+            try:
+                return f"{round(float(value) * 10) * 10}%"  # rounded to the nearest 10%
+            except (TypeError, ValueError):
+                return default
 
+        return {
+            "tier": tier,
+            "risk": pct(prediction_data.get("risk_score"), "unknown"),
+            "readmission": pct(prediction_data.get("readmission_30d_risk"), "unknown"),
+            "protocol": protocol,
+        }
+
+    def _build_prompt(self, prediction_data: Dict[str, Any], narrative_type: str) -> str:
+        """De-identified prompt: coarse model outputs only, patient referred to by a placeholder."""
+        c = self._coarse_outputs(prediction_data)
         if narrative_type == "handover":
             return f"""You are MediHaven's Clinical AI Copilot assisting hospital physicians during shift change.
-Write a concise, professional 3-sentence Physician Shift Handover note using the SBAR framework (Situation, Background/Vitals, Assessment/Action).
+Write a concise, professional 3-sentence Physician Shift Handover note using the SBAR framework (Situation, Background, Assessment/Action).
+Refer to the patient only as {PATIENT_PLACEHOLDER}. Do not invent names, ages, diagnoses or measurements.
 
-Patient Context:
-- Name: {name}, Age: {age}, Gender: {gender}, Ward: {ward}, Status: {status}
-- Admitting Diagnosis: {diagnosis} | Symptoms: {symptoms}
-- Ensemble Risk Tier: {risk_tier} (Risk Score: {risk_score:.2f} / 1.0)
-- Machine Learning Biomarker Logic: {rules_text}
-- Recommended Clinical Protocol: {protocol}
-- 30-Day Readmission Risk: {readmission_risk * 100:.1f}%
+De-identified model context:
+- Ensemble risk tier: {c['tier']} (approximate risk score {c['risk']})
+- Approximate 30-day readmission risk: {c['readmission']}
+- Recommended protocol family: {c['protocol']}
 
-Requirements:
-1. Sentence 1: Situation & current patient status.
-2. Sentence 2: Key physiological biomarker highlights and risk classification.
-3. Sentence 3: Immediate attending recommendation or clinical monitoring next step.
 Format: Return ONLY the 3 sentences in clear clinical prose, no bullet points, no Markdown headers."""
 
-        else:  # discharge summary
-            return f"""You are MediHaven's Clinical AI Copilot preparing a patient discharge overview.
-Write a compassionate, reassuring, plain-language 3-sentence summary for the patient and their family.
+        return f"""You are MediHaven's Clinical AI Copilot preparing a patient discharge overview.
+Write a compassionate, plain-language 3-sentence summary for the patient and their family.
+Refer to the patient only as {PATIENT_PLACEHOLDER}. Do not invent names, ages, diagnoses or measurements.
 
-Patient Context:
-- Patient Name: {name}, Ward: {ward}
-- Primary Reason for Admission: {diagnosis}
-- Current Risk Status: {risk_tier} (Risk Score: {risk_score:.2f})
-- Discharge Protocol: {protocol}
+De-identified model context:
+- Current risk status: {c['tier']} (approximate risk score {c['risk']})
+- Discharge protocol family: {c['protocol']}
 
-Requirements:
-1. Sentence 1: Warm acknowledgment of the patient's recovery trajectory and completed care.
-2. Sentence 2: Clear, non-technical explanation of their stable vital indicators.
-3. Sentence 3: Actionable guidance for medications, activity, or follow-up consults.
 Format: Return ONLY the 3 sentences in empathetic prose, no bullet points, no technical jargon."""
+
+    @staticmethod
+    def _personalize(text: str, patient_data: Dict[str, Any]) -> str:
+        """Replaces the placeholder with the patient's name locally (the name never left this machine)."""
+        name = patient_data.get("full_name") or patient_data.get("name") or "The patient"
+        return text.replace(PATIENT_PLACEHOLDER, str(name))
 
     def _generate_fallback(
         self,
