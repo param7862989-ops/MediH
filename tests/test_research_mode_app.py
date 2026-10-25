@@ -197,7 +197,7 @@ def test_research_status_model_card_and_view(research_env):
     page = client.get("/research", headers=ENFORCE)
     assert page.status_code == 200
     html = page.get_data(as_text=True)
-    assert "RESEARCH MODE" in html and "NOT FOR PATIENT CARE" in html and "verified" in html
+    assert "RESEARCH MODE" in html and "NOT FOR PATIENT CARE" in html and "Verified artifacts" in html
 
 
 def test_research_prediction_uses_permitted_features_only(research_env):
@@ -380,6 +380,81 @@ def test_launcher_starts_research_server_without_self_healing(research_env, monk
     assert calls["debug"] is False and calls["host"] == "127.0.0.1"
     out = capsys.readouterr().out
     assert "RESEARCH MODE" in out and "Research artifacts verified" in out
+
+
+# ------------------------------------------------------------------------------
+# Research dashboard (cohort-level charts)
+# ------------------------------------------------------------------------------
+def test_research_dashboard_endpoint_serves_aggregate_chart_data(research_env):
+    client = _physician(create_app({"TESTING": True}))
+    response = client.get("/api/research/dashboard", headers=ENFORCE)
+    assert response.status_code == 200
+    data = response.get_json()["data"]
+    assert data["kpis"]["stays"] == 70 and data["kpis"]["features"] == len(feature_columns())
+    assert data["kpis"]["top_model"] in {"logistic_regression", "decision_tree", "random_forest"}
+    assert set(data["models"]) == {"dummy_prior", "logistic_regression", "decision_tree", "random_forest"}
+    assert all(len(m["per_fold_auroc"]) == 5 for m in data["models"].values())
+    assert set(data["sensitivity"]) == {"primary", "sensitivity_evaluation_only", "sensitivity_retrained"}
+    assert len(data["folds"]) == 5 and "test_positives" in data["folds"][0]
+    weights = data["feature_weights"]
+    for key in ("random_forest_importance", "logistic_regression_coefficient"):
+        assert 0 < len(weights[key]) <= 10
+        assert {w["feature"] for w in weights[key]} <= set(feature_columns())
+    assert [v["name"] for v in data["whatif_variables"]][:3] == ["heart_rate", "resp_rate", "spo2"]
+    assert data["cohort"] is None  # the synthetic fixture manifest records no cohort counts
+    assert not any(identifier in response.get_data(as_text=True) for identifier in FIXTURE_IDS)
+
+
+def test_research_dashboard_cohort_charts_from_phase1_manifest(research_env, monkeypatch, tmp_path):
+    research_dir = _copy_artifacts(research_env, tmp_path / "r")
+    phase1 = research_dir / "medihaven_t1_inhospital_mortality_icu24h_v1.2.0" / "manifest.json"
+    manifest = json.loads(phase1.read_text(encoding="utf-8"))
+    manifest["source"] = {"release": "mimic-iv-demo-2.2"}
+    manifest["aggregate_counts"] = {
+        "exclusions": {"icu_stays_in_source": 90, "not_first_icu_stay_of_admission": 8, "under_18": 0,
+                       "left_icu_before_index": 12, "cohort_size": 70, "positive_labels": 14, "negative_labels": 56},
+        "ambiguous_outcome_reasons": {"missing_discharge_time": 0},
+        "outcome_anomalies": {"positive_deathtime_after_discharge": 3},
+        "variable_coverage_fraction_of_stays": {"heart_rate": 1.0, "lactate": 0.64},
+        "observation_quality": {"heart_rate": {"kept": 100, "implausible": 2, "stored_after_index": 5},
+                                "lactate": {"kept": 20, "implausible": 0, "stored_after_index": 1}},
+    }
+    phase1.write_text(json.dumps(manifest), encoding="utf-8")  # content_sha256 unchanged, so still verified
+    monkeypatch.setattr(Config, "MIMIC_OUTPUT_DIR", research_dir)
+    cohort = _physician(create_app({"TESTING": True})).get("/api/research/dashboard", headers=ENFORCE).get_json()["data"]["cohort"]
+    assert [(s["excluded"], s["remaining"]) for s in cohort["flow"]] == [(0, 90), (8, 82), (0, 82), (12, 70)]
+    assert cohort["outcome_anomalies"] == 3 and cohort["coverage"] == {"heart_rate": 1.0, "lactate": 0.64}
+    assert cohort["data_quality"] == {"kept": 120, "dropped": {"outside_window": 0, "stored_after_index": 6,
+                                                               "non_numeric": 0, "unit_mismatch": 0, "implausible": 2}}
+    assert cohort["source_release"] == "mimic-iv-demo-2.2"
+
+
+def test_research_dashboard_access_and_availability(research_env, monkeypatch, tmp_path):
+    app = create_app({"TESTING": True})
+    assert app.test_client().get("/api/research/dashboard", headers=ENFORCE).status_code == 401
+    assert _login(app, "patient1", "Patient@123").get("/api/research/dashboard", headers=ENFORCE).status_code == 403
+    monkeypatch.setattr(Config, "MIMIC_OUTPUT_DIR", tmp_path / "empty")
+    unavailable = _physician(create_app({"TESTING": True})).get("/api/research/dashboard", headers=ENFORCE)
+    assert unavailable.status_code == 503
+    monkeypatch.setattr(Config, "DATA_MODE", "synthetic")
+    assert create_app({"TESTING": True}).test_client().get("/api/research/dashboard").status_code == 409
+
+
+def test_research_page_is_a_chart_dashboard(research_env):
+    page = _physician(create_app({"TESTING": True})).get("/research", headers=ENFORCE).get_data(as_text=True)
+    for canvas in ("researchAurocChart", "researchApChart", "researchFlowChart", "researchCoverageChart",
+                   "researchSensitivityChart", "researchFoldChart", "researchWeightsChart", "researchQualityChart",
+                   "researchWhatIfChart"):
+        assert f'id="{canvas}"' in page
+    assert 'class="kpi-grid"' in page and "js/research.js" in page and "NOT FOR PATIENT CARE" in page
+
+
+def test_research_script_never_injects_html_or_uses_browser_storage():
+    script = (PROJECT_ROOT / "static" / "js" / "research.js").read_text(encoding="utf-8")
+    import re
+    assert not re.search(r"\.innerHTML\s*[+]?=", script)
+    assert not re.search(r"localStorage|sessionStorage|indexedDB", script)
+    assert "/api/research/dashboard" in script and "/api/research/predict" in script
 
 
 # ------------------------------------------------------------------------------

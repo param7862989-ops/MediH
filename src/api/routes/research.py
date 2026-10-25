@@ -42,6 +42,14 @@ def research_model_card():
     return success_response(data=_service().model_card())
 
 
+@research_bp.route("/dashboard", methods=["GET"])
+@role_required(CLINICAL_ROLES)
+def research_dashboard():
+    if not _service().available:
+        return _unavailable()
+    return success_response(data=_service().dashboard())
+
+
 @research_bp.route("/predict", methods=["POST"])
 @role_required(CLINICAL_ROLES)
 def research_predict():

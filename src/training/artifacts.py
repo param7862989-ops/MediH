@@ -59,6 +59,27 @@ class VerifiedArtifacts:
     metrics: Dict[str, object]
     features: List[str]
     models: Dict[str, object] = field(default_factory=dict)  # name -> fitted pipeline
+    cohort: Optional[Dict[str, object]] = None  # aggregate Phase 1 cohort counts, for display only
+
+
+def cohort_summary(phase1_manifest: Dict[str, object]) -> Optional[Dict[str, object]]:
+    """Aggregate cohort counts from the Phase 1 dataset manifest (display only; None if absent/malformed)."""
+    counts = phase1_manifest.get("aggregate_counts")
+    if not isinstance(counts, dict) or not isinstance(counts.get("exclusions"), dict):
+        return None
+    numeric = lambda d: isinstance(d, dict) and all(isinstance(v, (int, float)) for v in d.values())
+    summary = {
+        "source_release": (phase1_manifest.get("source") or {}).get("release"),
+        "exclusions": counts["exclusions"] if numeric(counts["exclusions"]) else None,
+        "ambiguous_outcome_reasons": counts.get("ambiguous_outcome_reasons") if numeric(counts.get("ambiguous_outcome_reasons")) else {},
+        "outcome_anomalies": counts.get("outcome_anomalies") if isinstance(counts.get("outcome_anomalies"), dict) else {},
+        "variable_coverage": counts.get("variable_coverage_fraction_of_stays") if numeric(counts.get("variable_coverage_fraction_of_stays")) else {},
+        "observation_quality": {},
+    }
+    quality = counts.get("observation_quality")
+    if isinstance(quality, dict) and all(numeric(v) for v in quality.values()):
+        summary["observation_quality"] = quality
+    return summary if summary["exclusions"] is not None else None
 
 
 def _sha256(data: bytes) -> str:
@@ -173,7 +194,8 @@ def verify_and_load(research_dir: Optional[Path], manifest_pin: str = "") -> Ver
 
     metrics = _parse_json_object(verified["metrics.json"], "METRICS_INVALID", "metrics.json")
     _check_metrics(metrics)
-    return VerifiedArtifacts(run_manifest=manifest, metrics=metrics, features=features, models=models)
+    return VerifiedArtifacts(run_manifest=manifest, metrics=metrics, features=features, models=models,
+                             cohort=cohort_summary(phase1_manifest))
 
 
 def deserialize_verified(name: str, data: bytes):

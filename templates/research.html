@@ -1,16 +1,37 @@
 {% extends "base.html" %}
 
-{% block title %}Research Mode — Task 1 Model | MediHaven{% endblock %}
+{% block title %}Research Dashboard — In-hospital Mortality (MIMIC-IV Demo) | MediHaven{% endblock %}
 
 {% block content %}
-<section style="max-width: 1100px; margin: 0 auto; padding: var(--space-xl) var(--space-md); display: flex; flex-direction: column; gap: var(--space-lg);">
+<div class="dashboard-page research-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">🔬 Research Mode · In-hospital Mortality Model</h1>
+      <p class="page-subtitle">
+        MIMIC-IV Demo · prediction at ICU admission + 24 hours · cohort-level results only (no individual patients)
+      </p>
+    </div>
+    <div style="display: flex; gap: var(--space-sm); align-items: center;">
+      {% if status.research_inference_available %}
+      <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); padding: 5px 12px; border-radius: var(--radius-full); font-size: 12px; font-weight: 600;">
+        ● Verified artifacts · {{ status.run.run_id }} v{{ status.run.run_version }}
+      </span>
+      {% else %}
+      <span style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); padding: 5px 12px; border-radius: var(--radius-full); font-size: 12px; font-weight: 600;">
+        ● Research model unavailable
+      </span>
+      {% endif %}
+    </div>
+  </div>
 
-  <div role="alert" style="border: 1px solid rgba(245, 158, 11, 0.55); background: rgba(245, 158, 11, 0.12); border-radius: var(--radius-md); padding: var(--space-md) var(--space-lg);">
+  <!-- Research-only banner -->
+  <div role="alert" style="border: 1px solid rgba(245, 158, 11, 0.55); background: rgba(245, 158, 11, 0.12); border-radius: var(--radius-md); padding: var(--space-md) var(--space-lg); margin-bottom: var(--space-lg);">
     <strong style="color: #fbbf24;">RESEARCH MODE — NOT FOR PATIENT CARE</strong>
     <p style="margin: 6px 0 0; color: var(--text-secondary); font-size: 13px;">{{ status.disclaimer }}</p>
     <p style="margin: 6px 0 0; color: var(--text-secondary); font-size: 13px;">
-      Synthetic clinical predictions are disabled in this mode. The patient vault, QR sharing and scanner
-      remain the synthetic demo; no MIMIC-IV record is ever shown here.
+      Synthetic clinical predictions are disabled in this mode. The patient vault, QR sharing and scanner remain the
+      synthetic demo; no individual MIMIC-IV record is shown anywhere.
     </p>
   </div>
 
@@ -21,61 +42,188 @@
     <p style="margin: 6px 0 0; color: var(--text-muted); font-size: 12px;">Inference stays disabled until the Phase 2 artifacts pass verification.</p>
   </div>
   {% else %}
-  <div>
-    <h1 style="font-size: 22px; margin: 0 0 6px;">{{ card.task }}</h1>
-    <p style="margin: 0; color: var(--text-secondary); font-size: 13px;">
-      Prediction point: {{ card.prediction_point }}.<br>
-      Dataset {{ status.dataset.dataset_id }} v{{ status.dataset.dataset_version }} · task v{{ status.dataset.task_version }}
-      · source {{ status.dataset.source_release }} · {{ status.feature_count }} permitted features
-      · artifacts {{ status.run.run_id }} v{{ status.run.run_version }} (verified)
-      {% if not status.manifest_pinned %}<br><span style="color: var(--text-muted);">Manifest pin not set: hashes detect corruption, not deliberate replacement (set RESEARCH_ARTIFACT_MANIFEST_SHA256).</span>{% endif %}
-    </p>
-  </div>
 
-  {% for key, title in [("primary", "Primary analysis — all eligible stays"),
-                        ("sensitivity_evaluation_only", "Sensitivity A — anomaly stays removed from scoring"),
-                        ("sensitivity_retrained", "Sensitivity B — anomaly stays removed before training")] %}
-  {% set analysis = card[key] %}
-  <div>
-    <h2 style="font-size: 16px; margin: 0 0 4px;">{{ title }}</h2>
-    <p style="margin: 0 0 8px; color: var(--text-secondary); font-size: 12px;">
-      {{ analysis.population.stays }} stays · {{ analysis.population.subjects }} subjects ·
-      {{ analysis.population.positives }} deaths / {{ analysis.population.negatives }} survivors ·
-      evaluation status: <strong>{{ analysis.evaluation.status }}</strong> — {{ analysis.evaluation.reason }}
-    </p>
-    {% if analysis.models %}
+  <!-- Cohort & Model KPI Grid -->
+  <section class="kpi-grid" aria-label="Research cohort summary">
+    <div class="kpi-card kpi-brand">
+      <div class="kpi-label">Eligible ICU Stays</div>
+      <div class="kpi-value" id="kpi-stays">--</div>
+      <div class="kpi-subtext" id="kpi-subjects">-- patients</div>
+    </div>
+    <div class="kpi-card kpi-critical">
+      <div class="kpi-label">In-hospital Deaths</div>
+      <div class="kpi-value text-critical" id="kpi-deaths">--</div>
+      <div class="kpi-subtext" id="kpi-prevalence">--% of stays</div>
+    </div>
+    <div class="kpi-card kpi-medium">
+      <div class="kpi-label">Model Inputs</div>
+      <div class="kpi-value" id="kpi-features">--</div>
+      <div class="kpi-subtext">First-24h summaries & demographics</div>
+    </div>
+    <div class="kpi-card kpi-low">
+      <div class="kpi-label">Highest Pooled AUROC</div>
+      <div class="kpi-value" id="kpi-top-auroc">--</div>
+      <div class="kpi-subtext" id="kpi-top-model">--</div>
+    </div>
+    <div class="kpi-card kpi-high">
+      <div class="kpi-label">Evaluation Status</div>
+      <div class="kpi-value text-high" id="kpi-evaluation" style="text-transform: capitalize;">--</div>
+      <div class="kpi-subtext">5-fold patient-grouped CV</div>
+    </div>
+    <div class="kpi-card kpi-critical">
+      <div class="kpi-label">Timestamp Anomalies</div>
+      <div class="kpi-value" id="kpi-anomalies">--</div>
+      <div class="kpi-subtext">Deaths after recorded discharge</div>
+    </div>
+  </section>
+
+  <!-- Charts -->
+  <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: var(--space-md); margin-bottom: var(--space-lg);" aria-label="Research charts">
+    <div class="chart-box">
+      <div class="chart-header">
+        <div class="chart-title">Model Discrimination (AUROC)</div>
+        <div style="font-size: 11px; color: var(--text-muted);">Pooled out-of-fold · bars = 95% CI · dashed = chance</div>
+      </div>
+      <div class="chart-canvas-wrapper"><canvas id="researchAurocChart" aria-label="AUROC by model with 95% confidence intervals"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-header">
+        <div class="chart-title">Average Precision</div>
+        <div style="font-size: 11px; color: var(--text-muted);">Bars = 95% CI · dashed = death rate (no-skill)</div>
+      </div>
+      <div class="chart-canvas-wrapper"><canvas id="researchApChart" aria-label="Average precision by model"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-header">
+        <div class="chart-title">Cohort Flow</div>
+        <div style="font-size: 11px; color: var(--text-muted);" id="flow-source">Stays remaining after each rule</div>
+      </div>
+      <div class="chart-canvas-wrapper"><canvas id="researchFlowChart" aria-label="Cohort flow"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-header">
+        <div class="chart-title">Measurement Coverage (first 24 ICU hours)</div>
+        <div style="font-size: 11px; color: var(--text-muted);">Share of stays with ≥ 1 valid measurement</div>
+      </div>
+      <div class="chart-canvas-wrapper"><canvas id="researchCoverageChart" aria-label="Measurement coverage"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-header">
+        <div class="chart-title">Anomaly Sensitivity Analysis (AUROC)</div>
+        <div style="font-size: 11px; color: var(--text-muted);">Primary vs. anomaly stays removed (A: scoring only · B: before training)</div>
+      </div>
+      <div class="chart-canvas-wrapper"><canvas id="researchSensitivityChart" aria-label="Sensitivity analysis"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-header">
+        <div class="chart-title">Fold-to-Fold Stability (AUROC)</div>
+        <div style="font-size: 11px; color: var(--text-muted);" id="fold-note">Each fold holds 2–3 deaths</div>
+      </div>
+      <div class="chart-canvas-wrapper"><canvas id="researchFoldChart" aria-label="AUROC per fold"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-header">
+        <div class="chart-title">Most Influential Inputs</div>
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn btn-outline btn-sm" id="weights-rf" aria-pressed="true">Random forest</button>
+          <button type="button" class="btn btn-outline btn-sm" id="weights-lr" aria-pressed="false">Logistic regression</button>
+        </div>
+      </div>
+      <div class="chart-canvas-wrapper"><canvas id="researchWeightsChart" aria-label="Feature weights"></canvas></div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;" id="weights-note"></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-header">
+        <div class="chart-title">Measurement Quality Filtering</div>
+        <div style="font-size: 11px; color: var(--text-muted);" id="quality-kept">Rows removed by each Phase 1 rule</div>
+      </div>
+      <div class="chart-canvas-wrapper"><canvas id="researchQualityChart" aria-label="Measurement quality filtering"></canvas></div>
+    </div>
+  </section>
+
+  <!-- Metrics table -->
+  <section style="margin-bottom: var(--space-lg);" aria-label="Model metrics">
+    <h2 style="font-size: 16px; margin: 0 0 var(--space-sm);">Model Performance (pooled out-of-fold)</h2>
     <div class="table-container">
       <table class="clinical-table">
         <thead>
-          <tr><th>Model</th><th>AUROC (95% CI)</th><th>Average precision (95% CI)</th><th>Brier</th><th>Sensitivity</th><th>Specificity</th></tr>
-        </thead>
-        <tbody>
-          {% for name, m in analysis.models.items() %}
           <tr>
-            <td>{{ name }}</td>
-            <td class="mono">{{ "%.2f"|format(m.auroc) if m.auroc is not none else "n/a" }}
-              {% if m.ci_95.auroc.low is not none %}({{ "%.2f"|format(m.ci_95.auroc.low) }}–{{ "%.2f"|format(m.ci_95.auroc.high) }}){% endif %}</td>
-            <td class="mono">{{ "%.2f"|format(m.average_precision) if m.average_precision is not none else "n/a" }}
-              {% if m.ci_95.average_precision.low is not none %}({{ "%.2f"|format(m.ci_95.average_precision.low) }}–{{ "%.2f"|format(m.ci_95.average_precision.high) }}){% endif %}</td>
-            <td class="mono">{{ "%.3f"|format(m.brier_score) if m.brier_score is not none else "n/a" }}</td>
-            <td class="mono">{{ "%.2f"|format(m.sensitivity) if m.sensitivity is not none else "n/a" }}</td>
-            <td class="mono">{{ "%.2f"|format(m.specificity) if m.specificity is not none else "n/a" }}</td>
+            <th>Model</th><th>AUROC (95% CI)</th><th>Avg. precision (95% CI)</th><th>Brier</th>
+            <th>Sensitivity</th><th>Specificity</th><th>Precision</th><th>F1</th>
           </tr>
-          {% endfor %}
-        </tbody>
+        </thead>
+        <tbody id="research-metrics-body"></tbody>
       </table>
     </div>
-    {% endif %}
-  </div>
-  {% endfor %}
+    <p style="font-size: 12px; color: var(--text-muted); margin: 6px 0 0;" id="threshold-note"></p>
+  </section>
 
-  <div style="color: var(--text-secondary); font-size: 12px;">
-    <p style="margin: 0;">Threshold: {{ card.definitions.threshold_rule }}. Average precision: {{ card.definitions.average_precision }}.
-      Intervals: {{ card.definitions.bootstrap }}.</p>
-    <p style="margin: 6px 0 0;">What-if estimates for manually entered summaries are available to clinical roles at
-      <code>POST /api/research/predict</code>. Variables you do not supply are treated as not measured, exactly as in
-      training; measured variables need their measurement count. They are research outputs, not clinical advice.</p>
-  </div>
+  <!-- Confusion matrices -->
+  <section style="margin-bottom: var(--space-lg);" aria-label="Confusion matrices">
+    <h2 style="font-size: 16px; margin: 0 0 var(--space-sm);">Confusion Matrices (all eligible stays, out-of-fold)</h2>
+    <div id="research-confusion" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: var(--space-md);"></div>
+  </section>
+
+  <!-- What-if estimator -->
+  <section class="chart-box" style="margin-bottom: var(--space-lg);" aria-label="What-if risk estimator">
+    <div class="chart-header">
+      <div class="chart-title">What-if Risk Estimator (research only)</div>
+      <div style="font-size: 11px; color: var(--text-muted);">Each value is sent as a single reading; blank = not measured</div>
+    </div>
+    <form id="research-whatif-form" novalidate>
+      <div id="whatif-fields" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: var(--space-sm);"></div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: var(--space-sm); margin-top: var(--space-sm);">
+        <div class="form-group">
+          <label class="form-label" for="whatif-age">Age (years)</label>
+          <input class="form-control" id="whatif-age" type="number" min="18" max="120" step="1" placeholder="18–120">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="whatif-sex">Sex</label>
+          <select class="form-control" id="whatif-sex">
+            <option value="">Not specified</option><option value="1">Male</option><option value="0">Female</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="whatif-bp-source">Blood pressure source</label>
+          <select class="form-control" id="whatif-bp-source">
+            <option value="0">Non-invasive cuff</option><option value="1">Arterial line</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="whatif-map-source">MAP</label>
+          <select class="form-control" id="whatif-map-source">
+            <option value="0">Measured</option><option value="1">Derived from SBP/DBP</option>
+          </select>
+        </div>
+      </div>
+      <div style="display: flex; gap: var(--space-sm); margin-top: var(--space-md); flex-wrap: wrap;">
+        <button type="submit" class="btn btn-primary btn-sm" id="whatif-submit">Estimate risk</button>
+        <button type="reset" class="btn btn-outline btn-sm">Clear</button>
+      </div>
+    </form>
+    <div id="whatif-error" role="alert" style="display: none; margin-top: var(--space-md); color: #f87171; font-size: 13px;"></div>
+    <div id="whatif-result" style="display: none; margin-top: var(--space-md);">
+      <div class="chart-canvas-wrapper" style="height: 200px;"><canvas id="researchWhatIfChart" aria-label="What-if risk estimates"></canvas></div>
+      <p id="whatif-summary" style="font-size: 12px; color: var(--text-secondary); margin: 8px 0 0;"></p>
+      <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0;">Research output on demo data — not clinical advice.</p>
+    </div>
+  </section>
+
+  <!-- Notes -->
+  <section style="color: var(--text-secondary); font-size: 12px; display: flex; flex-direction: column; gap: 6px;" aria-label="Method notes">
+    <p style="margin: 0;" id="note-bootstrap"></p>
+    <p style="margin: 0;">With only a handful of deaths, every metric is unstable and the intervals overlap: these results validate the
+      pipeline and do not rank models or show clinical validity. Feature weights describe the final models only and are not causal.</p>
+    {% if not status.manifest_pinned %}
+    <p style="margin: 0; color: var(--text-muted);">Manifest pin not set: hashes detect corruption, not deliberate replacement (set RESEARCH_ARTIFACT_MANIFEST_SHA256).</p>
+    {% endif %}
+  </section>
   {% endif %}
-</section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if status.research_inference_available %}
+<script src="{{ url_for('static', filename='js/research.js') }}"></script>
+{% endif %}
 {% endblock %}

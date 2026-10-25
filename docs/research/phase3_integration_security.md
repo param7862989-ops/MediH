@@ -39,8 +39,13 @@ Optional settings: `RESEARCH_ARTIFACT_MANIFEST_SHA256` (pin), `CORS_ORIGINS`,
 
 ## 2. Research view and API
 
-- `GET /research` — server-rendered page: research-only banner, verification status, dataset/task
-  versions, aggregate cross-validated metrics for the primary and sensitivity analyses, limitations.
+- `GET /research` — research dashboard in the same style as the synthetic triage dashboard (KPI tiles,
+  Chart.js charts, tables), built from cohort-level aggregates only: eligible stays, deaths and death
+  rate, model AUROC and average precision with 95% CIs, cohort flow, measurement coverage, quality
+  filtering, anomaly sensitivity analysis, fold-to-fold AUROC, feature weights of the final models,
+  a metrics table, confusion matrices and an interactive what-if estimator. No individual patient is
+  shown. The page script inserts text with `textContent` only and uses no browser storage.
+- `GET /api/research/dashboard` — the aggregate data behind those charts (clinical roles).
 - `GET /api/research/status`, `GET /api/research/model-card` — the same information as JSON.
 - `POST /api/research/predict` — "what-if" risk estimates for manually entered summaries (contract below).
 
