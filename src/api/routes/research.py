@@ -1,11 +1,12 @@
-"""Research-mode API (DATA_MODE=mimic only): verified Phase 2 model status, model card and
-what-if estimates. Clinical roles only. Responses never contain patient records or identifiers."""
+"""Research-mode API (DATA_MODE=mimic only): verified Phase 2 model status, model card, what-if
+estimates and the stay-level triage view. Clinical roles only. Research mode serves this machine only
+(loopback); stays are numbered 1..N and responses never contain MIMIC identifiers or dates."""
 
 from flask import Blueprint, current_app, request
 
 from src.api.auth import CLINICAL_ROLES, role_required
 from src.api.schemas import error_response, success_response
-from src.training.serving import PredictionInputError
+from src.training.serving import PredictionInputError, StayViewError
 from src.utils.data_mode import is_research_mode
 
 research_bp = Blueprint("research", __name__, url_prefix="/api/research")
@@ -48,6 +49,31 @@ def research_dashboard():
     if not _service().available:
         return _unavailable()
     return success_response(data=_service().dashboard())
+
+
+@research_bp.route("/stays", methods=["GET"])
+@role_required(CLINICAL_ROLES)
+def research_stays():
+    if not _service().available:
+        return _unavailable()
+    try:
+        return success_response(data=_service().stay_roster())
+    except StayViewError as e:
+        return error_response(message=str(e), code=e.code, status_code=503)
+
+
+@research_bp.route("/stays/<int:number>", methods=["GET"])
+@role_required(CLINICAL_ROLES)
+def research_stay_detail(number: int):
+    if not _service().available:
+        return _unavailable()
+    try:
+        detail = _service().stay_detail(number)
+    except StayViewError as e:
+        return error_response(message=str(e), code=e.code, status_code=503)
+    if detail is None:
+        return error_response(message=f"Stay {number} does not exist.", code="STAY_NOT_FOUND", status_code=404)
+    return success_response(data=detail)
 
 
 @research_bp.route("/predict", methods=["POST"])

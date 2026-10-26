@@ -232,9 +232,16 @@
         {% if current_user and current_user.role == 'physician' %}
         <li>
           <a href="/dashboard" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" id="nav-dashboard">
-            Physician Triage
+            {% if research_mode %}Research Triage{% else %}Physician Triage{% endif %}
           </a>
         </li>
+        {% if research_mode %}
+        <li>
+          <a href="/research" class="nav-link {% if active_page == 'research' %}active{% endif %}" id="nav-research">
+            Model Analytics
+          </a>
+        </li>
+        {% endif %}
         <li>
           <a href="/scanner" class="nav-link {% if active_page == 'scanner' %}active{% endif %}" id="nav-scanner">
             QR Scanner

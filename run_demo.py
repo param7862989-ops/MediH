@@ -88,6 +88,15 @@ def open_browser_delayed(url: str, delay_seconds: float = 1.5):
     thread.start()
 
 
+def warm_research_stays(app):
+    """Builds and verifies the stay view in the background; a failure is shown on the triage page."""
+    try:
+        app.research_service.stays.get()
+        print(" [OK] Research triage ready: out-of-fold scores reproduce the verified run.")
+    except Exception as e:
+        print(f" [!] Research triage unavailable ({getattr(e, 'code', type(e).__name__)}).")
+
+
 def run_research_server():
     """Research mode: no pre-flight self-healing (never seeds or trains); serves verified artifacts only."""
     print(" RESEARCH MODE (DATA_MODE=mimic): synthetic seeding, training and clinical predictions are disabled.")
@@ -100,11 +109,14 @@ def run_research_server():
     status = app.research_service.status()
     if status["research_inference_available"]:
         print(f" [OK] Research artifacts verified ({status['run']['run_id']} v{status['run']['run_version']}).")
+        # Prepare the stay-level triage view (out-of-fold scores, ~15 s) while the server starts
+        threading.Thread(target=warm_research_stays, args=(app,), daemon=True).start()
     else:
         print(f" [!] Research inference disabled ({status['reason_code']}): {status['reason']}")
     base_url = f"http://{Config.FLASK_HOST}:{Config.FLASK_PORT}"
     print("\n" + "=" * 70)
-    print(f"  * Research view (physician/admin): {base_url}/research")
+    print(f"  * Research triage (physician):     {base_url}/dashboard")
+    print(f"  * Model analytics (physician/admin): {base_url}/research")
     print(f"  * Login:                           {base_url}/login")
     print(f"  * Health probe:                    {base_url}/api/health")
     print("  Research-only outputs on demo data. Not for patient-care decisions.")
