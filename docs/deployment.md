@@ -31,7 +31,7 @@ Set these in the platform's environment or secret settings, never in the image o
 | `PASSWORD_HASH_VIDHI`, `PASSWORD_HASH_NIRUPAM`, `PASSWORD_HASH_PARAM` | for admin access | Each value is a password hash; generate one with `python -m src.api.auth`. In production the development admin passwords are refused, and an admin account without a hash cannot log in. |
 | `DEMO_LOGINS` | optional | `1` enables the public demo accounts `physician1` and `patient1` and shows their credentials on the login page. The default is off in production. Anyone can then sign in as the demo physician, which is the point of a public demo. Leave it off otherwise and set `PASSWORD_HASH_PHYSICIAN1` / `PASSWORD_HASH_PATIENT1`. |
 | `TRUST_PROXY_HOPS` | behind a proxy | Number of reverse proxies in front of the app. Most PaaS platforms use 1. The app then sees the real client address (used by the login rate limit) and the HTTPS scheme. |
-| `GEMINI_API_KEY` | optional | Enables live narratives. Without it a local, deterministic fallback text is used. Narrative calls are limited to 30 per 5 minutes per client. |
+| `GEMINI_API_KEY` | optional | Enables live narratives. Without it a local, deterministic fallback text is used. While a key is set, narrative calls are limited to 60 per 5 minutes per client. |
 
 The app **refuses to start** when `FLASK_SECRET_KEY` or `JWT_SECRET_KEY` is missing, a placeholder,
 the public development default, or shorter than 32 characters. The same check applies to any

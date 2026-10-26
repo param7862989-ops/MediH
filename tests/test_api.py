@@ -596,3 +596,32 @@ def test_centralized_error_handlers(client: FlaskClient):
     payload_405 = res_405.get_json()
     assert payload_405["success"] is False
     assert payload_405["error"]["code"] == "METHOD_NOT_ALLOWED"
+
+
+def test_vitals_window_ends_at_latest_reading_not_wall_clock(client: FlaskClient):
+    """A database seeded days ago must still fill the drawer chart (regression: empty 72 h chart)."""
+    import sqlite3
+    from datetime import datetime, timedelta
+    from src.utils.config import Config
+
+    old = datetime.now() - timedelta(days=10)
+    with sqlite3.connect(Config.DATABASE_PATH) as conn:
+        cur = conn.execute(
+            "INSERT INTO patients (mrn, full_name, age, gender, admission_date, status, ward, bed_number) "
+            "VALUES ('MRN-TEST-OLDVITALS', 'Old Vitals Test', 60, 'F', ?, 'Admitted', 'General Ward A', 'Bed-999')",
+            (old.isoformat(),))
+        patient_id = cur.lastrowid
+        for hours_before in (0, 24, 48, 70, 100):  # 100 h before the latest reading falls outside 72 h
+            conn.execute(
+                "INSERT INTO vitals (patient_id, recorded_at, heart_rate, blood_pressure_sys, blood_pressure_dia, "
+                "temperature, oxygen_saturation, respiratory_rate) VALUES (?, ?, 80, 120, 80, 37.0, 97, 16)",
+                (patient_id, (old - timedelta(hours=hours_before)).isoformat()))
+    try:
+        series = client.get(f"/api/patients/{patient_id}/vitals?hours=72").get_json()["data"]
+        assert len(series) == 4
+        assert len(client.get(f"/api/patients/{patient_id}/vitals").get_json()["data"]) == 5
+    finally:
+        with sqlite3.connect(Config.DATABASE_PATH) as conn:
+            conn.execute("PRAGMA foreign_keys = ON")
+            conn.execute("DELETE FROM vitals WHERE patient_id = ?", (patient_id,))
+            conn.execute("DELETE FROM patients WHERE patient_id = ?", (patient_id,))

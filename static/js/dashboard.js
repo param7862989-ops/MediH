@@ -396,9 +396,17 @@ function renderVitalsChart(series) {
 
   if (activeVitalsChart) {
     activeVitalsChart.destroy();
+    activeVitalsChart = null;
   }
 
   if (!series || series.length === 0) {
+    // Say so instead of leaving an empty frame
+    const canvas = ctx.canvas;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "13px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("No vital signs recorded for this patient in the last 72 hours of monitoring.", canvas.width / 2, canvas.height / 2);
     return;
   }
 

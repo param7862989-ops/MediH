@@ -317,15 +317,19 @@ def get_patient_vitals_series(patient_id: int):
     """
     params: List[Any] = [patient_id]
 
-    if hours_filter:
-        cutoff = (datetime.now() - timedelta(hours=hours_filter)).isoformat()
-        query += " AND recorded_at >= ?"
-        params.append(cutoff)
-
     query += " ORDER BY recorded_at ASC"
 
     with get_connection() as conn:
         cursor = conn.cursor()
+        if hours_filter:
+            # The window ends at the patient's latest reading, not at the wall clock: a demo database seeded
+            # days ago would otherwise return no vitals at all and leave the chart empty
+            latest = cursor.execute("SELECT MAX(recorded_at) FROM vitals WHERE patient_id = ?",
+                                    (patient_id,)).fetchone()[0]
+            if latest is not None:
+                latest = latest if isinstance(latest, datetime) else datetime.fromisoformat(str(latest))
+                query = query.replace(" ORDER BY", " AND recorded_at >= ? ORDER BY")
+                params.append((latest - timedelta(hours=hours_filter)).isoformat())
         cursor.execute(query, params)
         rows = cursor.fetchall()
 
