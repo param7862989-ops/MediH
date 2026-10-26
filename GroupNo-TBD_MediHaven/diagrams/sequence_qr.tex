@@ -1,0 +1,20 @@
+% Sequence diagram: clinician redeems a QR access pass (src/api/routes/vault.py, src/vault/*).
+\begin{tikzpicture}[x=1mm, y=1mm]
+\foreach \x/\n/\t in {8/c/Clinician browser, 44/r/vault route (POST), 82/a/access\_controller,
+                      118/s/qr\_scanner, 152/d/SQLite}
+  {\node[box, minimum width=28mm, text width=26mm] (\n) at (\x,0) {\t};
+   \draw[mhgray, dashed] (\x,-4) -- (\x,-80);}
+\newcommand{\msg}[5][]{\draw[flow,#1] (#2,#4) -- node[lbl, above]{#5} (#3,#4);}
+\msg{8}{44}{-10}{token or image (session cookie)}
+\node[lbl, right, align=left, font=\scriptsize\itshape] at (45,-17) {RBAC, payload type check,\\signed-in user = auditor};
+\msg{44}{82}{-24}{access\_vault\_with\_token()}
+\msg{82}{118}{-30}{scan\_and\_validate\_qr()}
+\msg{118}{152}{-36}{token by hash: revoked? expiry? uses?}
+\msg[dflow]{152}{118}{-42}{token record}
+\node[lbl, align=center] at (135,-48) {HMAC-SHA256 JWT check\\(signature, expiry)};
+\msg[dflow]{118}{82}{-54}{valid / reason}
+\msg{82}{152}{-60}{atomic UPDATE use\_count (if uses remain)}
+\msg{82}{152}{-66}{INSERT vault\_access\_log}
+\msg[dflow]{82}{44}{-72}{scoped records}
+\msg[dflow]{44}{8}{-78}{200 JSON or 403 reason}
+\end{tikzpicture}

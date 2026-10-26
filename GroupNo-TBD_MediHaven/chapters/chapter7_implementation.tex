@@ -1,0 +1,104 @@
+\chapter{Implementation and Module-Wise Coding}
+\label{ch:impl}
+
+\section{Development Environment}
+Python 3.12 (virtual environment), VS Code, Git and GitHub, Windows 11; Flask 3.1 with Jinja2, vanilla
+JavaScript and Chart.js 4.4.1; scikit-learn 1.9.1, pandas 3.0, NumPy 2.5; SQLite 3 (WAL); DuckDB 1.5 for
+reading the MIMIC-IV CSV files; pytest 9.1. AI coding assistants were used during development: 13 of the
+25 non-merge commits carry an AI co-author trailer, and all such changes were reviewed and tested before
+being committed.
+
+\section{Overall Implementation Strategy}
+The repository history shows the order of work: foundation and configuration, database schema and seeding,
+feature pipeline, the four-model ensemble, the vault and QR engine, the REST API, the user interface and a
+benchmark runner (6--7 October 2026); RBAC and the Gemini narrative (8 October); a security and RBAC fix
+(14 October); then the research track---test isolation and data modes, the MIMIC-IV adapter, the Task~1
+dataset, leakage-aware baselines, verified research serving and security fixes (25 October)---followed by
+the research dashboard, model set v2, deployment hardening and a vitals-chart fix (26 October).
+
+\section{Module-Wise Implementation}
+\begin{small}
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}p{24mm}p{66mm}p{40mm}p{28mm}@{}}
+\caption{Module-wise implementation summary}\label{tab:impl}\\
+\toprule
+Module & Processing logic and key details & Code references & Test evidence\\
+\midrule
+\endfirsthead
+\toprule Module & Processing logic and key details & Code references & Test evidence\\ \midrule
+\endhead
+Data pipeline & clean, validate, engineer 30 features, stratified 80/20 split, fit and save scaler & \code{src/data/*} & \code{test_data_pipeline.py}\\
+Ensemble & train four models, fuse soft votes, rule path, KNN precedents, per-model scores & \code{src/models/*} & \code{test_models.py}, \code{test_benchmark.py}\\
+API and RBAC & app factory, blueprints, session roles, error envelopes, rate limits, headers & \code{src/api/*} & \code{test_api.py}, \code{test_auth.py}\\
+Vault and QR & HS256 JWT with DB record, scope filter, atomic quota, audit log & \code{src/vault/*} & \code{test_vault.py}\\
+Narratives & de-identified prompt, TLS-verified call, local fallback & \code{src/nlp/summarizer.py} & \code{test_nlp.py}, \code{test_security_hardening.py}\\
+MIMIC adapter and Task~1 & DuckDB reads, item-ID mapping, unit checks, cohort, labels, anomalies, hashed dataset & \code{src/datasources/mimic/*}, \code{src/tasks/*} & \code{test_mimic_t1_dataset.py}, \code{test_mimic_layout_mappings.py}\\
+Research training & grouped CV, metrics, bootstrap, sensitivity analyses, staged atomic output & \code{src/training/*} & \code{test_training_t1.py}\\
+Research serving & hash-verified loading, what-if contract, dashboard, out-of-fold stay view & \code{training/serving.py}, \texttt{stays.py}, \texttt{whatif.py} & \code{test_research_mode_app.py}, \code{test_whatif_contract.py}\\
+Deployment & Waitress entry, first-start bootstrap, Docker image & \texttt{wsgi.py}, \code{src/bootstrap.py}, \texttt{Dockerfile} & \code{test_deployment_hardening.py}\\
+\bottomrule
+\end{longtable}
+\end{small}
+
+\section{Front-End Implementation}
+Seven server-rendered portals share \texttt{base.html} (role-aware navigation, responsive header):
+landing, login, physician triage (KPI cards, alert feed, filterable roster, chart drawer with Chart.js
+vitals and model votes), patient vault (records, sharing dialog, QR image, access log), scanner (camera,
+upload or pasted token), administrator overview, and in research mode the research triage and model
+analytics pages. All scripts are static files: a shared \texttt{common.js} redirects to the login page on
+an expired session, research scripts build the DOM with \texttt{textContent} only, and no data are kept in
+browser storage. Screenshots appear in Chapter~\ref{ch:results}.
+
+\section{Back-End Implementation}
+The 44 routes (Appendix~\ref{app:repro}) follow one pattern: authenticate and authorise, validate the
+JSON body (objects only, bounded values), call a service, and return a \texttt{\{success, data, error,
+meta\}} envelope. Models are loaded once into application memory at start-up; research mode replaces them
+with a \texttt{ResearchModelService} that verifies every artifact's SHA-256 hash before deserialisation
+and blocks the synthetic clinical APIs with HTTP 503.
+
+\section{Database Implementation}
+\code{src/database/db.py} opens one connection per operation with \texttt{PRAGMA foreign\_keys=ON},
+\texttt{journal\_mode=WAL} and \texttt{synchronous=NORMAL}, and returns dictionary-like rows; all SQL is
+parameterised. Research mode opens the demo database read-only (\texttt{mode=ro}) and never creates it.
+
+\section{Communication and Concurrency Implementation}
+Clients communicate over HTTP with JSON; Waitress serves them with 8 worker threads. Shared state is
+limited and protected: rate-limit counters and the research stay view use locks; alert acknowledgements are
+kept per process, which is why a single instance is required. The redemption race (several concurrent
+scans of a single-use pass all succeeding) was removed with an atomic conditional update and is covered by
+a concurrency test.
+
+\section{Git Repository Setup}
+\label{sec:git}
+\textbf{Repository:} \url{https://github.com/param7862989-ops/MediH} (30 commits; 144 tracked files;
+about 24{,}400 lines of Python, JavaScript, HTML, CSS and SQL including tests).
+\textbf{Branching:} \texttt{main} is the integration branch; work is done on personal feature branches
+(\texttt{nirupam}, \texttt{param}) and merged through pull requests (five merged, \#1--\#5).
+\textbf{Commit convention:} Conventional Commits (\texttt{feat(scope):}, \texttt{fix(scope):},
+\texttt{docs:}). \textbf{History by Git identity:} \texttt{paramthakkar24-sudo} 13 commits,
+\texttt{Nirupam} 10, \texttt{param7862989-ops} 7 (including the five merge commits). Git identities are not
+verified mappings to students; individual contributions are to be confirmed by the group
+(\textit{see MISSING\_INFORMATION.md}). At the time of writing, the research triage page (stay-level
+out-of-fold view) is implemented and tested in the working tree of branch \texttt{param} but not yet
+committed.
+
+\section{Integration of Modules}
+\texttt{create\_app()} integrates configuration, security checks, middleware, model loading and the
+blueprints; \code{src/bootstrap.py} chains seeding $\rightarrow$ feature pipeline $\rightarrow$ ensemble
+training when assets are missing; \code{run_demo.py} (local) and \texttt{wsgi.py} (production) are the two
+entry points. The research pipeline is integrated only through its verified on-disk run.
+
+\section{Implementation Challenges and Resolutions}
+\begin{itemize}
+\item \textbf{Look-ahead leakage:} a value can be charted inside the 24-hour window but stored in the
+      record only later; the reader therefore requires \texttt{storetime} $\le$ index time as well
+      (568 such observations excluded on the demo).
+\item \textbf{Outcome timestamp anomalies:} four deaths are recorded after discharge; they are labelled
+      positive, flagged and analysed separately instead of being silently dropped.
+\item \textbf{Misleading what-if inputs:} measurement counts reflected monitoring intensity and could not
+      be entered meaningfully; model set v2 excluded them (74 inputs).
+\item \textbf{Concurrency defect:} single-use QR passes could be redeemed more than once; fixed with an
+      atomic update.
+\item \textbf{Stale demo data:} the 72-hour vitals chart became empty once the seeded data were more than
+      three days old; the window now ends at each patient's latest reading.
+\end{itemize}

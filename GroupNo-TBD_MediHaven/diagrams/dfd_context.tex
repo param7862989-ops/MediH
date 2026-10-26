@@ -1,0 +1,19 @@
+% Context-level (level 0) DFD: one process, external entities, labelled flows.
+\begin{tikzpicture}[x=1mm, y=1mm]
+\node[process, minimum size=26mm, font=\footnotesize] (sys) at (85,0) {\textbf{0}\\MediHaven\\system};
+\node[box, minimum width=28mm] (phys) at (14,24) {Physician};
+\node[box, minimum width=28mm] (pat) at (14,-24) {Patient};
+\node[box, minimum width=28mm] (adm) at (156,24) {Administrator};
+\node[box, minimum width=28mm] (gem) at (156,-24) {Google Gemini API\\(synthetic mode only)};
+\node[box, minimum width=40mm] (mimic) at (85,-38) {MIMIC-IV Demo files\\(offline research build)};
+% each actor: request flow above, response flow below
+\draw[flow] ($(phys.east)+(0,1.5)$) -- node[lbl, above, sloped, pos=0.45]{credentials, chart requests, QR scans} (sys.130);
+\draw[flow] (sys.155) -- node[lbl, below, sloped, pos=0.55]{tiers, charts, vault records} ($(phys.east)+(0,-1.5)$);
+\draw[flow] ($(pat.east)+(0,-1.5)$) -- node[lbl, below, sloped, pos=0.45]{records, share scope} (sys.230);
+\draw[flow] (sys.205) -- node[lbl, above, sloped, pos=0.55]{QR pass, access log} ($(pat.east)+(0,1.5)$);
+\draw[flow] ($(adm.west)+(0,1.5)$) -- node[lbl, above, sloped, pos=0.45]{reassign, dispatch} (sys.50);
+\draw[flow] (sys.25) -- node[lbl, below, sloped, pos=0.55]{census, model telemetry} ($(adm.west)+(0,-1.5)$);
+\draw[dflow] (sys.335) -- node[lbl, above, sloped, pos=0.55]{de-identified prompt} ($(gem.west)+(0,1.5)$);
+\draw[dflow] ($(gem.west)+(0,-1.5)$) -- node[lbl, below, sloped, pos=0.35]{narrative text} (sys.310);
+\draw[flow] (mimic.north) -- node[lbl, left]{stay-level features} (sys.south);
+\end{tikzpicture}

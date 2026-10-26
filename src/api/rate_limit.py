@@ -9,7 +9,7 @@ import threading
 import time
 from collections import defaultdict, deque
 from functools import wraps
-from typing import Deque, Dict, Tuple
+from typing import Callable, Deque, Dict, Optional, Tuple
 
 from flask import current_app, request
 
@@ -36,12 +36,15 @@ def reset_rate_limits() -> None:
         _hits.clear()
 
 
-def rate_limited(bucket: str, limit: int, window_seconds: float):
-    """Allows `limit` requests per client address per `window_seconds`, then answers 429."""
+def rate_limited(bucket: str, limit: int, window_seconds: float, applies: Optional[Callable[[], bool]] = None):
+    """Allows `limit` requests per client address per `window_seconds`, then answers 429.
+
+    `applies` (optional) decides per request whether the limit counts at all.
+    """
     def decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            if current_app.config.get("RATE_LIMITS_ENABLED", True):
+            if current_app.config.get("RATE_LIMITS_ENABLED", True) and (applies is None or applies()):
                 allowed, retry_after = _allow(bucket, request.remote_addr or "unknown", limit, window_seconds)
                 if not allowed:
                     response, status = error_response(

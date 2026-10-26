@@ -1,0 +1,75 @@
+\chapter{Subject-Wise Engineering Concepts and APNI Leap Alignment}
+\label{ch:subjects}
+
+The Report Preparation Guidelines ask each group to show the APNI Leap emphasis---engineering fundamentals,
+practical implementation, software engineering practice, algorithmic efficiency, scalability, testing and
+measurable performance---and to map Semester I--IV subjects to real project evidence. The subject codes
+below are those recorded in the project documentation; this chapter does not claim any formal APNI Leap
+assessment or endorsement.
+
+\section{Software Engineering (CE202)}
+Modular blueprints and service classes; requirement identifiers traced to tests (Table~\ref{tab:testcases});
+centralised exception handling with JSON error envelopes; configuration through environment variables;
+version control with feature branches and pull requests (Section~\ref{sec:git}); pinned dependencies and
+a reproducible build (Dockerfile).
+
+\section{Computer Networks}
+MediHaven is a client--server application over HTTP/1.1 on TCP. The browser exchanges JSON messages
+(\texttt{\{success, data, error, meta\}} envelopes) with the server; Waitress accepts TCP connections and
+serves concurrent clients with a pool of 8 threads; the session cookie carries authenticated state; TLS is
+terminated by a reverse proxy in production. Error recovery is at the application level (HTTP status codes,
+redirect to login on 401). No custom socket protocol was implemented.
+
+\section{Database Management Systems (CE204)}
+A normalised (3NF) relational schema with primary/foreign keys, cascading deletes, \texttt{CHECK} and
+\texttt{UNIQUE} constraints, and eight composite indexes matching the access paths (Section~4.6). SQLite
+runs in write-ahead-logging (WAL) mode so readers do not block the writer; every request opens its own
+connection; transactions commit atomically (the seeding script commits once, so a crash leaves no partial
+cohort). The QR quota uses a conditional \texttt{UPDATE} as an atomic compare-and-increment.
+
+\section{Operating Systems (CE205)}
+Thread-based concurrency (Waitress worker pool), mutual exclusion with locks (rate-limit table, lazily
+built stay view), the race condition found and fixed in pass redemption (Section~\ref{sec:defects}),
+background threads for warm-up, and process-tree resource measurement (Chapter~\ref{ch:scal}). Scheduling
+is delegated to the operating system and the WSGI thread pool; no custom scheduling policy (e.g.\ Round
+Robin) was implemented.
+
+\section{Data Structures (CE207)}
+Arrays for feature matrices, hash tables for constant-time lookups, trees (decision tree, B-tree indexes),
+a sliding-window queue per client for rate limiting, and a task queue in front of the thread pool
+(Section~5.4).
+
+\section{Design and Analysis of Algorithms (CE207)}
+CART, k-means (Lloyd's algorithm), nearest-neighbour search, back-propagation, stratified group $k$-fold
+splitting and the subject bootstrap, with correctness arguments and complexity bounds in
+Chapter~\ref{ch:algo}.
+
+\section{Applied Mathematics and Statistics (AS202)}
+Least-squares slopes, derived haemodynamic indices, standardisation, probabilities and soft voting, AUROC,
+average precision, Brier score and bootstrap confidence intervals.
+
+\section{Cloud Computing}
+The project provides deployment-ready artefacts---a Waitress entry point, a non-root Docker image recipe
+with a health check, environment-based secrets and proxy support---but it has \emph{not} been deployed to a
+cloud provider, so no cloud resource figures are reported.
+
+\section{Mapping of Subjects to Project Implementation}
+\begin{table}[!htbp]
+\centering
+\caption{Mapping of subjects to project modules and evidence}
+\label{tab:subjects}
+\small
+\begin{tabularx}{\textwidth}{@{}p{26mm}Yp{46mm}Y@{}}
+\toprule
+Subject & Concept applied & Project module & Evidence\\
+\midrule
+DBMS & keys, constraints, composite indexes, atomic update & \code{database/schema.sql}, \code{vault/access_controller.py} & schema; concurrency test (4 scans, 1 grant)\\
+Operating Systems & thread pool, locks, race-condition fix & \texttt{wsgi.py}, \code{api/rate_limit.py} & load test (Ch.~\ref{ch:scal}); rate-limit tests\\
+Computer Networks & HTTP client--server, JSON messages, sessions & \code{api/*}, \code{static/js/*} & 44 routes; API tests\\
+Data Structures & hash maps, deques, trees & rate limiter, stay view, models & code; complexity table\\
+Algorithms & CART, k-means, KNN, grouped CV, bootstrap & \code{models/*}, \code{training/*} & pseudocode; metrics with CIs\\
+Applied Mathematics & OLS slopes, AUROC, Brier, bootstrap & \code{data/feature_engineering.py}, \code{training/metrics.py} & unit tests; evaluation outputs\\
+Software Engineering & modularity, testing, version control & whole repository & 354 passing tests; 5 merged PRs\\
+\bottomrule
+\end{tabularx}
+\end{table}

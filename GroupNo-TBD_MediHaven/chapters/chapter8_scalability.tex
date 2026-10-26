@@ -1,0 +1,106 @@
+\chapter{Scalability, Performance and Resource Management}
+\label{ch:scal}
+
+\section{Scalability Requirements}
+MediHaven targets classroom-scale use: one hospital-ward-sized synthetic cohort (100 patients, 4{,}368
+vitals rows) and tens of concurrent users. The research cohort is 107 ICU stays. No requirement exists for
+multi-site or high-availability operation.
+
+\section{Workload and Load Model}
+Four representative endpoints were exercised: \code{/api/health} (no database), \code{/api/patients}
+(roster query), \texttt{/api/patients/\{id\}/vitals?hours=72} (indexed time-series read) and
+\texttt{/api/patients/\{id\}/predict} (feature engineering, four models, one insert). For each endpoint
+and each concurrency level $c\in\{1,4,8,16\}$, 200 requests were spread over $c$ client threads sharing
+one authenticated physician session, cycling over the 100 patients.
+
+\section{Performance Measurement Setup}
+Server: \texttt{wsgi.py} under Waitress 3.0.2 with 8 threads, \texttt{FLASK\_ENV=production}, on a
+temporary copy of the synthetic database (the persistent database was not modified). Client: Python
+\texttt{urllib} on the same machine (loopback). Hardware: Intel Core i5-8250U (4 cores/8 threads),
+7.9~GB RAM, Windows 11, Python 3.12. Latency is wall-clock time per request; memory and CPU time are
+sampled for the whole server process tree with PowerShell \texttt{Get-Process}. The script and raw results
+are included as \code{appendices/perf_measure.py} and \code{appendices/perf_results.json}. Two
+earlier runs showed the same overall pattern, but individual cells varied by up to a factor of two (for
+example vitals at 8 clients: 116 versus 226 req/s), so the figures indicate magnitudes, not precise
+capacities.
+
+\section{Performance Results}
+\begin{table}[!htbp]
+\centering
+\caption{Measured latency and throughput (200 requests per cell, 0 errors in all 3{,}200 requests)}
+\label{tab:perf}
+\small
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+Endpoint & Clients & Throughput (req/s) & p50 (ms) & p95 (ms) & Server CPU (s)\\
+\midrule
+health & 1 / 16 & 77.4 / 670.7 & 15.2 / 21.8 & 25.3 / 32.5 & 0.25 / 0.36\\
+patient list & 1 / 4 / 16 & 43.8 / 93.9 / 35.3 & 21.8 / 37.6 / 447.6 & 36.8 / 73.0 / 505.5 & 1.9 / 3.8 / 12.5\\
+vitals (72 h) & 1 / 16 & 44.4 / 268.8 & 19.5 / 55.1 & 34.7 / 79.6 & 1.6 / 2.0\\
+predict & 1 & 13.5 & 71.9 & 99.6 & 70.5\\
+predict & 4 / 8 / 16 & 15.4 / 15.6 / 15.2 & 257.9 / 513.1 / 1056.9 & 310.1 / 599.8 / 1177.9 & 71.9 / 67.6 / 67.1\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[!htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.48\linewidth, height=55mm, xlabel={concurrent clients}, ylabel={throughput (req/s)},
+  xtick={1,4,8,16}, legend style={font=\scriptsize, at={(0.02,0.98)}, anchor=north west},
+  tick label style={font=\scriptsize}, label style={font=\footnotesize}, ymin=0]
+\addplot[mark=*, mhblue] coordinates {(1,77.4) (4,364.5) (8,564.1) (16,670.7)};
+\addplot[mark=square*, mhteal] coordinates {(1,44.4) (4,159.7) (8,226.3) (16,268.8)};
+\addplot[mark=triangle*, mhamber] coordinates {(1,43.8) (4,93.9) (8,38.1) (16,35.3)};
+\addplot[mark=diamond*, mhred] coordinates {(1,13.5) (4,15.4) (8,15.6) (16,15.2)};
+\legend{health, vitals, patient list, predict}
+\end{axis}
+\end{tikzpicture}\hfill
+\begin{tikzpicture}
+\begin{axis}[width=0.48\linewidth, height=55mm, xlabel={concurrent clients}, ylabel={median latency (ms)},
+  xtick={1,4,8,16}, tick label style={font=\scriptsize}, label style={font=\footnotesize}, ymin=0]
+\addplot[mark=*, mhblue] coordinates {(1,15.2) (4,5.6) (8,10.9) (16,21.8)};
+\addplot[mark=square*, mhteal] coordinates {(1,19.5) (4,14.5) (8,27.1) (16,55.1)};
+\addplot[mark=triangle*, mhamber] coordinates {(1,21.8) (4,37.6) (8,208.4) (16,447.6)};
+\addplot[mark=diamond*, mhred] coordinates {(1,71.9) (4,257.9) (8,513.1) (16,1056.9)};
+\end{axis}
+\end{tikzpicture}
+\caption{Throughput and median latency against concurrency (same legend in both panels)}
+\label{fig:perf}
+\end{figure}
+
+\section{Resource Utilisation}
+The server process tree used 197.3~MB of memory when idle and at most 206.1~MB during the test, nearly all
+of it the Python runtime with pandas, NumPy and scikit-learn loaded. The synthetic database file is
+1.17~MB and the model files 0.22~MB. Network traffic was loopback only and was not measured.
+
+\section{Concurrent Processing, Scheduling and Synchronisation}
+Waitress queues incoming connections and dispatches them to 8 worker threads; the operating system
+schedules the threads. Python's global interpreter lock serialises pure-Python work, while NumPy and
+scikit-learn release it inside numerical kernels. Shared state is protected by locks, SQLite runs in WAL
+mode so reads proceed alongside a writer, and the pass quota is claimed with an atomic update. No custom
+scheduling policy is implemented.
+
+\section{Bottleneck Identification}
+\label{sec:bottleneck}
+\textbf{Prediction is CPU-bound:} 200 prediction requests consumed about 70 CPU-seconds
+($\approx$0.35~s each across several cores), so throughput stays near 15 requests/s at every
+concurrency level and latency grows linearly with the queue (72~ms at 1 client, about 1.06~s at 16).
+\textbf{The roster degrades under contention:} its throughput fell from 93.9 req/s (4 clients) to 35--38
+req/s (8--16 clients) while CPU time per run tripled, which points to interpreter-lock contention between
+threads doing pure-Python row processing (an interpretation, not a profiled result). Simple reads (health,
+indexed vitals) scale well up to 16 clients.
+
+\section{Optimisation and Improvement}
+Already applied: models are loaded once and cached in memory; time-series reads use the composite index;
+static assets are self-hosted. Proposed (not implemented): cache per-patient feature vectors, move
+inference to worker processes, limit numerical-library threads per request, and paginate the roster.
+
+\section{Cloud Deployment and Resource Utilisation}
+A non-root Docker image recipe with a health check and environment-based secrets is provided, but no
+cloud deployment was carried out, so no cloud resource measurements exist.
+
+\section{Scalability Limitations}
+Maximum tested workload: 16 concurrent clients, 3{,}200 requests, all successful. A single instance is
+required because alert acknowledgements and rate-limit counters live in process memory and SQLite suits
+one host. Projected capacity beyond 16 clients is not established by these tests.

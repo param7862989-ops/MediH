@@ -150,10 +150,12 @@ def test_synthetic_clinical_apis_are_blocked_in_research_mode(research_env, meth
     assert response.get_json()["error"]["code"] == "UNAVAILABLE_IN_RESEARCH_MODE"
 
 
-def test_dashboard_and_admin_views_redirect_to_research_view(research_env):
+def test_dashboard_is_research_triage_and_admin_redirects_to_research_view(research_env):
     app = create_app({"TESTING": True})
     response = _physician(app).get("/dashboard", headers=ENFORCE)
-    assert response.status_code == 302 and response.headers["Location"].endswith("/research")
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200 and "js/research_triage.js" in html and "js/dashboard.js" not in html
+    assert "NOT FOR PATIENT CARE" in html and 'id="research-triage-table"' in html
     response = _login(app, "param", "Param@123").get("/admin", headers=ENFORCE)
     assert response.status_code == 302 and response.headers["Location"].endswith("/research")
 
@@ -265,6 +267,9 @@ def test_no_identifiers_or_supplied_values_in_responses_or_logs(research_env):
         client.get("/api/research/status", headers=ENFORCE).get_data(as_text=True),
         client.get("/api/research/model-card", headers=ENFORCE).get_data(as_text=True),
         client.get("/research", headers=ENFORCE).get_data(as_text=True),
+        client.get("/api/research/stays", headers=ENFORCE).get_data(as_text=True),
+        client.get("/api/research/stays/1", headers=ENFORCE).get_data(as_text=True),
+        client.get("/dashboard", headers=ENFORCE).get_data(as_text=True),
         client.post("/api/research/predict", headers=ENFORCE,
                     json={"features": {"heart_rate_mean": 123.4567, "heart_rate_count": 1}}).get_data(as_text=True),
     ]
@@ -610,3 +615,69 @@ def test_missing_manifest_pin_is_reported(research_env, monkeypatch, caplog):
     pin = hashlib.sha256((output_dir_for(research_env) / "run_manifest.json").read_bytes()).hexdigest()
     monkeypatch.setattr(Config, "RESEARCH_ARTIFACT_MANIFEST_SHA256", pin)
     assert create_app({"TESTING": True}).research_service.status()["manifest_pinned"] is True
+
+
+# ------------------------------------------------------------------------------
+# Research triage: stay-level view with out-of-fold scores
+# ------------------------------------------------------------------------------
+def test_research_stays_have_out_of_fold_scores_and_no_identifiers(research_env):
+    client = _physician(create_app({"TESTING": True}))
+    response = client.get("/api/research/stays", headers=ENFORCE)
+    assert response.status_code == 200
+    data = response.get_json()["data"]
+    assert data["kpis"]["stays"] == 70 and data["kpis"]["deaths"] == 14
+    assert sum(data["kpis"]["tiers"].values()) == 70
+    assert [s["stay"] for s in sorted(data["stays"], key=lambda s: s["stay"])] == list(range(1, 71))
+    for stay in data["stays"]:
+        assert set(stay["models"]) == {"logistic_regression", "decision_tree", "random_forest", "neural_network"}
+        probabilities = [m["probability"] for m in stay["models"].values()]
+        assert all(0.0 < p < 1.0 for p in probabilities)
+        assert stay["risk"] == pytest.approx(sum(probabilities) / 4, abs=1e-3)
+        assert stay["tier"] in ("Low", "Medium", "High", "Critical")
+    text = response.get_data(as_text=True)
+    assert not any(identifier in text for identifier in FIXTURE_IDS)
+    assert "index_time" not in text and "src_" not in text and "2150-" not in text
+
+
+def test_research_stay_detail_and_access_rules(research_env, monkeypatch):
+    app = create_app({"TESTING": True})
+    client = _physician(app)
+    detail = client.get("/api/research/stays/1", headers=ENFORCE).get_json()["data"]
+    assert detail["stay"] == 1 and 1 <= detail["fold"] <= 5 and len(detail["variables"]) == 14
+    assert {"min", "max", "mean", "last", "count", "measured", "unit"} <= set(detail["variables"][0])
+    assert client.get("/api/research/stays/999", headers=ENFORCE).status_code == 404
+    patient = _login(app, "patient1", "Patient@123")
+    assert patient.get("/api/research/stays", headers=ENFORCE).status_code == 403
+    assert patient.get("/api/research/stays/1", headers=ENFORCE).status_code == 403
+    monkeypatch.setattr(Config, "DATA_MODE", "synthetic")
+    assert create_app({"TESTING": True}).test_client().get("/api/research/stays").status_code == 409
+
+
+@pytest.mark.parametrize("tamper, code", [
+    (lambda m: m["analyses"]["primary"]["split"].update(assignment_sha256="0" * 64), "SPLIT_MISMATCH"),
+    (lambda m: m["analyses"]["primary"]["models"]["random_forest"]["pooled_out_of_fold"].update(auroc=0.123),
+     "PREDICTION_MISMATCH"),
+])
+def test_research_stays_fail_closed_when_scores_do_not_reproduce_the_verified_run(research_env, tamper, code):
+    import copy
+    from src.training.stays import LazyStayView
+    app = create_app({"TESTING": True})
+    service = app.research_service
+    metrics = copy.deepcopy(service.artifacts.metrics)
+    tamper(metrics)
+    service.stays = LazyStayView(research_env, service.artifacts.features, metrics)
+    response = _physician(app).get("/api/research/stays", headers=ENFORCE)
+    assert response.status_code == 503 and response.get_json()["error"]["code"] == code
+    assert client_text_has_no_stays(response.get_data(as_text=True))
+
+
+def client_text_has_no_stays(text):
+    return '"stays"' not in text and '"variables"' not in text
+
+
+def test_research_triage_script_never_injects_html_or_uses_browser_storage():
+    import re
+    script = (PROJECT_ROOT / "static" / "js" / "research_triage.js").read_text(encoding="utf-8")
+    assert not re.search(r"\.innerHTML\s*[+]?=|insertAdjacentHTML", script)
+    assert not re.search(r"localStorage|sessionStorage|indexedDB", script)
+    assert "/api/research/stays" in script

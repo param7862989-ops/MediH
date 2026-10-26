@@ -1,0 +1,37 @@
+% Overall layered architecture (verified against src/api/app.py, routes/, models/, vault/, training/).
+% Explicit millimetre grid: 6 columns in the upper layers, 4 in the lower layers.
+\begin{tikzpicture}[x=1mm, y=1mm]
+\newcommand{\band}[3]{% top y, bottom y, title
+  \draw[mhgray!60, dashed, rounded corners=3pt] (0,#1) rectangle (170,#2);
+  \node[layer label] at (1.5,#1-0.8) {#3};}
+\band{0}{-19}{Presentation: Jinja2 templates, JavaScript, Chart.js (browser)}
+\foreach \x/\t in {15/Landing \& Login, 43/Physician Triage, 71/Patient Vault, 99/QR Scanner,
+                   127/Admin Overview, 155/Research (opt-in)}
+  \node[blue box, minimum width=25mm, text width=23mm] at (\x,-11.5) {\t};
+
+\band{-25}{-58}{Application: Flask app factory served by Waitress (wsgi.py) or run\_demo.py}
+\node[teal box, minimum width=164mm] at (85,-36)
+  {session RBAC $\cdot$ CSP and security headers $\cdot$ rate limits $\cdot$ research-mode boundary $\cdot$ JSON error handlers};
+\foreach \x/\t in {15/auth, 43/patients, 71/predictions, 99/alerts, 127/vault, 155/research}
+  \node[teal box, minimum width=25mm] at (\x,-49.5) {/api/\t};
+
+\band{-64}{-86}{Services}
+\node[amber box, minimum width=38mm, text width=35mm] (ens) at (22,-76.5) {4-model ensemble\\K-Means $\cdot$ DT $\cdot$ KNN $\cdot$ MLP};
+\node[amber box, minimum width=38mm, text width=35mm] (qr) at (64,-76.5) {Vault \& QR service\\HMAC-signed JWT passes};
+\node[amber box, minimum width=38mm, text width=35mm] (nlp) at (106,-76.5) {Narrative synthesiser\\de-identified prompts};
+\node[amber box, minimum width=38mm, text width=35mm] (rs) at (148,-76.5) {Research service\\verified artifacts};
+
+\band{-92}{-114}{Data and external services}
+\node[store, minimum width=38mm, text width=35mm] (ms) at (22,-104.5) {models\_store/\\joblib model files};
+\node[store, minimum width=38mm, text width=35mm] (db) at (64,-104.5) {SQLite (WAL mode)\\8 tables, 8 indexes};
+\node[store, minimum width=38mm, text width=35mm] (gm) at (106,-104.5) {Google Gemini API\\external, optional};
+\node[store, minimum width=38mm, text width=35mm] (ra) at (148,-104.5) {Research artifacts\\outside repo \& OneDrive};
+
+\draw[flow] (85,-19) -- node[lbl, right=1mm]{HTTP + JSON (fetch), session cookie} (85,-25);
+\draw[flow] (85,-58) -- (85,-64);
+\draw[flow] (ens.south) -- (ms.north);
+\draw[flow] (ens.south east) -- (db.north west);
+\draw[flow] (qr.south) -- (db.north);
+\draw[dflow] (nlp.south) -- node[lbl, right]{synthetic mode only} (gm.north);
+\draw[flow] (rs.south) -- node[lbl, right]{hash-verified} (ra.north);
+\end{tikzpicture}

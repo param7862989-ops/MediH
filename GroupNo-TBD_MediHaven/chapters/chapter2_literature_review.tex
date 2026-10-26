@@ -1,0 +1,126 @@
+\chapter{Literature Review and Study of Existing Systems}
+\label{ch:lit}
+
+\section{Study of Existing Systems}
+\textbf{Bedside scores.} NEWS aggregates vital-sign thresholds into an early-warning score
+\cite{smith2013news}; SAPS~II estimates ICU mortality from 17 variables \cite{legall1993sapsii}. Both are
+transparent and cheap but coarse. \textbf{Proprietary EHR-embedded models} such as the Epic Sepsis Model
+are widely deployed, yet external validation can reveal much weaker performance than expected
+\cite{wong2021epicsepsis}. \textbf{Research benchmarks} built on MIMIC
+\cite{harutyunyan2019multitask,purushotham2018benchmarking} standardise tasks but are not applications.
+\textbf{Patient-controlled sharing} prototypes such as MedRec use a blockchain for permissions
+\cite{azaria2016medrec}. \textbf{LLM-based documentation} tools summarise clinical text
+\cite{vanveen2024adapted}, with recognised factuality and safety risks \cite{singhal2023llmclinical}.
+
+\section{Review of Research Papers and Technical Resources}
+Eighteen peer-reviewed papers were reviewed; bibliographic details were verified against DOI, Crossref,
+PubMed, PMLR or JMLR records. Findings are quoted only from the published abstracts.
+
+\paragraph{[P1] MIMIC-IV \cite{johnson2023mimiciv}.} \emph{Problem:} hospital data are archived for
+storage, not research. \emph{Approach:} a de-identified EHR database from Beth Israel Deaconess Medical
+Center. \emph{Limitation:} single centre. \emph{Relation:} source of the demo subset used here
+\cite{johnson2023mimicivdemo}, distributed via PhysioNet \cite{goldberger2000physionet}.
+
+\paragraph{[P2] Harutyunyan et al.\ \cite{harutyunyan2019multitask}.} Four MIMIC-III benchmarks
+(mortality, length of stay, physiologic decline, phenotyping) with linear and neural baselines and multitask
+training. \emph{Limitation:} one database. \emph{Relation:} motivates MediHaven's fixed, versioned task
+definition.
+
+\paragraph{[P3] Purushotham et al.\ \cite{purushotham2018benchmarking}.} Deep models compared with a
+Super Learner and SAPS~II/SOFA on MIMIC-III; deep models performed best, especially on raw time series.
+\emph{Relation:} explains why a small tabular baseline set is a deliberate, modest starting point.
+
+\paragraph{[P4] Rajkomar et al.\ \cite{rajkomar2018scalable}.} Deep models on whole EHRs in FHIR format
+(216{,}221 inpatients, two centres) reported AUROC 0.93--0.94 for in-hospital mortality.
+\emph{Limitation:} large, hard-to-interpret models and two centres. \emph{Relation:} an upper reference
+point; MediHaven's demo cohort is three orders of magnitude smaller.
+
+\paragraph{[P5] Johnson, Pollard and Mark \cite{johnson2017reproducibility}.} Reproducing 28 MIMIC
+mortality studies found that half differed in sample size by more than 25\,\%. \emph{Relation:} MediHaven
+publishes exact cohort, label and exclusion rules with counts for every step.
+
+\paragraph{[P6] Pirracchio et al.\ (SICULA) \cite{pirracchio2015sicula}.} A Super Learner on MIMIC-II
+(24{,}508 patients) achieved cross-validated AUROC 0.85--0.88 versus 0.78 for SAPS~II.
+\emph{Limitation:} external validation on only 200 patients. \emph{Relation:} ensemble learning and
+cross-validation, applied here at teaching scale.
+
+\paragraph{[P7] SAPS II \cite{legall1993sapsii}.} 17 variables, 13{,}152 patients from 137 ICUs; AUROC
+0.88 (development) and 0.86 (validation). \emph{Relation:} conceptual ancestor of the 24-hour
+physiological summaries used as features.
+
+\paragraph{[P8] NEWS \cite{smith2013news}.} NEWS discriminated the combined 24-hour outcome with AUROC
+0.873 against 0.736--0.834 for 33 other scores. \emph{Limitation:} retrospective, one hospital.
+\emph{Relation:} the synthetic dashboard's tiered early-warning presentation.
+
+\paragraph{[P9] Wong et al.\ \cite{wong2021epicsepsis}.} External validation of the Epic Sepsis Model on
+38{,}455 hospitalisations: AUROC 0.63; it missed 67\,\% of sepsis cases while alerting on 18\,\% of
+patients. \emph{Relation:} the reason MediHaven reports uncertainty and refuses clinical claims.
+
+\paragraph{[P10] TRIPOD \cite{collins2015tripod}.} A 22-item reporting checklist for prediction models.
+\emph{Relation:} guided what the research mode reports (population, outcome, predictors, validation).
+
+\paragraph{[P11] Kaufman et al.\ \cite{kaufman2012leakage}.} Formal definition of leakage and
+``learn--predict separation''. \emph{Relation:} the forbidden-feature guard, the 24-hour window with
+storetime checks and fold-internal preprocessing.
+
+\paragraph{[P12] Saito and Rehmsmeier \cite{saito2015precision}.} On imbalanced data,
+precision--recall plots reflect performance better than ROC plots. \emph{Relation:} average precision is
+reported beside AUROC (prevalence 10.3\,\%).
+
+\paragraph{[P13] Van Calster et al.\ \cite{vancalster2019calibration}.} Poor calibration misleads clinical
+decisions; calibration curves need large samples. \emph{Relation:} Brier scores are reported, and
+calibration is left as future work given 11 deaths.
+
+\paragraph{[P14] Rudin \cite{rudin2019stop}.} Argues for inherently interpretable models in high-stakes
+settings (position paper). \emph{Relation:} decision-tree rule paths and logistic coefficients are shown.
+
+\paragraph{[P15] Sendak et al.\ \cite{sendak2020modelfacts}.} Proposes a one-page ``Model Facts'' label
+telling clinicians how and when (not) to use a model. \emph{Relation:} the research page's model card and
+disclaimers.
+
+\paragraph{[P16] Azaria et al.\ (MedRec) \cite{azaria2016medrec}.} Blockchain-based record access and
+permission management leaving data in providers' storage. \emph{Limitation:} prototype, not field
+tested. \emph{Relation:} MediHaven pursues patient-controlled access with simpler signed, expiring tokens.
+
+\paragraph{[P17] Van Veen et al.\ \cite{vanveen2024adapted}.} Adapted LLMs on four summarisation tasks;
+physicians rated the best summaries equivalent (45\,\%) or superior (36\,\%) to experts, with an analysis
+of fabricated content. \emph{Relation:} motivates optional, de-identified narrative synthesis.
+
+\paragraph{[P18] Singhal et al.\ \cite{singhal2023llmclinical}.} MultiMedQA and human evaluation; Flan-PaLM
+reached 67.6\,\% on MedQA but showed key gaps, and Med-PaLM remained inferior to clinicians.
+\emph{Relation:} narratives are labelled as non-advice and never receive identifiers.
+
+\section{Comparative Analysis}
+\begin{table}[!htbp]
+\centering
+\caption{Comparison of existing approaches with MediHaven}
+\label{tab:compare}
+\small
+\begin{tabularx}{\textwidth}{@{}lYYYY@{}}
+\toprule
+Criterion & Bedside scores \cite{smith2013news,legall1993sapsii} & Proprietary EHR models \cite{wong2021epicsepsis} & Research benchmarks \cite{harutyunyan2019multitask} & MediHaven\\
+\midrule
+Explainability & high (thresholds) & low & varies & rule path, votes, coefficients\\
+Reproducibility & high & low (closed) & high & versioned, hashed artifacts\\
+Uncertainty reported & rarely & rarely & sometimes & bootstrap 95\% CI\\
+Patient-controlled sharing & no & no & no & QR passes with audit log\\
+Clinical validation & yes & yes & n/a & \textbf{none} (prototype)\\
+Cost & free & licensed & free & free / open source\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Limitations of Existing Systems}
+Threshold scores are coarse; black-box models are hard to audit and may underperform on new sites
+\cite{wong2021epicsepsis}; published cohorts are hard to reproduce \cite{johnson2017reproducibility};
+leakage can inflate results \cite{kaufman2012leakage}; record sharing is rarely patient-controlled; and
+LLM outputs can fabricate content \cite{vanveen2024adapted}.
+
+\section{Identified Engineering Gap}
+For teaching, no single open example combines explainable triage, consent-based sharing and an honest,
+leakage-aware evaluation on real de-identified ICU data with fail-closed serving. This is an engineering
+and educational gap, not a claim of a new clinical method.
+
+\section{Proposed Improvements}
+MediHaven addresses the gap with an integrated prototype whose research results are reproducible,
+uncertainty-aware and explicitly limited; Chapter~\ref{ch:results} compares it with these systems.

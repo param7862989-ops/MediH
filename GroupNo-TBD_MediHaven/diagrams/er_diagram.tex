@@ -1,0 +1,32 @@
+% ER diagram of database/schema.sql (8 tables; PK underlined, FK in italics; all FKs ON DELETE CASCADE).
+\begin{tikzpicture}[x=1mm, y=1mm,
+  tbl/.style={entity, text width=#1}, tbl/.default=38mm]
+\node[tbl=44mm] (pat) at (85,0) {\textbf{patients}
+  \nodepart{second}\underline{patient\_id}\\ mrn (UNIQUE)\\ full\_name, age (0--130), gender\\ admission\_date, status, ward\\ bed\_number, assigned\_physician};
+\node[tbl] (vit) at (18,24) {\textbf{vitals}
+  \nodepart{second}\underline{vital\_id}, \textit{patient\_id}\\ recorded\_at, heart\_rate\\ BP sys/dia, temperature\\ SpO$_2$, resp.\ rate (CHECKs)};
+\node[tbl] (lab) at (18,-8) {\textbf{lab\_results}
+  \nodepart{second}\underline{lab\_id}, \textit{patient\_id}\\ recorded\_at, glucose\\ creatinine, wbc\_count\\ bun, hemoglobin, platelets};
+\node[tbl] (med) at (18,-36) {\textbf{medications}
+  \nodepart{second}\underline{medication\_id}, \textit{patient\_id}\\ drug\_name, dosage, route (CHECK)\\ frequency, start/end, is\_active};
+\node[tbl] (pred) at (152,24) {\textbf{predictions}
+  \nodepart{second}\underline{prediction\_id}, \textit{patient\_id}\\ predicted\_at, risk\_tier\\ risk\_score [0,1], model\_used\\ rule path, protocol};
+\node[tbl] (out) at (152,-6) {\textbf{outcomes}
+  \nodepart{second}\underline{outcome\_id}, \textit{patient\_id}\\ primary\_diagnosis\\ readmitted\_30d, icu\_transfer};
+\node[tbl] (vlt) at (85,-36) {\textbf{medical\_vault}
+  \nodepart{second}\underline{vault\_id}, \textit{patient\_id}\\ category (CHECK), title\\ structured\_data, is\_sensitive};
+\node[tbl=40mm] (tok) at (152,-36) {\textbf{vault\_access\_tokens}
+  \nodepart{second}\underline{token\_id}, \textit{patient\_id}\\ token\_hash (UNIQUE)\\ scope\_json, expires\_at\\ max\_uses, use\_count, revoked};
+\node[tbl=40mm] (log) at (152,-66) {\textbf{vault\_access\_log}
+  \nodepart{second}\underline{log\_id}, \textit{token\_id}, \textit{patient\_id}\\ accessed\_by, access\_status\\ accessed\_at, accessed\_scope};
+\newcommand{\rel}[3]{\draw[mhgray, thick] (#1) -- node[lbl, pos=0.12]{1} node[lbl, pos=0.86]{N} (#2);}
+\rel{pat.north west}{vit.east}{}
+\rel{pat.west}{lab.east}{}
+\rel{pat.south west}{med.east}{}
+\rel{pat.north east}{pred.west}{}
+\rel{pat.east}{out.west}{}
+\rel{pat.south}{vlt.north}{}
+\rel{pat.south east}{tok.north west}{}
+\rel{tok.south}{log.north}{}
+\draw[mhgray, thick] (pat.south east) ++(0,-2) to[out=-40, in=180] node[lbl, pos=0.85]{N} (log.west);
+\end{tikzpicture}

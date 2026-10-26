@@ -1,0 +1,157 @@
+\chapter{System Architecture and Design}
+\label{ch:design}
+
+\section{Overall System Architecture}
+MediHaven follows a layered client--server architecture (Figure~\ref{fig:arch}). The browser renders
+server-side Jinja2 templates and calls the JSON API with \texttt{fetch}; the Flask application factory
+(\code{src/api/app.py}) wires security middleware and six blueprints; services hold the ML models, the
+vault logic, the narrative synthesiser and the research service; SQLite, model files and the research
+artifacts form the data layer.
+
+\begin{figure}[!htbp]
+\centering
+\adjustbox{max width=\linewidth}{\input{diagrams/architecture.tex}}
+\caption{Layered architecture of MediHaven}
+\label{fig:arch}
+\end{figure}
+
+\section{Component and Module Description}
+\begin{table}[!htbp]
+\centering
+\caption{Major modules: purpose, inputs, outputs and dependencies}
+\label{tab:modules}
+\small
+\begin{tabularx}{\textwidth}{@{}p{40mm}YYp{30mm}@{}}
+\toprule
+Module & Purpose & Input $\rightarrow$ output & Depends on\\
+\midrule
+\code{api/app.py}, \texttt{auth.py} & app factory, RBAC, headers, rate limits & HTTP request $\rightarrow$ routed response & config, security\\
+\texttt{routes/patients, predictions, alerts} & triage and charts & patient id $\rightarrow$ JSON packet & ensemble, SQLite\\
+\code{models/ensemble.py} + 4 models & synthetic risk inference & 30 features $\rightarrow$ tier, score, votes & scikit-learn\\
+\code{vault/*}, \code{routes/vault} & records, QR passes, audit & scope, token $\rightarrow$ scoped records & PyJWT, OpenCV\\
+\code{nlp/summarizer.py} & narratives & coarse model outputs $\rightarrow$ text & Gemini API (optional)\\
+\code{tasks/build_mimic_t1.py} & research dataset & MIMIC CSV $\rightarrow$ hashed parquet & DuckDB, pandas\\
+\code{training/*} & research training, verification, serving & dataset $\rightarrow$ verified run, OOF view & scikit-learn\\
+\texttt{bootstrap.py}, \texttt{wsgi.py} & first start, production entry & config $\rightarrow$ ready app & Waitress\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Architecture Selection and Justification}
+A layered, modular monolith was chosen over microservices: the workload is small (Chapter~\ref{ch:scal}),
+the team is three students, models load once into process memory (no network hop per prediction), and a
+single SQLite file keeps deployment trivial. Blueprints and service classes keep the layers separable, so
+the data layer or the model service could later be extracted.
+
+\section{Data Flow Diagrams}
+Figure~\ref{fig:dfd0} shows the context and Figure~\ref{fig:dfd1} the level-1 processes and stores. The
+Gemini flow is dashed because it is optional and only ever receives coarse model outputs.
+
+\begin{figure}[!htbp]
+\centering
+\adjustbox{max width=0.85\linewidth}{\input{diagrams/dfd_context.tex}}
+\caption{Context-level (level-0) data flow diagram}
+\label{fig:dfd0}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\adjustbox{max width=0.88\linewidth}{\input{diagrams/dfd_level1.tex}}
+\caption{Level-1 data flow diagram}
+\label{fig:dfd1}
+\end{figure}
+
+\section{UML Diagrams}
+The use-case diagram appears in Figure~\ref{fig:usecase}. Figure~\ref{fig:class} shows the main classes:
+the ensemble aggregates four model wrappers, and the research service composes the verified artifacts and
+the lazily built stay view. Figure~\ref{fig:seq} traces the redemption of a QR pass; the use count is
+claimed with a single conditional \texttt{UPDATE}, so concurrent scans cannot overspend a pass.
+Figure~\ref{fig:activity} gives the activity flow of a prediction, Figure~\ref{fig:state} the life cycle
+of a pass, and Figure~\ref{fig:deploy} the deployment options.
+
+\begin{figure}[!htbp]
+\centering
+\adjustbox{max width=\linewidth}{\input{diagrams/class_diagram.tex}}
+\caption{Class diagram of the model and service layer}
+\label{fig:class}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\adjustbox{max width=\linewidth}{\input{diagrams/sequence_qr.tex}}
+\caption{Sequence diagram: redeeming a QR access pass}
+\label{fig:seq}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\adjustbox{max width=0.75\linewidth}{\input{diagrams/activity_predict.tex}}
+\caption{Activity diagram: synthetic risk prediction}
+\label{fig:activity}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\adjustbox{max width=0.85\linewidth}{\input{diagrams/state_qr.tex}}
+\caption{State machine of a QR access pass}
+\label{fig:state}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\adjustbox{max width=\linewidth}{\input{diagrams/deployment.tex}}
+\caption{Deployment diagram: production (synthetic) and local research mode}
+\label{fig:deploy}
+\end{figure}
+
+\section{Database Design}
+The schema (\code{database/schema.sql}, Figure~\ref{fig:er}) has eight tables in two domains: clinical
+(patients, vitals, lab results, medications, predictions, outcomes) and vault (records, access tokens,
+access log). Every table has a surrogate integer primary key; every child table references
+\texttt{patients(patient\_id)} with \texttt{ON DELETE CASCADE}, and the access log also references the token.
+Each non-key attribute depends only on its table's key, so the schema is in third normal form; JSON
+columns (\code{scope_json}, \code{structured_data}) hold small, opaque lists that are never queried
+by element.
+
+\begin{figure}[!htbp]
+\centering
+\adjustbox{max width=\linewidth}{\input{diagrams/er_diagram.tex}}
+\caption{Entity--relationship diagram (PK underlined, FK in italics; 1:N relationships)}
+\label{fig:er}
+\end{figure}
+
+\textbf{Integrity constraints.} \texttt{CHECK} constraints bound physiology (e.g.\ heart rate 20--260 bpm,
+SpO$_2$ 50--100\,\%), enumerations (gender, status, route, vault category, access status) and probabilities
+($0 \le$ risk score $\le 1$); \texttt{mrn} and \code{token_hash} are \texttt{UNIQUE}.
+\textbf{Indexing.} Eight composite indexes follow the access paths: time series by
+\texttt{(patient\_id, recorded\_at DESC)} for vitals and labs, census by \texttt{(status, ward)}, vault by
+\texttt{(patient\_id, category)}, token lookup by \texttt{(token\_hash, revoked, expires\_at)}, and the
+access log by patient and by token with \texttt{accessed\_at DESC}. \textbf{Representative data.} On
+26~October 2026 the local demo database held 100 patients, 4{,}368 vitals rows, 200 lab rows, 255
+medications, 338 vault records and 210 issued passes; for example patient~1 (MRN-2026-0001, 53 years, M,
+Surgical Recovery, Bed-301) had a latest reading of HR 65.1 bpm, BP 121/80 mmHg, SpO$_2$ 98.5\,\%. All of
+these are synthetic.
+
+\section{Security and Error Handling Design}
+\label{sec:secdesign}
+\begin{itemize}
+\item \textbf{Authentication:} only password hashes (scrypt, Werkzeug) are stored; in production, admin
+      accounts need a hash supplied through the environment and the public demo logins need
+      \texttt{DEMO\_LOGINS=1}; login is limited to 10 attempts per 5 minutes per client.
+\item \textbf{Sessions:} signed cookies, HttpOnly, SameSite=Lax, Secure in production, 8-hour lifetime;
+      the application refuses default, placeholder or short secrets in production, on any non-loopback
+      host and in research mode.
+\item \textbf{Authorisation:} role checks on every page and API; patients can reach only their own vault;
+      audit entries take the clinician's identity from the session, never from the request body.
+\item \textbf{Input validation:} JSON object bodies only; bounded integers (pass lifetime $\le$ 30 days,
+      uses $\le$ 1000); scanner payloads must be a token or an image data URI no larger than 4096$\times$4096
+      pixels; requests above 8~MB are rejected (413).
+\item \textbf{Browser hardening:} Content-Security-Policy allowing only same-origin scripts (Chart.js is
+      self-hosted, no inline scripts), \texttt{X-Frame-Options: DENY}, \texttt{nosniff}, HSTS over HTTPS,
+      \texttt{no-store} on API responses.
+\item \textbf{Errors and logging:} JSON error envelopes with generic messages; details are logged
+      server-side only; logging falls back to the console when the log folder is not writable.
+\item \textbf{Sensitive data:} Gemini receives only coarse outputs with a \texttt{[PATIENT]}
+      placeholder over verified TLS; research mode never calls it, refuses non-loopback binding, verifies
+      SHA-256 hashes before deserialising any model, and never returns MIMIC identifiers or dates.
+\end{itemize}

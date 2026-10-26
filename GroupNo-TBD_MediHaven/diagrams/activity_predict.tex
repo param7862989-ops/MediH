@@ -1,0 +1,19 @@
+% Activity diagram: synthetic risk prediction (predictions.py -> ensemble.predict_patient).
+\begin{tikzpicture}[node distance=5mm, act/.style={box, text width=100mm, font=\footnotesize}]
+\node[term] (s) {start: GET /api/patients/\{id\}/predict};
+\node[decision, below=of s] (auth) {session role\\physician or admin?};
+\node[act, below=of auth] (load) {load vitals, labs and medications from SQLite; engineer 30 features (latest values,\\72-hour means and OLS slopes, shock index, MAP)};
+\node[act, below=of load] (scale) {scale the feature vector with the stored StandardScaler};
+\node[act, below=of scale] (four) {K-Means, decision tree, KNN and MLP each return a 4-tier probability vector};
+\node[act, below=of four] (fuse) {fuse: $p = 0.30\,p_{DT} + 0.30\,p_{MLP} + 0.25\,p_{KNN} + 0.15\,p_{KM}$; tier $= \arg\max_t p_t$;\\score $= \sum_t p_t s_t$ with $s = (0.10, 0.45, 0.78, 0.94)$};
+\node[act, below=of fuse] (save) {store a prediction row; return tier, score, per-model votes, rule path and similar cases};
+\node[term, below=of save] (e) {end: 200 JSON};
+\node[term, fill=mhred!12, right=14mm of auth] (deny) {401 / 403};
+\node[term, fill=mhred!12, right=6mm of scale.east, anchor=west, yshift=-6mm] (fail) {500, generic message};
+\draw[flow] (s) -- (auth);
+\draw[flow] (auth) -- node[lbl, right]{yes} (load);
+\draw[flow] (auth) -- node[lbl, above]{no} (deny);
+\draw[flow] (load) -- (scale); \draw[flow] (scale) -- (four); \draw[flow] (four) -- (fuse);
+\draw[flow] (fuse) -- (save); \draw[flow] (save) -- (e);
+\draw[dflow] (four.east) -| node[lbl, below, pos=0.25]{model error} (fail.south);
+\end{tikzpicture}

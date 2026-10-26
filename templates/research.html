@@ -9,10 +9,13 @@
     <div>
       <h1 class="page-title">🔬 Research Mode · In-hospital Mortality Model</h1>
       <p class="page-subtitle">
-        MIMIC-IV Demo · prediction at ICU admission + 24 hours · cohort-level results only (no individual patients)
+        MIMIC-IV Demo · prediction at ICU admission + 24 hours · cohort-level model evaluation
       </p>
     </div>
-    <div style="display: flex; gap: var(--space-sm); align-items: center;">
+    <div style="display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap;">
+      {% if current_user and current_user.role == 'physician' %}
+      <a href="/dashboard" class="btn btn-outline btn-sm" style="color: #ffffff !important;">🩺 Research Triage →</a>
+      {% endif %}
       {% if status.research_inference_available %}
       <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); padding: 5px 12px; border-radius: var(--radius-full); font-size: 12px; font-weight: 600;">
         ● Verified artifacts · {{ status.run.run_id }} v{{ status.run.run_version }}
@@ -30,8 +33,9 @@
     <strong style="color: #fbbf24;">RESEARCH MODE — NOT FOR PATIENT CARE</strong>
     <p style="margin: 6px 0 0; color: var(--text-secondary); font-size: 13px;">{{ status.disclaimer }}</p>
     <p style="margin: 6px 0 0; color: var(--text-secondary); font-size: 13px;">
-      Synthetic clinical predictions are disabled in this mode. The patient vault, QR sharing and scanner remain the
-      synthetic demo; no individual MIMIC-IV record is shown anywhere.
+      Synthetic clinical predictions are disabled in this mode. This page shows cohort-level results; individual
+      de-identified stays appear only on the Research Triage page, on this computer. The patient vault, QR sharing
+      and scanner remain the synthetic demo.
     </p>
   </div>
 

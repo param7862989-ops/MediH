@@ -1,0 +1,33 @@
+\chapter{Reproducibility and API Summary}
+\label{app:repro}
+
+\section*{Commands (Windows PowerShell, repository root)}
+\begin{small}
+\begin{tabular}{@{}p{50mm}p{110mm}@{}}
+Install & \texttt{.\textbackslash.venv\textbackslash Scripts\textbackslash python.exe -m pip install -r requirements-dev.txt}\\
+Synthetic demo & \texttt{.\textbackslash.venv\textbackslash Scripts\textbackslash python.exe run\_demo.py}\\
+Tests & \texttt{.\textbackslash.venv\textbackslash Scripts\textbackslash python.exe -m pytest tests/ -q -p no:cacheprovider}\\
+Research dataset & \texttt{python -m src.tasks.build\_mimic\_t1 --mimic-dir <demo> --output-dir <out>}\\
+Research training & \texttt{python -m src.training.train\_mimic\_t1 --research-dir <out>}\\
+Research mode & \texttt{\$env:DATA\_MODE="mimic"; \$env:MIMIC\_OUTPUT\_DIR="<out>"; python run\_demo.py}\\
+Production & \texttt{waitress-serve --host=0.0.0.0 --port=8000 wsgi:app} (see \texttt{docs/deployment.md})\\
+Load test & \texttt{python appendices/perf\_measure.py} (this package)\\
+\end{tabular}
+\end{small}
+
+\section*{API routes (44)}
+\begin{footnotesize}
+\begin{tabularx}{\textwidth}{@{}lY@{}}
+\toprule
+Group & Routes\\
+\midrule
+Pages & \texttt{/}, \texttt{/login}, \texttt{/logout}, \texttt{/dashboard}, \texttt{/vault}, \texttt{/scanner}, \texttt{/admin}, \texttt{/research}, \texttt{/favicon.ico}\\
+Auth & \texttt{POST /api/auth/login}, \texttt{/api/auth/logout}, \texttt{GET /api/auth/me}, \texttt{GET /api/health}\\
+Patients & \texttt{GET|POST /api/patients}, \texttt{GET /api/patients/<id>}, \texttt{/vitals}, \texttt{/labs}, \texttt{/predict}, \texttt{/similar}, \texttt{/clinical-narrative}, \texttt{POST /reassign}, \texttt{GET /api/patients/physicians}\\
+Dashboard \& alerts & \texttt{GET /api/dashboard/summary}, \texttt{GET /api/alerts}, \texttt{POST /api/alerts/<id>/acknowledge}, \texttt{POST /api/alerts/dispatch}, \texttt{GET /api/alerts/activity}\\
+Admin & \texttt{GET /api/admin/models}, \texttt{POST /api/admin/gemini/synthesize}\\
+Vault & \texttt{GET /api/vault/<id>}, \texttt{/access-log}, \texttt{/active-tokens}, \texttt{POST /api/vault/upload}, \texttt{/share}, \texttt{/<id>/share}, \texttt{/access}, \texttt{/revoke/<token>}\\
+Research & \texttt{GET /api/research/status}, \texttt{/model-card}, \texttt{/dashboard}, \texttt{/stays}, \texttt{/stays/<n>}, \texttt{POST /api/research/predict}\\
+\bottomrule
+\end{tabularx}
+\end{footnotesize}

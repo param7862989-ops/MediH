@@ -179,7 +179,7 @@ def create_app(test_config: Optional[Dict[str, Any]] = None) -> Flask:
     def inject_user():
         from flask import session
         return {"current_user": session.get("user"), "demo_logins": Config.DEMO_LOGINS,
-                "demo_mode": Config.DEMO_MODE}
+                "demo_mode": Config.DEMO_MODE, "research_mode": research}
 
     def enforce_role(allowed_roles: list):
         """Enforces role-based route protection for web portals."""
@@ -238,7 +238,9 @@ def create_app(test_config: Optional[Dict[str, Any]] = None) -> Flask:
         if guard:
             return guard
         if research:
-            return redirect(url_for("view_research"))
+            # Same triage layout over the research cohort (stay-level, out-of-fold scores, this machine only)
+            return render_template("research_triage.html", active_page="dashboard",
+                                   status=app.research_service.status())
 
         try:
             return render_template("dashboard.html", active_page="dashboard")

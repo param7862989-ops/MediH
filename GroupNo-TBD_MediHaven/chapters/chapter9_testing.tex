@@ -1,0 +1,121 @@
+\chapter{Testing and Validation}
+\label{ch:testing}
+
+\section{Testing Strategy}
+Testing is automated with pytest and organised in 19 modules (354 test cases including parametrised
+cases). A session fixture redirects the database, model store, processed data and logs to a temporary
+folder, pins public development secrets, and fails the run if any persistent file changes, so tests never
+touch real data or secrets. Research tests build their own small synthetic MIMIC-shaped fixtures and run
+the real training pipeline on them; no real MIMIC record is used in tests. The full suite was executed on
+26~October~2026 on the working tree of branch \texttt{param}:
+
+\begin{center}
+\texttt{.venv\textbackslash Scripts\textbackslash python.exe -m pytest tests/ -q -p no:cacheprovider}\\[2pt]
+Result: \textbf{354 passed, 0 failed, 0 skipped} in 313.75~s.
+\end{center}
+\noindent An earlier clean-state run recorded 301 passed; the increase reflects tests added since for
+deployment hardening and the research triage view.
+
+\section{Unit, Integration and Functional Testing}
+\textbf{Unit tests} cover each model (cluster alignment, tree rule paths, KNN precedents, MLP
+probabilities), feature engineering, metrics, splits, the smoothed tree and the what-if input contract.
+\textbf{Integration tests} drive the Flask app through its test client: API $\rightarrow$ services
+$\rightarrow$ SQLite, research serving over a real (fixture) Phase~2 run, and the vault from issuance to
+audit. \textbf{Functional tests} check each requirement in Table~\ref{tab:fr} (Table~\ref{tab:testcases}).
+
+\section{Non-Functional, Boundary and Invalid-Input Testing}
+Security tests verify TLS verification and de-identified prompts for Gemini, hashed passwords, refusal of
+weak secrets in production and off-loopback, security headers, absence of inline scripts (CSP), rate
+limits, cookie flags and CORS. Boundary and invalid-input tests cover JSON arrays instead of objects,
+\texttt{null} fields, huge numbers (pass lifetime $10^{12}$ minutes, \texttt{hours=999999999999}), boolean
+quotas, file paths sent to the scanner, oversized images, forbidden research features, contradictory
+what-if inputs, tampered artifacts and malformed manifests; all must return 4xx or fail closed, never 500.
+
+\section{Concurrency and Stress Testing}
+A concurrency test starts four threads that redeem the same single-use pass simultaneously and asserts
+exactly one grant. Stress behaviour was measured with up to 16 concurrent clients (Chapter~\ref{ch:scal}),
+with no failed request.
+
+\section{Test Case Specification}
+\begin{small}
+\setlength{\tabcolsep}{3pt}
+\begin{longtable}{@{}p{10mm}p{10mm}p{47mm}p{31mm}p{9mm}p{52mm}@{}}
+\caption{Representative test cases (actual result = observed in the run above)}\label{tab:testcases}\\
+\toprule
+TC & Req. & Scenario and input & Expected = actual & Status & Evidence (test)\\
+\midrule
+\endfirsthead
+\toprule TC & Req. & Scenario & Expected = actual & Status & Evidence\\ \midrule
+\endhead
+TC-01 & FR-01 & wrong password; 11 rapid attempts & 401; 11th returns 429 & Pass & \code{test_bad_password_fails}, \code{test_login_is_rate_limited}\\
+TC-02 & FR-02 & each role opens another role's portal & redirected / 403 & Pass & \code{test_*_cannot_access_other_dashboards}\\
+TC-03 & FR-03 & list and filter patients by tier and name & filtered roster & Pass & \code{test_list_patients_filtered_by_risk_tier}\\
+TC-04 & FR-04 & live prediction for a patient & tier, score, 4 votes & Pass & \code{test_predict_patient_risk_live}, \code{test_each_model_reports_its_tier_and_risk_score}\\
+TC-05 & FR-04 & data seeded 10 days earlier, 72-h chart & 4 of 5 readings returned & Pass & \code{test_vitals_window_ends_at_latest_reading_not_wall_clock}\\
+TC-06 & FR-05 & acknowledge alert with a forged name & signed-in name recorded & Pass & \code{test_audit_log_records_the_signed_in_clinician_not_the_typed_name}\\
+TC-07 & FR-06 & upload record with invalid category & 422 & Pass & \code{test_vault_upload_invalid_category}\\
+TC-08 & FR-07 & lifetime $10^{12}$ min, uses $10^9$ & 422 & Pass & \code{test_pass_lifetime_and_quota_are_bounded}\\
+TC-09 & FR-08 & forged, expired, revoked tokens & denied and logged & Pass & \code{test_forged_and_tampered_token_rejection}, \code{test_expired_token_rejection}\\
+TC-10 & FR-08 & 4 concurrent scans of a single-use pass & exactly 1 grant & Pass & \code{test_single_use_pass_is_granted_once_under_concurrent_scans}\\
+TC-11 & FR-08 & pass scoped to allergies & only allowed records & Pass & \code{test_scope_isolation_and_zero_data_leakage}\\
+TC-12 & FR-10 & narrative request & no identifier in prompt & Pass & \code{test_patient_clinical_narrative_endpoint}, security tests\\
+TC-13 & FR-11 & forbidden or invalid what-if features & 422 with code & Pass & \code{test_research_prediction_rejects_forbidden_and_invalid_inputs}\\
+TC-14 & FR-12 & saved AUROC or fold fingerprint altered & 503, no stays served & Pass & \code{test_research_stays_fail_closed_when_scores_do_not_reproduce_the_verified_run}\\
+TC-15 & FR-11 & tampered model file & never deserialised & Pass & \code{test_tampered_model_is_never_deserialized}\\
+TC-16 & NFR & research mode with \texttt{DATA\_MODE=mimic} under \texttt{wsgi.py} & refuses to start & Pass & \code{test_wsgi_entrypoint_refuses_research_mode}\\
+\bottomrule
+\end{longtable}
+\end{small}
+
+\section{Defect Identification and Resolution}
+\label{sec:defects}
+A code audit of the backend and frontend during development found defects that were fixed and retested
+(all fixes have regression tests):
+
+\begin{table}[!htbp]
+\centering
+\caption{Significant defects found and resolved}
+\label{tab:defects}
+\small
+\begin{tabularx}{\textwidth}{@{}lYY@{}}
+\toprule
+Defect & Cause & Resolution and retest\\
+\midrule
+Single-use pass redeemable several times & check-then-update race & atomic conditional \texttt{UPDATE}; TC-10\\
+Failed prediction shown as ``Low risk, 85\,\%'' & UI defaults masked errors & explicit ``Prediction unavailable''; UI review\\
+Audit log accepted typed names & identity from request body & identity from session; TC-06\\
+Plain-text demo passwords in source & legacy design & scrypt hashes, production overrides; credential tests\\
+500 errors on malformed bodies & unchecked JSON types & object-only payloads, bounds; parametrised tests\\
+Empty 72-hour vitals chart & window anchored to wall clock & anchored to latest reading; TC-05\\
+Decision tree output exactly 0\,\% (research) & pure leaves with few deaths & m-estimate smoothing; unit test\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Validation Against KPIs}
+\begin{table}[!htbp]
+\centering
+\caption{KPI targets (Table~\ref{tab:kpi}) against measured values}
+\label{tab:kpivalid}
+\small
+\begin{tabularx}{\textwidth}{@{}lllY@{}}
+\toprule
+KPI & Target & Measured & Verdict\\
+\midrule
+Functional correctness & 100\,\% & 354/354 tests & met\\
+Prediction latency (1 client, p50) & $\le$ 150 ms & 71.9 ms & met\\
+Reliability (16 clients) & 0 failures & 0 of 3{,}200 & met\\
+Throughput, vitals (16 clients) & $\ge$ 100 req/s & 268.8 req/s & met\\
+Memory under load & $\le$ 512 MB & 206.1 MB & met\\
+Synthetic hold-out accuracy & $\ge$ 0.91 & 1.00 (20 patients) & met, but see Section~\ref{sec:synthcaveat}\\
+Research evaluation with CI & reported & AUROC with 95\,\% CI & met (as reporting); performance not established\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Limitations and Untested Scenarios}
+No automated browser end-to-end suite exists (the user interface was exercised manually and through the
+scripted screenshot run in Chapter~\ref{ch:results}); no cross-browser, accessibility-tool or penetration
+test was performed; load was tested only to 16 local clients; the Docker image could not be built on the
+development machine (Docker not installed); the narrative path was tested with a stubbed Gemini API; and
+model calibration was not evaluated.

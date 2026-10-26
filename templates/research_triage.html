@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Research Triage — MIMIC-IV Demo ICU Stays | MediHaven{% endblock %}
+
+{% block content %}
+<div class="dashboard-page research-triage-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">🩺 Research Triage · MIMIC-IV Demo ICU Stays</h1>
+      <p class="page-subtitle">
+        In-hospital mortality risk at ICU admission + 24 hours · each stay scored by models that never saw that patient
+      </p>
+    </div>
+    <div style="display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap;">
+      {% if status.research_inference_available %}
+      <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); padding: 5px 12px; border-radius: var(--radius-full); font-size: 12px; font-weight: 600;">
+        ● Verified models · {{ status.run.run_id }} v{{ status.run.run_version }}
+      </span>
+      {% endif %}
+      <a href="/research" class="btn btn-outline btn-sm" style="color: #ffffff !important;">📈 Model Analytics →</a>
+    </div>
+  </div>
+
+  <!-- Research-only banner -->
+  <div role="alert" style="border: 1px solid rgba(245, 158, 11, 0.55); background: rgba(245, 158, 11, 0.12); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-lg); margin-bottom: var(--space-lg);">
+    <strong style="color: #fbbf24;">RESEARCH MODE — NOT FOR PATIENT CARE</strong>
+    <span style="color: var(--text-secondary); font-size: 13px;">
+      · Retrospective, de-identified MIMIC-IV Demo stays shown on this computer only. Stays are numbered; no MIMIC
+      identifiers or dates are displayed. Outcomes are known in retrospect.
+    </span>
+  </div>
+
+  {% if not status.research_inference_available %}
+  <div style="border: 1px solid rgba(239, 68, 68, 0.5); background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-md); padding: var(--space-md) var(--space-lg);">
+    <strong style="color: #f87171;">Research model unavailable ({{ status.reason_code }})</strong>
+    <p style="margin: 6px 0 0; color: var(--text-secondary); font-size: 13px;">{{ status.reason }}</p>
+  </div>
+  {% else %}
+
+  <!-- Cohort KPI Grid -->
+  <section class="kpi-grid" aria-label="Research cohort summary">
+    <div class="kpi-card kpi-brand">
+      <div class="kpi-label">ICU Stays</div>
+      <div class="kpi-value" id="kpi-stays">--</div>
+      <div class="kpi-subtext">Adult stays, first 24 h</div>
+    </div>
+    <div class="kpi-card kpi-critical">
+      <div class="kpi-label">Critical Tier</div>
+      <div class="kpi-value text-critical" id="kpi-critical">--</div>
+      <div class="kpi-subtext" id="kpi-critical-band">Risk ≥ --</div>
+    </div>
+    <div class="kpi-card kpi-high">
+      <div class="kpi-label">High Risk Tier</div>
+      <div class="kpi-value text-high" id="kpi-high">--</div>
+      <div class="kpi-subtext" id="kpi-high-band">Risk ≥ --</div>
+    </div>
+    <div class="kpi-card kpi-medium">
+      <div class="kpi-label">Medium Tier</div>
+      <div class="kpi-value" id="kpi-medium">--</div>
+      <div class="kpi-subtext" id="kpi-medium-band">Risk ≥ --</div>
+    </div>
+    <div class="kpi-card kpi-critical">
+      <div class="kpi-label">In-hospital Deaths</div>
+      <div class="kpi-value text-critical" id="kpi-deaths">--</div>
+      <div class="kpi-subtext" id="kpi-death-rate">--% of stays</div>
+    </div>
+    <div class="kpi-card kpi-low">
+      <div class="kpi-label">Deaths Flagged High/Critical</div>
+      <div class="kpi-value" id="kpi-captured">--</div>
+      <div class="kpi-subtext">of all in-hospital deaths</div>
+    </div>
+  </section>
+
+  <!-- Highest-risk stays -->
+  <section class="alert-feed-container" id="research-alerts-container" aria-label="Highest-risk stays" style="display: none;">
+    <!-- Populated by research_triage.js -->
+  </section>
+
+  <!-- Roster Controls -->
+  <section class="roster-controls" aria-label="Stay filters">
+    <div class="filter-pills" role="tablist">
+      <button class="filter-pill active" data-filter="" role="tab">All Stays (<span id="count-all">0</span>)</button>
+      <button class="filter-pill" data-filter="Critical" role="tab">Critical (<span id="count-critical">0</span>)</button>
+      <button class="filter-pill" data-filter="High" role="tab">High (<span id="count-high">0</span>)</button>
+      <button class="filter-pill" data-filter="Medium" role="tab">Medium (<span id="count-medium">0</span>)</button>
+      <button class="filter-pill" data-filter="Low" role="tab">Low (<span id="count-low">0</span>)</button>
+    </div>
+
+    <div style="display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap;">
+      <select class="select-dropdown" id="outcome-filter-select" aria-label="Filter by outcome">
+        <option value="">All Outcomes</option>
+        <option value="died">Died in hospital</option>
+        <option value="survived">Survived</option>
+      </select>
+      <select class="select-dropdown" id="sort-select" aria-label="Sort stays">
+        <option value="risk">Sort: Highest risk first</option>
+        <option value="stay">Sort: Stay number</option>
+        <option value="age">Sort: Oldest first</option>
+        <option value="agreement">Sort: Models disagree most</option>
+      </select>
+      <div class="search-input-group">
+        <input type="search" class="search-input" id="stay-search-input" placeholder="Find stay number..."
+               aria-label="Find a stay by number" inputmode="numeric" />
+      </div>
+    </div>
+  </section>
+
+  <!-- Stay Triage Table -->
+  <section class="table-container" aria-label="ICU stays">
+    <table class="clinical-table" id="research-triage-table">
+      <thead>
+        <tr>
+          <th>Risk Tier</th>
+          <th>Risk</th>
+          <th>Stay</th>
+          <th>Age/Sex</th>
+          <th>Latest Vitals (HR · SBP · SpO2)</th>
+          <th>Resp. Rate</th>
+          <th>Lactate</th>
+          <th>4 Model Votes</th>
+          <th>Outcome</th>
+          <th style="text-align: right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="research-triage-tbody">
+        <tr>
+          <td colspan="10" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+            Preparing out-of-fold risk scores for every stay (first load takes a few seconds)...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+</div>
+
+<!-- ============================================================================
+     Stay Chart Drawer
+     ============================================================================ -->
+<div class="drawer-backdrop" id="drawer-backdrop" aria-hidden="true">
+  <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-stay-title">
+    <div class="drawer-header">
+      <div class="drawer-title-group">
+        <div>
+          <h2 class="patient-name-cell" id="drawer-stay-title" style="font-size: 18px; margin: 0;">Stay</h2>
+          <div class="patient-mrn-cell" id="drawer-stay-meta">--</div>
+        </div>
+        <span class="risk-badge" id="drawer-risk-badge">--</span>
+      </div>
+      <button class="drawer-close-btn" id="drawer-close-btn" aria-label="Close stay chart">✕</button>
+    </div>
+
+    <div class="drawer-body" style="overflow-y: auto; padding: var(--space-xl); display: flex; flex-direction: column; gap: var(--space-md);">
+      <!-- 1. Consensus and the four model votes -->
+      <div class="card" style="padding: var(--space-md);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-sm); flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div class="kpi-label">4-Model Consensus Risk of In-hospital Death</div>
+            <div style="font-size: 26px; font-weight: 700; color: #ffffff; display: flex; align-items: baseline; gap: 8px;">
+              <span id="drawer-risk-val" class="mono">--</span>
+              <span style="font-size: 13px; color: var(--text-secondary);" id="drawer-risk-context">cohort death rate --</span>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div class="kpi-label">Actual Outcome (retrospective)</div>
+            <div style="font-size: 16px; font-weight: 700;" id="drawer-outcome-val">--</div>
+          </div>
+        </div>
+        <div id="drawer-outcome-note" style="display: none; font-size: 11px; color: #fbbf24; margin-bottom: 6px;"></div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 11px; border-top: 1px solid var(--border-hairline); padding-top: 8px;">
+          <div><span style="color: var(--text-muted);">Logistic Regression:</span> <strong id="vote-logistic_regression">--</strong></div>
+          <div><span style="color: var(--text-muted);">Decision Tree:</span> <strong id="vote-decision_tree">--</strong></div>
+          <div><span style="color: var(--text-muted);">Random Forest:</span> <strong id="vote-random_forest">--</strong></div>
+          <div><span style="color: var(--text-muted);">Neural Net:</span> <strong id="vote-neural_network">--</strong></div>
+        </div>
+      </div>
+
+      <!-- 2. Model comparison chart -->
+      <div class="chart-box">
+        <div class="chart-header">
+          <div class="chart-title">Model Votes vs Cohort Death Rate</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Out-of-fold estimates · dashed line = cohort death rate</div>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <canvas id="stayModelsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 3. First-24-hour summaries -->
+      <div class="card" style="padding: var(--space-md);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm); flex-wrap: wrap; gap: 6px;">
+          <div class="chart-title">First 24 ICU Hours · Vitals &amp; Labs</div>
+          <div style="font-size: 11px; color: var(--text-muted);" id="drawer-measure-meta">--</div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="clinical-table" style="font-size: 12px;">
+            <thead>
+              <tr>
+                <th>Variable</th>
+                <th>Last</th>
+                <th>Range in 24 h</th>
+                <th>Mean</th>
+                <th>Readings</th>
+                <th>Typical adult range</th>
+              </tr>
+            </thead>
+            <tbody id="drawer-variables-tbody"></tbody>
+          </table>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">
+          Values outside the typical adult range are highlighted. The bar shows the 24-hour range (min to max)
+          with the last value marked, against the typical range (green band).
+        </div>
+      </div>
+
+      <!-- 4. How these scores were produced -->
+      <div class="card" style="padding: var(--space-md); font-size: 12px; color: var(--text-secondary);">
+        <div class="chart-title" style="margin-bottom: 6px;">How this stay was scored</div>
+        <div id="drawer-scoring-note">--</div>
+      </div>
+    </div>
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if status.research_inference_available %}
+<script src="{{ url_for('static', filename='js/research_triage.js') }}"></script>
+{% endif %}
+{% endblock %}

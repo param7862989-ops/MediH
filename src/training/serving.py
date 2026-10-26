@@ -1,12 +1,14 @@
 """Research-mode inference service over verified Phase 2 artifacts.
 
-Serves only aggregate model information and "what-if" risk estimates for feature values supplied by
-the caller. It never reads the patient-level research dataset, so no MIMIC record or identifier can
-reach an API response, log line or browser. Inputs follow the contract in whatif.py: identifiers,
-outcome/anomaly columns and other forbidden names are rejected, unmeasured variables are encoded as
-in training, and contradictory or impossible inputs are refused.
+Serves aggregate model information, "what-if" risk estimates for feature values supplied by the
+caller, and (via stays.py) a stay-level triage view of the research cohort for this machine only.
+MIMIC identifiers never reach an API response, log line or browser: stays are numbered 1..N.
+What-if inputs follow the contract in whatif.py: identifiers, outcome/anomaly columns and other
+forbidden names are rejected, unmeasured variables are encoded as in training, and contradictory or
+impossible inputs are refused.
 """
 
+from collections import Counter
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -16,6 +18,7 @@ from src.datasources.mimic.mappings import VARIABLES, feature_columns
 from src.training.artifacts import ArtifactVerificationError, VerifiedArtifacts, verify_and_load
 from src.training.features import build_feature_matrix
 from src.training.models import MODEL_ORDER
+from src.training.stays import TIERS, LazyStayView, StayViewError  # noqa: F401 (StayViewError re-exported)
 from src.training.train_mimic_t1 import DISCLAIMER
 from src.training.whatif import PredictionInputError, build_whatif_row  # noqa: F401 (re-exported)
 from src.utils.config import Config
@@ -33,10 +36,11 @@ class ResearchModelService:
     """Holds verified artifacts, or the reason verification failed (fail closed)."""
 
     def __init__(self, artifacts: Optional[VerifiedArtifacts], failure: Optional[ArtifactVerificationError],
-                 manifest_pinned: bool = False):
+                 manifest_pinned: bool = False, stays: Optional[LazyStayView] = None):
         self.artifacts = artifacts
         self.failure = failure
         self.manifest_pinned = manifest_pinned
+        self.stays = stays
 
     @classmethod
     def from_config(cls) -> "ResearchModelService":
@@ -46,7 +50,8 @@ class ResearchModelService:
         try:
             artifacts = verify_and_load(Config.MIMIC_OUTPUT_DIR, Config.RESEARCH_ARTIFACT_MANIFEST_SHA256)
             logger.info("Research artifacts verified; research inference enabled.")
-            return cls(artifacts, None, pinned)
+            stays = LazyStayView(Config.MIMIC_OUTPUT_DIR, artifacts.features, artifacts.metrics)
+            return cls(artifacts, None, pinned, stays)
         except ArtifactVerificationError as e:
             logger.warning(f"Research inference disabled: {e.code}")
             return cls(None, e, pinned)
@@ -214,6 +219,38 @@ class ResearchModelService:
             "random_forest_importance": [{"feature": f, "weight": round(float(w), 4)} for f, w in forest_top],
             "logistic_regression_coefficient": [{"feature": f, "weight": round(float(w), 4)} for f, w in logistic_top],
         }
+
+    def stay_roster(self) -> Dict[str, object]:
+        """All stays with out-of-fold risk scores, tiers and a few latest values (no identifiers).
+
+        Raises StayViewError if the stay view cannot be prepared or verified.
+        """
+        view = self.stays.get()
+        tiers = Counter(row["tier"] for row in view.rows)
+        deaths = sum(row["died"] for row in view.rows)
+        return {
+            "disclaimer": DISCLAIMER,
+            "task": TASK_DESCRIPTION,
+            "prediction_point": PREDICTION_POINT,
+            "scoring": "Each stay is scored by models trained without that patient's stays (out-of-fold). "
+                       "The consensus is the mean of the four models.",
+            "death_rate": view.death_rate,
+            "bands": view.bands,
+            "kpis": {
+                "stays": len(view.rows),
+                "deaths": deaths,
+                "tiers": {t: tiers.get(t, 0) for t in TIERS},
+                "deaths_in_high_or_critical": sum(r["died"] for r in view.rows if r["tier"] in ("High", "Critical")),
+            },
+            "stays": view.rows,
+        }
+
+    def stay_detail(self, number: int) -> Optional[Dict[str, object]]:
+        """One stay's 24-hour summaries, model scores and outcome, or None if the number is unknown."""
+        detail = self.stays.get().details.get(number)
+        if detail is None:
+            return None
+        return {"disclaimer": DISCLAIMER, "death_rate": self.stays.get().death_rate, **detail}
 
     def predict(self, supplied: object) -> Dict[str, object]:
         """Risk estimates for caller-supplied inputs under the whatif.py contract."""

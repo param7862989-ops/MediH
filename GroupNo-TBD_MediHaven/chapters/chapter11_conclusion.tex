@@ -1,0 +1,39 @@
+\chapter{Conclusion and Future Scope}
+\label{ch:concl}
+
+\section{Conclusion}
+MediHaven integrates explainable four-model triage on synthetic inpatients, a patient-controlled medical
+vault with signed, scoped and auditable QR passes, and an opt-in research mode that rebuilds an
+in-hospital-mortality task from the MIMIC-IV Clinical Database Demo and evaluates baselines with
+patient-grouped cross-validation. The system is layered, tested (354 passing tests), measured under load
+and hardened for deployment of the synthetic demo, while research mode stays on the researcher's machine.
+
+\section{Achievement of Objectives}
+All seven objectives were achieved as engineering deliverables (Table~\ref{tab:objectives}). Objective~O4
+was achieved as a validated pipeline; clinically meaningful model performance was \emph{not} established and
+was never an achievable aim on a 107-stay demo cohort with 11 deaths.
+
+\section{Major Engineering Contributions}
+A fail-closed research path (secret, bind-address and artifact-hash checks; no external AI); out-of-fold
+stay-level scores that must reproduce the verified run before being served; explicit handling of outcome
+timestamp anomalies; an atomic, race-free pass quota; leakage controls on time windows and feature
+provenance; and measured performance with an identified CPU-bound prediction bottleneck.
+
+\section{Current Limitations}
+Synthetic data cannot show clinical validity; the real cohort is tiny and single-centre, results are
+unstable across sensitivity analyses, and calibration is unassessed; the design is single-instance;
+the vault stores document references, not files; no browser end-to-end or penetration tests exist; and
+the demo accounts must be replaced in any deployment.
+
+\section{Future Enhancements}
+The following are future work, not implemented features: evaluation on credentialed full MIMIC-IV with
+temporal or external validation and calibration analysis; per-patient feature caching and process-based
+inference workers; a shared store (e.g.\ PostgreSQL and Redis) for multi-instance deployment; real,
+virus-scanned document uploads; browser end-to-end and accessibility tests; and an independent security
+review.
+
+\section{Lessons Learned}
+Leakage hides in timestamps; small cohorts demand intervals and sensitivity analyses rather than single
+numbers; synthetic perfection is a warning sign, not a result; security defects (races, trusted client
+input, plain-text secrets) are found by deliberate review and fixed with regression tests; and frequent,
+reviewed commits through pull requests kept a three-person team's work integrated.

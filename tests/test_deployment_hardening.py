@@ -258,3 +258,14 @@ def test_wsgi_entrypoint_refuses_research_mode(tmp_path):
     assert result.returncode != 0
     assert "Research mode (DATA_MODE=mimic) must stay on loopback" in result.stderr
     assert not (tmp_path / "db.sqlite").exists()
+
+
+def test_narrative_limit_applies_only_to_live_gemini_calls(monkeypatch):
+    from src.nlp import summarizer as summarizer_instance
+    client = create_app({"TESTING": True}).test_client()
+    monkeypatch.setattr(summarizer_instance, "is_configured", lambda: False)
+    assert all(client.get("/api/patients/1/clinical-narrative").status_code == 200 for _ in range(65))
+    monkeypatch.setattr(summarizer_instance, "is_configured", lambda: True)
+    monkeypatch.setattr(summarizer_instance, "generate", lambda *a, **k: {"narrative": "stub", "engine": "test"})
+    statuses = [client.get("/api/patients/1/clinical-narrative").status_code for _ in range(61)]
+    assert statuses[:60] == [200] * 60 and statuses[60] == 429

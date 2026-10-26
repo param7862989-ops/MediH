@@ -71,3 +71,7 @@ medihaven_t1_*/
 # OS files
 .DS_Store
 Thumbs.db
+
+# SQLite write-ahead-log side files
+*.db-wal
+*.db-shm

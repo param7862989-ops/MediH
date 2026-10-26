@@ -1,0 +1,126 @@
+%----------------------------------------------------------------------------
+% MediHaven project report. Formatting follows the SPIT ESE report template
+% (synopsis.tex: 12 pt, A4, single-sided, margins 20/20/20/50 mm, numbered
+% IEEE-style references) and the chapter structure of the Mini Project Report
+% Preparation Guidelines (T.E. Computer Engineering, AY 2026-27).
+% Build:  tectonic main.tex        (see README.md for alternatives)
+%----------------------------------------------------------------------------
+\documentclass[12pt,oneside,a4paper]{report}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{geometry}
+\geometry{left=20mm,right=20mm,top=20mm,bottom=50mm}
+\usepackage{graphicx}
+\usepackage{adjustbox}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,tabularx,array,multirow,longtable}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+\captionsetup[table]{position=top}
+\usepackage{float}
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=*}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric,shapes.misc,shapes.multipart,arrows.meta,positioning,fit,calc,backgrounds,matrix}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{url}
+\usepackage{cite}
+\usepackage{titlesec}
+\usepackage{tocloft}
+\setlength{\cftbeforechapskip}{4pt}
+\setlength{\cftbeforesecskip}{0pt}
+\setlength{\cftbeforefigskip}{1pt}
+\setlength{\cftbeforetabskip}{1pt}
+\renewcommand{\cftsecfont}{\small}
+\renewcommand{\cftsecpagefont}{\small}
+\usepackage[hidelinks]{hyperref}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+% Compact chapter headings (keeps the report within the template's page range)
+\titleformat{\chapter}[hang]{\bfseries\LARGE}{\thechapter\hspace{0.6em}}{0pt}{}
+\titlespacing*{\chapter}{0pt}{0pt}{14pt}
+\renewcommand{\arraystretch}{1.15}
+\setcounter{tocdepth}{1}
+% Let floats sit at the top/bottom of text pages instead of forcing gaps
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.85}
+\setcounter{topnumber}{3}
+\setcounter{totalnumber}{5}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\setlength{\parskip}{3pt}
+
+% \bstctlcite (from IEEEtran.cls) so IEEEtran.bst options work with the report class
+\makeatletter
+\def\bstctlcite{\@ifnextchar[{\@bstctlcite}{\@bstctlcite[@auxout]}}
+\def\@bstctlcite[#1]#2{\@bsphack\@for\@citeb:=#2\do{%
+  \edef\@citeb{\expandafter\@firstofone\@citeb}%
+  \if@filesw\immediate\write\csname #1\endcsname{\string\citation{\@citeb}}\fi}\@esphack}
+\makeatother
+
+% Code identifiers (test names, paths) that may break after underscores and slashes
+\makeatletter
+\g@addto@macro{\UrlBreaks}{\do\_\do\/\do\.}
+\makeatother
+\newcommand{\code}[1]{\nolinkurl{#1}}
+
+\input{frontmatter/details.tex}
+\input{diagrams/styles.tex}
+
+\begin{document}
+\bstctlcite{IEEEexample:BSTcontrol}% IEEEtran: list at most 6 authors, else first 3 et al.
+
+% ---------------- Preliminary pages (roman numbering) ----------------------
+\pagenumbering{roman}
+\input{frontmatter/title.tex}
+\input{frontmatter/certificate.tex}
+\input{frontmatter/approval.tex}
+\input{frontmatter/declaration.tex}
+\input{frontmatter/acknowledgement.tex}
+\input{frontmatter/abstract.tex}
+\clearpage
+\tableofcontents
+\clearpage
+\listoffigures
+\clearpage
+\listoftables
+\clearpage
+\input{frontmatter/abbreviations.tex}
+
+% ---------------- Main chapters (arabic numbering) --------------------------
+\clearpage
+\pagenumbering{arabic}
+\input{chapters/chapter1_introduction.tex}
+\input{chapters/chapter2_literature_review.tex}
+\input{chapters/chapter3_requirements.tex}
+\input{chapters/chapter4_design.tex}
+\input{chapters/chapter5_algorithms.tex}
+\input{chapters/chapter6_subject_concepts.tex}
+\input{chapters/chapter7_implementation.tex}
+\input{chapters/chapter8_scalability.tex}
+\input{chapters/chapter9_testing.tex}
+\input{chapters/chapter10_results.tex}
+\input{chapters/chapter11_conclusion.tex}
+\input{chapters/research_paper_plagiarism.tex}
+
+% ---------------- References ------------------------------------------------
+\clearpage
+\phantomsection
+\addcontentsline{toc}{chapter}{References}
+\bibliographystyle{IEEEtran}
+{\small\bibliography{bibliography}}
+
+% ---------------- Appendix --------------------------------------------------
+\appendix
+\input{appendices/appendix_reproducibility.tex}
+
+% ---------------- Final page: NIL AI content declaration --------------------
+% Must remain the very last page of the report. See README.md / MISSING_INFORMATION.md.
+\input{frontmatter/nil_ai_declaration.tex}
+
+\end{document}

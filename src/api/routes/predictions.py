@@ -302,7 +302,8 @@ def get_model_telemetry():
 
 @predictions_bp.route("/patients/<int:patient_id>/clinical-narrative", methods=["GET", "POST"])
 @role_required(CLINICAL_ROLES)
-@rate_limited("narrative", limit=30, window_seconds=300)  # each call may hit the paid Gemini API
+# Only live Gemini calls cost money and quota; the local fallback narrative is not limited
+@rate_limited("narrative", limit=60, window_seconds=300, applies=lambda: summarizer.is_configured())
 def generate_patient_clinical_narrative(patient_id: int):
     """Blueprint C: Synthesizes structured ML prediction, vitals & rules into natural language via Gemini."""
     try:

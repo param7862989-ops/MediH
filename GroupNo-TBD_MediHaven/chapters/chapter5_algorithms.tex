@@ -1,0 +1,144 @@
+\chapter{Algorithm Design and Data Structures}
+\label{ch:algo}
+
+\section{Identification of Critical Operations}
+(1) feature engineering for a synthetic patient; (2) ensemble inference and fusion; (3) QR pass
+validation and atomic redemption; (4) research cohort, labelling and leakage-safe feature extraction;
+(5) patient-grouped cross-validation with bootstrap intervals; (6) verified serving of research artifacts
+and out-of-fold stay scores; (7) request rate limiting.
+
+\section{Algorithm Design}
+\textbf{Feature engineering.} For each synthetic patient, 30 features are computed: demographics, latest
+vitals, 72-hour means and minima (window ending at the latest reading), compound indices (mean arterial
+pressure $\mathrm{MAP}=\mathrm{DBP}+(\mathrm{SBP}-\mathrm{DBP})/3$, pulse pressure, shock index
+$\mathrm{HR}/\mathrm{SBP}$), laboratory values and deltas, and the active-medication count. Trends use the
+ordinary-least-squares slope
+\begin{equation}
+\beta_1=\frac{\sum_i (t_i-\bar t)(y_i-\bar y)}{\sum_i (t_i-\bar t)^2}\quad\text{(units per hour, 0 if fewer than two points).}
+\end{equation}
+
+\textbf{Synthetic models} (scikit-learn \cite{pedregosa2011scikit}, fixed seed 42):
+\begin{itemize}
+\item \emph{K-Means} ($k=4$, k-means++, 10 restarts, $\le$300 iterations): clusters are mapped to tiers by
+      centroid severity; distances $d_j$ become pseudo-probabilities $\propto 1/(1+d_j)$, re-ordered by tier.
+\item \emph{Decision tree} (CART, Gini, depth $\le$ 5, $\ge$ 2 samples per leaf) on unscaled values, so its
+      root-to-leaf rule path is readable in clinical units.
+\item \emph{KNN} ($k=5$, Euclidean distance on scaled features, scikit-learn \texttt{algorithm='auto'}):
+      similarity-weighted votes of the nearest synthetic cases, which also supply the protocol suggestion.
+\item \emph{MLP} (hidden layers 64 and 32, ReLU, Adam, $\alpha=10^{-3}$, batch 16, early stopping on 15\,\%
+      validation data, $\le$ 500 epochs).
+\end{itemize}
+
+\begin{algorithm}[H]
+\caption{Ensemble fusion (\texttt{EnsembleClinicalPredictor.predict})}
+\label{alg:fusion}
+\begin{algorithmic}[1]
+\Require scaled feature vector $x$, raw vector $x_{raw}$
+\State $p_{KM}\gets$ tier-ordered $1/(1+d_j)$ of $x$ to the 4 centroids, normalised
+\State $p_{DT}\gets$ \Call{TreeProba}{$x_{raw}$};\; $p_{KNN}\gets$ similarity-weighted votes of 5 neighbours
+\State $p_{MLP}\gets$ \Call{MLPProba}{$x$}
+\State $p\gets 0.30\,p_{DT}+0.30\,p_{MLP}+0.25\,p_{KNN}+0.15\,p_{KM}$
+\State tier $\gets \arg\max_t p_t$;\; score $\gets \sum_t p_t s_t$ with $s=(0.10,0.45,0.78,0.94)$
+\State \Return tier, score, confidence $=\max_t p_t$, and each model's own tier and score
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{QR pass redemption (\texttt{access\_vault\_with\_token})}
+\label{alg:qr}
+\begin{algorithmic}[1]
+\Require token string or image, signed-in clinician $u$
+\State decode the QR image if needed (size $\le 4096^2$ pixels); verify HS256 signature and expiry
+\State look up the record by token hash; deny if revoked, expired or out of uses
+\State \textbf{atomic} \texttt{UPDATE tokens SET use\_count=use\_count+1 WHERE id=? AND revoked=0 AND (max\_uses IS NULL OR use\_count<max\_uses)}
+\If{no row changed} log \textsc{max\_uses\_exceeded} and deny \EndIf
+\State read the scope from the stored record; return only matching vault records; append $u$ to the access log
+\end{algorithmic}
+\end{algorithm}
+
+\textbf{Research pipeline.} Figure~\ref{fig:pipeline} shows the cohort and label construction; features
+use only observations with \texttt{charttime} and \texttt{storetime} at or before the index time
+(intime + 24\,h), which removes look-ahead leakage \cite{kaufman2012leakage}. Model set v2.0.0 contains a
+prior-only reference and four models, each a pipeline of median imputation, removal of constant columns
+and (where needed) standardisation: L2 logistic regression ($C=0.1$); a \emph{smoothed} decision tree
+(depth 3, $\ge$ 8 stays per leaf) whose leaf risk is the m-estimate
+\begin{equation}
+\hat p_{\text{leaf}}=\frac{\text{deaths}_{\text{leaf}}+m\,\hat p}{n_{\text{leaf}}+m},\qquad m=5,
+\end{equation}
+so that no leaf predicts exactly 0 or 1; a random forest (300 trees, depth $\le$ 4); and an MLP with one
+hidden layer of 16 units ($\alpha=1$, L-BFGS). The 14 measurement-count features are excluded from model
+inputs (74 inputs remain) because they encode monitoring intensity rather than physiology.
+
+\begin{figure}[!htbp]
+\centering
+\adjustbox{max width=0.72\linewidth}{\input{diagrams/research_pipeline.tex}}
+\caption{Flowchart of the research pipeline (dataset v1.2.0, task v3, run v2.0.0)}
+\label{fig:pipeline}
+\end{figure}
+
+\textbf{Out-of-fold stay scores.} For the research triage view, the five-fold split is recomputed with the
+recorded seed, each stay is scored by the pipelines trained on the other folds, and the view is served only
+if the fold-assignment fingerprint and every model's pooled AUROC equal the verified run (tolerance
+$10^{-9}$); otherwise it fails closed.
+
+\section{Flowcharts}
+Flowcharts for the prediction activity (Figure~\ref{fig:activity}) and the research pipeline
+(Figure~\ref{fig:pipeline}) cover the two most complex operations.
+
+\section{Data Structure Selection}
+\begin{itemize}
+\item \textbf{Arrays (NumPy):} feature matrices and probability vectors give vectorised arithmetic.
+\item \textbf{Hash tables (Python \texttt{dict}/\texttt{set}):} credential store, tier maps, stay lookup by
+      number, identifier sets for leak checks; $O(1)$ expected lookup.
+\item \textbf{Trees:} the decision tree itself; B-tree indexes in SQLite make range scans on
+      \texttt{(patient\_id, recorded\_at)} logarithmic.
+\item \textbf{Queues:} the rate limiter keeps a \texttt{deque} of timestamps per client (sliding window,
+      amortised $O(1)$ eviction); Waitress dispatches requests from a task queue to a pool of 8 threads.
+\item \textbf{Locks:} mutexes protect the rate-limit table and the lazily built stay view.
+\end{itemize}
+
+\section{Algorithm Selection and Justification}
+Classical models were preferred to deep networks: the synthetic set has 100 patients and the research
+cohort 107 stays, far too few for deep models, and trees, coefficients and neighbours are explainable
+\cite{rudin2019stop}. K-Means adds an unsupervised phenotype view; KNN supplies case-based precedents.
+Patient-grouped stratified folds were chosen over a hold-out split because a split of 107 stays would
+contain only one or two deaths, and grouping prevents one patient's stays appearing in both training and
+test folds.
+
+\section{Time Complexity Analysis}
+With $n$ training samples, $d$ features, $k$ clusters/neighbours, $T$ trees and $E$ epochs:
+
+\begin{table}[!htbp]
+\centering
+\caption{Theoretical complexity of the main algorithms}
+\label{tab:complexity}
+\small
+\begin{tabularx}{\textwidth}{@{}lYY@{}}
+\toprule
+Algorithm & Training & Inference (one sample)\\
+\midrule
+K-Means (Lloyd) & $O(n\,k\,d\,I)$ per restart & $O(k\,d)$\\
+Decision tree (CART) & $O(d\,n\log n)$ & $O(\text{depth})\le O(5)$\\
+KNN (brute force) & $O(1)$ (store) & $O(n\,d)$, plus $O(n)$ selection\\
+MLP & $O(E\,n\,(d\cdot 64+64\cdot 32))$ & $O(d\cdot 64+64\cdot 32)$\\
+Random forest & $O(T\,d'\,n\log n)$, $d'=\sqrt d$ & $O(T\cdot\text{depth})$\\
+Grouped 5-fold CV & $5\times$ training of all 5 pipelines & --\\
+Subject bootstrap ($B$ resamples) & $O(B\,n\log n)$ for AUROC & --\\
+QR redemption & -- & $O(\log N)$ index lookups + $O(r)$ records\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+These are theoretical bounds; measured run times are reported in Chapter~\ref{ch:scal}.
+
+\section{Space Complexity Analysis}
+Model storage is $O(kd)$ (K-Means), $O(\text{nodes})$ (tree), $O(nd)$ (KNN keeps the training set) and
+$O(\text{weights})$ (MLP); all synthetic model files together occupy about 0.22~MB. The research stay
+view holds 107 rows of 14 variable summaries in memory, and the bootstrap stores $B$ metric values per
+metric.
+
+\section{Optimisation Opportunities}
+Prediction requests recompute features from the database each time (Section~\ref{sec:bottleneck}); caching
+feature vectors per patient and invalidating on new vitals would remove most of that cost. KNN could use a
+pre-built KD-tree for larger cohorts, and inference could move to a separate worker process to escape
+Python's global interpreter lock.
