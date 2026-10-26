@@ -1,0 +1,16 @@
+% Flowchart of the research pipeline (src/tasks/build_mimic_t1.py, src/training/*).
+\begin{tikzpicture}[node distance=4.5mm, act/.style={box, text width=112mm, font=\footnotesize}]
+\node[term] (a) {MIMIC-IV Demo 2.2 (140 ICU stays)};
+\node[act, below=of a] (b) {cohort: first ICU stay of each admission, adult, alive and still in the ICU and in hospital\\at the index time (ICU intime + 24\,h)};
+\node[decision, below=of b] (c) {outcome fields\\consistent?};
+\node[act, below=of c] (d) {label = in-hospital death after the index time; deaths recorded after the discharge time\\are kept as positives and flagged (4 stays)};
+\node[act, below=of d] (e) {features from [intime, index] with charttime and storetime $\le$ index: 14 variables $\times$\\min/max/mean/last/count/missing, plus age, sex and blood-pressure source};
+\node[act, below=of e] (f) {validate schema, versions, one row per stay and the content SHA-256};
+\node[act, below=of f] (g) {5-fold StratifiedGroupKFold by patient (seed 42); 5 pipelines fitted per fold};
+\node[act, below=of g] (h) {pooled out-of-fold AUROC, AP and Brier score; subject bootstrap 95\% CI;\\anomaly sensitivity analyses A (re-scored) and B (retrained)};
+\node[term, below=of h] (i) {versioned run with a manifest of SHA-256 hashes};
+\node[red box, text width=30mm, right=12mm of c] (x) {excluded and counted by reason (0 in v1.2.0)};
+\draw[flow] (a)--(b); \draw[flow] (b)--(c); \draw[flow] (c)--node[lbl,right]{yes}(d);
+\draw[flow] (c)--node[lbl,above]{no}(x);
+\draw[flow] (d)--(e); \draw[flow] (e)--(f); \draw[flow] (f)--(g); \draw[flow] (g)--(h); \draw[flow] (h)--(i);
+\end{tikzpicture}

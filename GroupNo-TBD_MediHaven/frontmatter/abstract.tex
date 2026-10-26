@@ -1,0 +1,28 @@
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+Clinical deterioration is often recognised late, patients seldom control who sees their records, and
+published clinical machine-learning results are frequently hard to reproduce. MediHaven is an educational
+software prototype that addresses these issues together in a single Flask web application. Physicians see
+a triage dashboard in which a K-Means, decision-tree, k-nearest-neighbour and multilayer-perceptron
+ensemble classifies synthetic inpatients into four risk tiers, with every model's vote, a decision-tree
+rule path and similar historical cases. Patients keep a medical vault and share selected records through
+HMAC-signed, expiring, scope- and use-limited QR passes whose redemption is atomic and audited. An
+explicitly opt-in, loopback-only research mode rebuilds an in-hospital-mortality task from the MIMIC-IV
+Clinical Database Demo (prediction at ICU admission + 24 hours) and serves only hash-verified artifacts.
+
+Built with Python, Flask, SQLite, scikit-learn, DuckDB and Chart.js, the system applies database design,
+concurrency control, algorithm analysis and software-engineering practice, and is tested by 354 automated
+tests, all passing. Under a load test of the production server, a risk prediction took 71.9~ms (median,
+one client), throughput saturated at about 15 predictions per second (CPU-bound), simple reads reached
+268.8 requests per second at 16 clients, there were no errors, and memory stayed below 210~MB.
+
+On the 107 eligible ICU stays (11 deaths), patient-grouped five-fold cross-validation gave pooled AUROCs of
+0.74 (logistic regression), 0.73 (random forest), 0.77 (neural network) and 0.56 (smoothed decision tree),
+with 95\,\% intervals spanning roughly 0.35--0.91, and results changed markedly when four outcome-timestamp
+anomalies were removed. By contrast, the synthetic ensemble scored 1.00 on a 20-patient hold-out, which
+reflects the data generator rather than clinical skill. MediHaven therefore demonstrates an honest,
+reproducible engineering pipeline; it is not clinically validated and must not be used for patient care.
+
+\vspace{0.4cm}
+\noindent\textbf{Keywords:} clinical decision support, early warning, explainable machine learning,
+MIMIC-IV, grouped cross-validation, patient-controlled records, QR access, Flask.

@@ -1,0 +1,131 @@
+\chapter{Introduction and Problem Definition}
+\label{ch:intro}
+
+\section{Project Background}
+Hospital wards generate a continuous stream of vital signs and laboratory results, yet deterioration is
+still often recognised late. Track-and-trigger scores such as the National Early Warning Score (NEWS)
+\cite{smith2013news} and severity scores such as SAPS~II \cite{legall1993sapsii} reduce physiology to a
+few thresholds, while machine-learning (ML) models trained on electronic health records (EHRs) report
+higher discrimination \cite{rajkomar2018scalable,purushotham2018benchmarking}. At the same time, patients
+rarely control who sees their own records, and clinicians who receive a patient from another facility
+must often work without the history.
+
+MediHaven is a web application, developed as a \CourseName\ in the \Department, that brings three
+strands together in one teaching-scale system: (i) a physician triage dashboard that ranks synthetic
+inpatients with four classical ML models and explains each vote, (ii) a patient-controlled medical vault
+from which time-limited, scope-limited QR access passes can be shared, and (iii) an explicitly opt-in
+research mode that rebuilds a real mortality-prediction task from the openly available MIMIC-IV Clinical
+Database Demo \cite{johnson2023mimicivdemo,johnson2023mimiciv} and evaluates baselines with
+leakage-aware, patient-grouped cross-validation.
+
+MediHaven is an \textbf{educational software prototype}. It is not a medical device, it has not been
+clinically validated, and none of its outputs may be used for diagnosis, treatment or other patient-care
+decisions.
+
+\section{Problem Statement}
+Build a single, secure, testable web platform that (a) demonstrates explainable multi-model risk
+stratification on realistic but synthetic inpatient data, (b) lets a patient grant a clinician
+revocable, auditable and scope-restricted access to selected records, and (c) shows, on genuine
+de-identified ICU data, how a mortality-risk pipeline must be built and evaluated honestly---without
+leakage, with uncertainty, and without exposing patient-level data beyond the researcher's machine.
+
+Existing approaches make this difficult: published models rarely release reproducible cohorts
+\cite{johnson2017reproducibility}, deployed proprietary scores can perform far worse than reported
+\cite{wong2021epicsepsis}, and record-sharing systems are typically institution-centred rather than
+patient-controlled \cite{azaria2016medrec}.
+
+\section{Motivation}
+The project gives three groups something concrete: students and teachers obtain an end-to-end example
+of clinical ML engineering (data pipeline, models, evaluation, serving, security and testing);
+clinicians and evaluators can see how model votes, rule paths and uncertainty are presented; and
+patients see a model of consent-based sharing with a visible access log. The research mode in
+particular demonstrates the gap between an impressive demo accuracy on synthetic data and the much
+more modest, uncertain performance obtained on real data (Chapter~\ref{ch:results}).
+
+\section{Objectives}
+\begin{enumerate}[label=O\arabic*.]
+\item Implement role-based web portals for physicians, patients and administrators over a REST API.
+\item Train and serve a four-model ensemble (K-Means, decision tree, KNN, MLP) that returns a risk tier,
+      a score, per-model votes and an explanation for each synthetic patient.
+\item Implement a patient vault with HMAC-signed, expiring, scope- and use-limited QR passes, an
+      atomic use quota and an immutable access log.
+\item Build a versioned MIMIC-IV Demo task (in-hospital mortality after the first 24 ICU hours) with
+      explicit cohort, label and leakage rules, and evaluate baselines with patient-grouped
+      cross-validation and bootstrap confidence intervals.
+\item Serve verified research artifacts in a loopback-only research mode with integrity checks.
+\item Protect secrets and data: strong-secret enforcement, CSP, rate limits, de-identified prompts
+      to external AI, and no external AI in research mode.
+\item Verify the system with an automated test suite and measure server performance under load.
+\end{enumerate}
+
+\section{Scope of the Project}
+\textbf{Included:} the features above; a synthetic cohort of 100 patients; the MIMIC-IV Demo~2.2
+(100 patients, 140 ICU stays); a production entry point (Waitress) and container recipe.
+\textbf{Excluded:} real hospital integration (HL7/FHIR feeds), credentialed full MIMIC-IV, clinical
+validation, real file uploads to the vault, and multi-instance deployment.
+\textbf{Intended users:} students, teachers and evaluators; the physician/patient/administrator roles are
+demonstration roles. \textbf{Operating environment:} Python~3.12 on Windows or Linux, a modern browser,
+SQLite. \textbf{Expected scale:} a single server process serving tens of concurrent users
+(Chapter~\ref{ch:scal}).
+
+\section{Proposed Solution}
+A layered Flask application (Chapter~\ref{ch:design}) serves Jinja2/JavaScript portals and a JSON API.
+Synthetic predictions come from an in-memory ensemble whose weighted soft votes are fused into one of
+four tiers; a decision-tree rule path and $k$ nearest historical cases make each result inspectable.
+The vault issues HS256 JSON Web Tokens \cite{rfc7519} (HMAC \cite{rfc2104}) whose server-side record
+holds the authoritative scope, expiry and use count. A separate research pipeline builds a hashed,
+versioned dataset from MIMIC-IV Demo files outside the repository, trains five pipelines under grouped
+cross-validation, and the web application serves only artifacts whose SHA-256 hashes verify.
+
+\section{Novelty and Originality}
+The individual algorithms are standard; the contribution is the \emph{integration and the engineering
+discipline}: (i) one prototype combines explainable triage, patient-controlled sharing and a research
+pipeline; (ii) research mode is fail-closed---it refuses unsafe secrets, non-loopback binding and
+tampered artifacts, never falls back to synthetic data and never calls an external AI service;
+(iii) the stay-level research view scores every ICU stay with an out-of-fold model and refuses to serve
+unless the recomputed predictions reproduce the verified run exactly; and (iv) timestamp anomalies in the
+outcome data are kept, flagged and analysed rather than silently dropped.
+
+\section{Feasibility Analysis}
+\textbf{Technical:} all components use mature open-source libraries (Flask, scikit-learn
+\cite{pedregosa2011scikit}, pandas, DuckDB) and run on a laptop.
+\textbf{Economic:} no licence costs; the MIMIC-IV Demo is open access; Gemini use is optional.
+\textbf{Operational:} one command starts the demo (\texttt{run\_demo.py}); the production entry point
+seeds and trains on first start. \textbf{Time and resources:} the repository history shows development
+between 6 and 26 October 2026 (Section~\ref{sec:git}).
+
+\section{Social Relevance and Practical Applications}
+MediHaven is a teaching and demonstration artefact: it illustrates early-warning dashboards, consent-based
+record sharing and responsible evaluation of clinical ML. Its practical value lies in education and in
+prototyping user interfaces and data-protection patterns, not in patient care.
+
+\section{Success Criteria and Key Performance Indicators}
+Table~\ref{tab:kpi} lists the KPIs fixed for this project; Chapter~\ref{ch:testing} compares them with
+the measured values.
+
+\begin{table}[!htbp]
+\centering
+\caption{Key performance indicators and targets}
+\label{tab:kpi}
+\small
+\begin{tabularx}{\textwidth}{@{}p{34mm}Yp{22mm}Y@{}}
+\toprule
+KPI & Definition & Target & Measurement method\\
+\midrule
+Functional correctness & passed / total automated tests & 100\,\% & \texttt{pytest} on the full suite\\
+Response time & median latency of a risk prediction, 1 client & $\le$ 150 ms & timed HTTP requests to Waitress\\
+Reliability & failed requests under 16 concurrent clients & 0 & 3{,}200-request load test\\
+Throughput & simple API requests per second, 16 clients & $\ge$ 100 req/s & load test, \texttt{/api/vitals}\\
+Resource use & server working set under load & $\le$ 512 MB & process-tree memory sampling\\
+Synthetic model quality & hold-out accuracy on the synthetic split & $\ge$ 0.91 & project benchmark report\\
+Research evaluation & discrimination with honest uncertainty & report AUROC with 95\% CI & grouped CV + bootstrap\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Organisation of the Report}
+Chapter~\ref{ch:lit} reviews related systems and literature; Chapter~\ref{ch:srs} specifies requirements;
+Chapter~\ref{ch:design} presents the architecture and design; Chapter~\ref{ch:algo} covers algorithms and
+complexity; Chapter~\ref{ch:subjects} maps the work to the curriculum; Chapter~\ref{ch:impl} describes the
+implementation; Chapters~\ref{ch:scal}--\ref{ch:results} report performance, testing and results; and
+Chapter~\ref{ch:concl} concludes.

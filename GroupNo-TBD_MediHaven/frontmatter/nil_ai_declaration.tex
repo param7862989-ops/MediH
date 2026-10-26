@@ -1,0 +1,40 @@
+% ============================================================================
+% FINAL PAGE: NIL AI content declaration / detection image.
+% The genuine official image was NOT found in the supplied materials (guidelines DOCX, template ZIP,
+% repository). Do not substitute any generated or illustrative image.
+% To complete the report: save the genuine image as  figures/nil_ai_declaration.png  (or .pdf / .jpg,
+% then update NILImageFile below) and rebuild. The page then shows the image instead of the placeholder.
+% Nothing may follow this page.
+% ============================================================================
+\newcommand{\NILImageFile}{figures/nil_ai_declaration.png}
+\clearpage
+\thispagestyle{empty}
+\phantomsection
+\addcontentsline{toc}{chapter}{NIL AI Content Declaration}
+\begin{center}
+{\large\textbf{NIL AI Content Declaration}}
+\end{center}
+\vspace{0.5cm}
+\IfFileExists{\NILImageFile}{%
+  \begin{center}
+  \includegraphics[width=\textwidth,height=0.78\textheight,keepaspectratio]{\NILImageFile}
+  \end{center}
+}{%
+  \begin{center}
+  \fbox{\begin{minipage}{0.86\textwidth}
+  \vspace{0.6cm}
+  \centering
+  {\large\textcolor{red}{\textbf{PLACEHOLDER --- GENUINE NIL AI CONTENT IMAGE REQUIRED}}}\\[0.6cm]
+  \raggedright
+  The official NIL AI content declaration/detection image was not present in the supplied materials
+  (report guidelines, report template or project repository). It has deliberately \textbf{not} been
+  recreated or simulated.\\[0.3cm]
+  To complete this page, save the genuine image issued for this report as:\\[0.15cm]
+  \centering\texttt{figures/nil\_ai\_declaration.png}\\[0.25cm]
+  \raggedright
+  and rebuild the report (\texttt{tectonic main.tex}). The image then replaces this notice
+  automatically, and this page remains the last page of the report.
+  \vspace{0.6cm}
+  \end{minipage}}
+  \end{center}
+}

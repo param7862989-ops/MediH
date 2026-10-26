@@ -1,0 +1,15 @@
+% Compact vertical architecture for the A3 poster (same content as architecture.tex, legible at column width).
+\begin{tikzpicture}[x=1mm, y=1mm, lay/.style={box, text width=86mm, font=\small, align=left, inner sep=4pt}]
+\node[lay, blue box] (p) at (0,0) {\textbf{Browser portals:} landing, login, physician triage, patient vault,
+QR scanner, admin, research (opt-in) \textemdash\ Jinja2, JavaScript, Chart.js};
+\node[lay, teal box, below=5mm of p] (a) {\textbf{Flask application:} session RBAC, CSP and security headers,
+rate limits, research-mode boundary; REST blueprints auth, patients, predictions, alerts, vault, research};
+\node[lay, amber box, below=5mm of a] (s) {\textbf{Services:} 4-model ensemble \textbullet\ vault and
+HMAC-signed QR passes \textbullet\ de-identified narrative synthesiser \textbullet\ research service
+(verified artifacts, out-of-fold stay view)};
+\node[lay, store, below=5mm of s] (d) {\textbf{Data:} SQLite (WAL, 8 tables) \textbullet\ joblib models
+\textbullet\ research artifacts outside Git/OneDrive \textbullet\ optional Gemini API (synthetic mode only)};
+\draw[flow] (p) -- node[lbl, right]{HTTP + JSON} (a);
+\draw[flow] (a) -- (s);
+\draw[flow] (s) -- (d);
+\end{tikzpicture}

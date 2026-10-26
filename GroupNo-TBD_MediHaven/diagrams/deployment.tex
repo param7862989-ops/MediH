@@ -1,0 +1,19 @@
+% Deployment diagram: public synthetic deployment vs local-only research mode (wsgi.py, Dockerfile, run_demo.py).
+\begin{tikzpicture}[x=1mm, y=1mm]
+\node[box, minimum width=24mm] (user) at (12,12) {Browser\\(HTTPS)};
+\node[box, minimum width=24mm, text width=22mm] (proxy) at (12,-12) {TLS reverse\\proxy};
+\draw[mhblue, rounded corners=4pt, thick] (28,30) rectangle (104,-30);
+\node[font=\scriptsize\bfseries, text=mhblue, anchor=north west, text width=72mm] at (29.5,29) {Server or container (synthetic demo, production mode)};
+\node[teal box, text width=30mm] (w) at (48,12) {Waitress, 8 threads\\wsgi.py $\rightarrow$ Flask};
+\node[amber box, text width=26mm] (b) at (87,12) {src.bootstrap:\\seed, train if missing};
+\node[store, text width=30mm] (db) at (48,-14) {SQLite volume\\/app/database};
+\node[store, text width=26mm] (ms) at (87,-14) {models\_store,\\data/processed};
+\draw[flow] (user) -- (proxy); \draw[flow] (proxy.east) -- (w.south west);
+\draw[flow] (w) -- (db); \draw[flow] (b) -- (ms); \draw[flow] (b.west) -- (w.east);
+\draw[mhred, rounded corners=4pt, thick] (110,30) rectangle (170,-30);
+\node[font=\scriptsize\bfseries, text=mhred, anchor=north west, text width=56mm] at (111.5,29) {Researcher's machine only (research mode)};
+\node[teal box, text width=50mm] (rd) at (140,12) {run\_demo.py on 127.0.0.1\\(loopback and strong secrets enforced)};
+\node[store, text width=50mm] (ra) at (140,-12) {C:\textbackslash research: MIMIC-IV Demo, dataset,\\verified run (outside Git and OneDrive)};
+\draw[flow] (rd) -- (ra);
+\node[font=\scriptsize, text=mhred] at (140,-26) {wsgi.py refuses research mode};
+\end{tikzpicture}

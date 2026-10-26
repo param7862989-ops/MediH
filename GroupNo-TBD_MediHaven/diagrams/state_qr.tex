@@ -1,0 +1,14 @@
+% State machine of a QR access pass (qr_generator.py, qr_scanner.py, access_controller.py).
+\begin{tikzpicture}[x=1mm, y=1mm]
+\fill[mhgray] (0,0) circle (1.6);
+\node[state] (act) at (34,0) {Active\\\scriptsize use\_count $<$ max\_uses};
+\node[state] (used) at (100,14) {Exhausted\\\scriptsize use\_count = max\_uses};
+\node[state] (exp) at (100,0) {Expired\\\scriptsize now $>$ expires\_at};
+\node[state] (rev) at (100,-14) {Revoked\\\scriptsize by the patient};
+\draw[flow] (1.6,0) -- node[lbl, above]{share (patient)} (act);
+\draw[flow] (act) to[loop above] node[lbl, above]{granted scan: atomic use\_count + 1} (act);
+\draw[flow] (act) -- node[lbl, above, sloped]{last allowed scan} (used);
+\draw[flow] (act) -- node[lbl, above]{TTL elapses ($\le$ 30 days)} (exp);
+\draw[flow] (act) -- node[lbl, below, sloped]{revoke} (rev);
+\node[font=\scriptsize, align=left, anchor=west] at (122,0) {terminal: every further\\scan is denied and\\written to the access log};
+\end{tikzpicture}

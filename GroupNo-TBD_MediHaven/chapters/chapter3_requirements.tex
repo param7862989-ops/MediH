@@ -1,0 +1,97 @@
+\chapter{Software Requirements Specification (SRS)}
+\label{ch:srs}
+
+\section{Purpose and Scope of the SRS}
+This SRS specifies the behaviour implemented in the MediHaven repository (branch \texttt{param}, October
+2026). Requirements marked \emph{future} are not implemented.
+
+\section{Intended Users and Stakeholders}
+Physicians (triage, charts, QR scanning), patients (vault, sharing, access log), administrators (census,
+reassignment, escalation, model telemetry), researchers (opt-in research mode on their own machine), and
+evaluators/teachers. Demonstration accounts exist for each role; production deployments must replace
+them (Section~\ref{sec:secdesign}).
+
+\section{Overall Product Description}
+A Python/Flask server with a SQLite database serves browser portals and a JSON API. Synthetic mode is the
+default. Research mode is enabled only by \texttt{DATA\_MODE=mimic}, runs on loopback only, and reads
+verified artifacts stored outside the repository. Optional dependency: the Google Gemini API (synthetic
+mode only).
+
+\section{Functional Requirements}
+\begin{small}
+\begin{longtable}{@{}p{12mm}p{48mm}p{44mm}p{56mm}@{}}
+\caption{Functional requirements}\label{tab:fr}\\
+\toprule
+ID & Requirement (input $\rightarrow$ output) & Processing & Acceptance criterion\\
+\midrule
+\endfirsthead
+\toprule ID & Requirement & Processing & Acceptance criterion\\ \midrule
+\endhead
+FR-01 & Sign in with username/password $\rightarrow$ session and role dashboard & hash check, rate limit & wrong password 401; 11th attempt in 5 min returns 429\\
+FR-02 & Role-based access to portals and APIs & session role vs route & patient cannot read another patient (403)\\
+FR-03 & Triage roster with tiers and filters & DB query, latest prediction & 100 synthetic patients listed with tiers\\
+FR-04 & Patient chart: tier, score, 4 model votes, vitals, rule path, similar cases & ensemble inference & every patient returns 4 votes; 72-h chart non-empty\\
+FR-05 & Alert feed, acknowledgement, escalation dispatch & in-memory alert state & identity taken from the signed-in user\\
+FR-06 & Vault records: add and list by category & category whitelist & invalid category 422\\
+FR-07 & Share QR pass with scope, lifetime, uses & HS256 JWT + DB record & lifetime $\le$ 30 days, uses $\le$ 1000\\
+FR-08 & Redeem pass by token or image & signature, expiry, revocation, atomic quota & single-use pass granted once under 4 concurrent scans\\
+FR-09 & Revoke pass; view access log & ownership check & revoked pass is denied and logged\\
+FR-10 & Clinical narrative (handover/discharge) & de-identified Gemini prompt or local fallback & no identifier in the prompt\\
+FR-11 & Research: model card, dashboard, what-if estimate & verified artifacts only & forbidden/invalid inputs rejected (422)\\
+FR-12 & Research triage: all ICU stays with out-of-fold scores & recompute and verify OOF & mismatch with saved metrics gives 503\\
+FR-13 & Health endpoint & model and mode status & \texttt{GET /api/health} returns 200\\
+\bottomrule
+\end{longtable}
+\end{small}
+
+\section{Non-Functional Requirements}
+\begin{table}[!htbp]
+\centering
+\caption{Non-functional requirements}
+\label{tab:nfr}
+\small
+\begin{tabularx}{\textwidth}{@{}lY@{}}
+\toprule
+Category & Requirement (implemented)\\
+\midrule
+Performance & median prediction latency $\le$ 150 ms for one client; simple reads $\ge$ 100 req/s\\
+Scalability & one process, thread pool of 8; documented single-instance limit (Chapter~\ref{ch:scal})\\
+Reliability & fail-closed research serving; first-start bootstrap reseeds an empty or interrupted database\\
+Security/privacy & strong secrets enforced off-loopback; hashed passwords; CSP and security headers; 8-hour sessions; no MIMIC identifiers in responses or logs; research mode never calls external AI\\
+Usability & consistent dark clinical theme; keyboard \textsc{Esc} closes dialogs; responsive header below 900 px\\
+Maintainability & modular blueprints and services; 354 automated tests; pinned dependencies\\
+Portability & Windows and Linux; Docker image recipe (Python 3.12)\\
+Resource use & server working set $\le$ 512 MB; database about 1.2 MB, model files about 0.2 MB\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Hardware and Software Requirements}
+\textbf{Hardware (measured on):} Intel Core i5-8250U (4 cores, 8 threads), 7.9 GB RAM, Windows 11.
+Minimum: 2 cores, 2 GB RAM, 1 GB disk. \textbf{Software:} Python 3.12; Flask 3.1, Werkzeug 3.1, Waitress
+3.0.2; pandas 3.0, NumPy 2.5, SciPy 1.18, scikit-learn 1.9.1, joblib 1.6; DuckDB 1.5 and PyArrow 26
+(research); PyJWT 2.15, qrcode 8.2, Pillow 12.3, OpenCV (headless) 5.0, pyzbar 0.1.9 (optional);
+pytest 9.1; Chart.js 4.4.1 (self-hosted). All versions are pinned in \texttt{requirements.txt}.
+
+\section{Constraints and Assumptions}
+\begin{itemize}
+\item \textbf{Data:} only synthetic patients in the web demo; MIMIC-IV Demo data stay outside the
+      repository and OneDrive and are never sent to external services (data use terms).
+\item \textbf{Technical:} SQLite and in-process state imply a single server instance; research
+      artifacts are tied to the exact scikit-learn version used for training.
+\item \textbf{Time/cost:} one academic semester; free and open-source tools only.
+\item \textbf{Assumption:} evaluators run the system locally or on one small server with HTTPS.
+\end{itemize}
+
+\section{Use Cases and User Stories}
+Figure~\ref{fig:usecase} summarises the use cases by role.
+\begin{figure}[!htbp]
+\centering
+\adjustbox{max width=0.85\linewidth}{\input{diagrams/usecase.tex}}
+\caption{Use-case diagram}
+\label{fig:usecase}
+\end{figure}
+\noindent Representative user stories: \emph{As a physician}, I open a critical patient's chart and see
+why each model voted as it did. \emph{As a patient}, I share only my allergies and medications for one
+hour with a single-use pass and later see who used it. \emph{As a researcher}, I see each ICU stay's
+out-of-fold risk next to its actual outcome without any MIMIC identifier leaving my computer.

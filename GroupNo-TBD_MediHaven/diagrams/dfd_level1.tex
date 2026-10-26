@@ -1,0 +1,25 @@
+% Level-1 DFD: processes 1.0-5.0, data stores D1-D3 and external entities.
+\begin{tikzpicture}[x=1mm, y=1mm]
+\node[box, minimum width=24mm] (user) at (10,0) {Physician /\\Patient /\\Admin};
+\node[process] (p1) at (48,24) {\textbf{1.0}\\Authenticate\\\& authorise};
+\node[process] (p2) at (48,-24) {\textbf{2.0}\\Triage \&\\predict};
+\node[process] (p3) at (98,24) {\textbf{3.0}\\Vault \&\\QR sharing};
+\node[store, minimum width=30mm] (d1) at (98,0) {D1\;SQLite database};
+\node[process] (p4) at (98,-24) {\textbf{4.0}\\Narrative\\synthesis};
+\node[store, minimum width=30mm] (d2) at (10,-42) {D2\;models\_store};
+\node[box, minimum width=24mm] (ext) at (98,-48) {Gemini API};
+\node[process] (p5) at (150,-12) {\textbf{5.0}\\Research\\pipeline};
+\node[store, minimum width=32mm] (d3) at (150,18) {D3\;research artifacts};
+\node[box, minimum width=28mm] (mim) at (150,-42) {MIMIC-IV Demo};
+\draw[flow] (user) -- node[lbl, above, sloped]{credentials} (p1);
+\draw[flow] (user) -- node[lbl, below, sloped]{chart request} (p2);
+\draw[flow] (p1) -- node[lbl, left]{session role} (p2);
+\draw[flow] (p1) -- node[lbl, above]{session role} (p3);
+\draw[flow] (p3) -- node[lbl, right]{tokens, access log} (d1);
+\draw[flow] (d1) -- node[lbl, above, sloped]{vitals, labs} (p2);
+\draw[flow] (d2) -- node[lbl, below, sloped]{fitted models} (p2);
+\draw[flow] (p2) -- node[lbl, below]{risk packet} (p4);
+\draw[dflow] (p4) -- node[lbl, right]{coarse outputs only} (ext);
+\draw[flow] (mim) -- node[lbl, right]{CSV} (p5);
+\draw[flow] (p5) -- node[lbl, right]{verified run} (d3);
+\end{tikzpicture}

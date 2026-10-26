@@ -1,0 +1,41 @@
+% Class diagram of the main model and service classes (names and members from the source code).
+\begin{tikzpicture}[x=1mm, y=1mm,
+  cls/.style={draw=mhgray, fill=white, rectangle split, rectangle split parts=3, align=left,
+              font=\scriptsize, inner sep=2pt, text width=#1, rectangle split part fill={mhblue!12,white,white}},
+  cls/.default=40mm]
+\node[cls=58mm] (ens) at (85,32) {\textbf{EnsembleClinicalPredictor}
+  \nodepart{second} weights: dict (DT .30, MLP .30, KNN .25, K-Means .15)\\ scaler: StandardScaler
+  \nodepart{third} train\_from\_data() / load()\\ predict\_patient(id): dict};
+\node[cls=39mm] (km) at (18,4) {\textbf{KMeansRiskClustering}
+  \nodepart{second} n\_clusters = 4\\ cluster\_to\_tier\_code
+  \nodepart{third} fit(), predict\_proba()};
+\node[cls=39mm] (dt) at (62,4) {\textbf{DecisionTreeRiskClassifier}
+  \nodepart{second} max\_depth = 5
+  \nodepart{third} fit(), predict(), explain()};
+\node[cls=39mm] (knn) at (106,4) {\textbf{KNNSimilarityMatcher}
+  \nodepart{second} n\_neighbors = 5
+  \nodepart{third} find\_similar(), recommend\_protocol()};
+\node[cls=39mm] (nn) at (150,4) {\textbf{NeuralNetworkRiskModel}
+  \nodepart{second} hidden\_layer\_sizes = (64, 32)
+  \nodepart{third} fit(), predict\_proba()};
+\foreach \c in {km,dt,knn,nn} \draw[mhgray, -{Diamond[open,length=3mm]}] (\c.north) -- (ens.south);
+
+\node[cls=48mm] (rms) at (30,-30) {\textbf{ResearchModelService}
+  \nodepart{second} artifacts: VerifiedArtifacts\\ stays: LazyStayView
+  \nodepart{third} status(), dashboard(), predict()\\ stay\_roster(), stay\_detail(n)};
+\node[cls=40mm] (va) at (88,-30) {\textbf{VerifiedArtifacts}
+  \nodepart{second} run\_manifest, metrics\\ features (74), models
+  \nodepart{third} verify\_and\_load(dir, pin)};
+\node[cls=38mm] (lsv) at (145,-30) {\textbf{LazyStayView}
+  \nodepart{second} lock, cached view or error
+  \nodepart{third} get(): StayView};
+\node[cls=44mm] (sdt) at (88,-58) {\textbf{SmoothedDecisionTree}
+  \nodepart{second} max\_depth 3, min leaf 8, $m = 5$\\ leaf\_rate\_ (m-estimate)
+  \nodepart{third} fit(), predict\_proba()};
+\node[cls=48mm] (sum) at (30,-58) {\textbf{ClinicalNarrativeSummarizer}
+  \nodepart{second} GEMINI\_MODELS, api\_key
+  \nodepart{third} generate(), external\_calls\_allowed()};
+\draw[mhgray, -{Diamond[length=3mm]}] (va.west) -- (rms.east);
+\draw[mhgray, -{Diamond[length=3mm]}] (lsv.north west) to[bend right=12] (rms.north east);
+\draw[dflow] (va.south) -- node[lbl, right]{loads pipeline using} (sdt.north);
+\end{tikzpicture}

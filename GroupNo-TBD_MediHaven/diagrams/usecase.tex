@@ -1,0 +1,32 @@
+% Use-case diagram (roles from src/api/auth.py; use cases from the routes and portal guards).
+\begin{tikzpicture}[x=1mm, y=1mm]
+\newcommand{\stick}[3]{% x, y, label
+  \draw[mhgray, thick] (#1,#2+5) circle (2.2);
+  \draw[mhgray, thick] (#1,#2+2.8) -- (#1,#2-2.5) (#1-3.5,#2+1) -- (#1+3.5,#2+1)
+        (#1,#2-2.5) -- (#1-3,#2-7) (#1,#2-2.5) -- (#1+3,#2-7);
+  \node[font=\footnotesize\bfseries, below] at (#1,#2-7.5) {#3};}
+\draw[mhgray, rounded corners=4pt] (24,51) rectangle (150,-54);
+\node[font=\footnotesize\bfseries, anchor=north west] at (26,50) {MediHaven};
+\stick{8}{15}{Physician}
+\stick{8}{-33}{Patient}
+\stick{166}{3}{Administrator}
+% physician
+\node[usecase] (u2) at (55,27) {View triage roster\\and risk tiers};
+\node[usecase] (u3) at (55,15) {Open patient chart\\(4 model votes, vitals)};
+\node[usecase] (u10) at (55,3) {Research triage \&\\what-if (opt-in mode)};
+% shared
+\node[usecase] (u1) at (55,-10) {Sign in};
+\node[usecase] (u4) at (110,44) {Scan QR access pass};
+% patient
+\node[usecase] (u5) at (55,-24) {Manage vault records};
+\node[usecase] (u6) at (55,-35) {Share / revoke QR pass};
+\node[usecase] (u7) at (55,-46) {View own access log};
+% administrator
+\node[usecase] (u8) at (122,12) {Reassign patient,\\dispatch escalation};
+\node[usecase] (u9) at (122,-20) {Model telemetry,\\Gemini synthesis};
+\foreach \u in {u2,u3,u10,u1} \draw[mhgray] (12,16) -- (\u.west);
+\draw[mhgray] (8,22.5) -- (u4.west);
+\foreach \u in {u1,u5,u6,u7} \draw[mhgray] (12,-32) -- (\u.west);
+\foreach \u in {u8,u9,u1} \draw[mhgray] (162,4) -- (\u.east);
+\draw[mhgray] (164,8) -- (u4.east);
+\end{tikzpicture}
