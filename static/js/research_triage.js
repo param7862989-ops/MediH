@@ -1,7 +1,8 @@
 /**
  * MediHaven Research Triage (DATA_MODE=mimic): the synthetic triage dashboard's layout over the
- * MIMIC-IV Demo research cohort. Every risk shown is an out-of-fold estimate. Elements are built with
- * DOM APIs and textContent only (no innerHTML), and nothing is kept in browser storage.
+ * MIMIC-IV Demo research cohort. Every risk shown is an out-of-fold estimate, classified on the
+ * six-level scale from common.js (Very low ... Extreme). Elements are built with DOM APIs and
+ * textContent only (no innerHTML), and nothing is kept in browser storage.
  */
 
 const VOTE_MODELS = ["logistic_regression", "decision_tree", "random_forest", "neural_network"];
@@ -12,16 +13,10 @@ const VOTE_LABELS = {
   neural_network: "Neural network",
 };
 const VOTE_SHORT = { logistic_regression: "LR", decision_tree: "DT", random_forest: "RF", neural_network: "NN" };
-const VOTE_COLORS = {
-  logistic_regression: "#38bdf8",
-  decision_tree: "#f59e0b",
-  random_forest: "#10b981",
-  neural_network: "#a78bfa",
-};
+const HIGH_LEVELS = ["High", "Very high", "Extreme"];
 
 let roster = null;
 let activeTierFilter = "";
-let stayModelsChart = null;
 let drawerRequestSeq = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -52,11 +47,13 @@ function setText(id, text) {
 const pct = (p) => (p === null || p === undefined ? "--" : `${(p * 100).toFixed(1)}%`);
 const fmt = (v, digits = 0) => (v === null || v === undefined ? "--" : Number(v).toFixed(digits));
 
-function tierBadge(tier, small = false) {
-  return el("span", {
-    className: `risk-badge risk-badge-${String(tier).toLowerCase()}`,
-    text: tier,
-    style: small ? "font-size: 10px; padding: 1px 6px;" : "",
+function levelLegend(container) {
+  container.textContent = "";
+  RISK_LEVELS.forEach((entry, i) => {
+    container.appendChild(el("span", { style: "display: inline-flex; align-items: center; gap: 5px;" }, [
+      riskBadge(entry.level, "small"),
+      el("span", { text: riskRangeText(entry, RISK_LEVELS[i + 1]) }),
+    ]));
   });
 }
 
@@ -90,29 +87,22 @@ function showTableMessage(tbody, message) {
 
 function renderKpis() {
   const k = roster.kpis;
-  const bands = roster.bands;
   setText("kpi-stays", k.stays);
-  setText("kpi-critical", k.tiers.Critical);
-  setText("kpi-high", k.tiers.High);
-  setText("kpi-medium", k.tiers.Medium);
-  setText("kpi-critical-band", `Risk ≥ ${pct(bands.Critical)} (4× death rate)`);
-  setText("kpi-high-band", `Risk ≥ ${pct(bands.High)} (2× death rate)`);
-  setText("kpi-medium-band", `Risk ≥ ${pct(bands.Medium)} (death rate)`);
+  setText("kpi-top-levels", k.tiers["Extreme"] + k.tiers["Very high"]);
+  setText("kpi-high", k.tiers["High"]);
+  setText("kpi-medium", k.tiers["Medium"]);
   setText("kpi-deaths", k.deaths);
   setText("kpi-death-rate", `${pct(roster.death_rate)} of stays`);
-  setText("kpi-captured", `${k.deaths_in_high_or_critical} / ${k.deaths}`);
+  setText("kpi-captured", `${k.deaths_high_or_above} / ${k.deaths}`);
   setText("count-all", k.stays);
-  setText("count-critical", k.tiers.Critical);
-  setText("count-high", k.tiers.High);
-  setText("count-medium", k.tiers.Medium);
-  setText("count-low", k.tiers.Low);
+  document.querySelectorAll("[data-count]").forEach((span) => (span.textContent = k.tiers[span.dataset.count] ?? 0));
 }
 
 function renderHighestRisk() {
   const container = document.getElementById("research-alerts-container");
   container.textContent = "";
   const top = roster.stays
-    .filter((s) => s.tier === "Critical" || s.tier === "High")
+    .filter((s) => HIGH_LEVELS.includes(s.tier))
     .sort((a, b) => b.risk - a.risk)
     .slice(0, 3);
   if (top.length === 0) {
@@ -122,16 +112,17 @@ function renderHighestRisk() {
   container.style.display = "block";
   top.forEach((stay) => {
     const chips = el("div", { className: "alert-triggers-list" },
-      VOTE_MODELS.map((m) => el("span", { className: "trigger-chip", text: `${VOTE_LABELS[m]}: ${pct(stay.models[m].probability)}` })));
+      VOTE_MODELS.map((m) => el("span", { className: "trigger-chip",
+        text: `${VOTE_LABELS[m]}: ${pct(stay.models[m].probability)} (${stay.models[m].tier})` })));
     const headline = el("div", { className: "alert-patient-headline",
       text: `Stay ${stay.stay} · ${stay.age ?? "--"}y ${stay.sex ?? ""} · ${stay.variables_measured} of 14 variables measured` });
     const sub = el("div", { style: "font-size: 11px; color: var(--text-secondary); margin-top: 2px;" }, [
-      document.createTextNode("Consensus risk: "),
+      document.createTextNode("Overall risk: "),
       el("strong", { text: pct(stay.risk), style: "color: #ffffff;" }),
       document.createTextNode(` · Outcome: ${stay.died ? "died in hospital" : "survived"}`),
     ]);
     const content = el("div", { className: "alert-banner-content" }, [
-      el("span", { className: "alert-urgency-pill", text: `⚠️ ${stay.tier.toUpperCase()} RISK` }),
+      riskBadge(stay.tier),
       el("div", {}, [headline, sub]),
       chips,
     ]);
@@ -166,6 +157,16 @@ function visibleStays() {
   return stays.sort(sorters[sort] || sorters.risk);
 }
 
+function voteChip(stay, m) {
+  const color = riskLevelColor(stay.models[m].tier);
+  return el("span", {
+    text: VOTE_SHORT[m],
+    title: `${VOTE_LABELS[m]}: ${pct(stay.models[m].probability)} (${stay.models[m].tier})`,
+    style: `font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 999px; color: ${color}; ` +
+           `border: 1px solid ${color}; background: ${color}22;`,
+  });
+}
+
 function renderTable() {
   const tbody = document.getElementById("research-triage-tbody");
   const stays = visibleStays();
@@ -176,13 +177,7 @@ function renderTable() {
   }
   stays.forEach((s) => {
     const l = s.latest;
-    const votes = el("div", { style: "display: flex; gap: 4px; flex-wrap: wrap;" },
-      VOTE_MODELS.map((m) => el("span", {
-        className: `risk-badge risk-badge-${s.models[m].tier.toLowerCase()}`,
-        text: VOTE_SHORT[m],
-        title: `${VOTE_LABELS[m]}: ${pct(s.models[m].probability)} (${s.models[m].tier})`,
-        style: "font-size: 10px; padding: 1px 5px;",
-      })));
+    const votes = el("div", { style: "display: flex; gap: 4px; flex-wrap: wrap;" }, VOTE_MODELS.map((m) => voteChip(s, m)));
     const outcome = el("span", {
       text: s.died ? "Died" : "Survived",
       style: `font-weight: 600; font-size: 12px; color: ${s.died ? "var(--risk-critical)" : "var(--risk-low)"};`,
@@ -195,8 +190,8 @@ function renderTable() {
     const lactate = l.lactate === null ? "--" : `${fmt(l.lactate, 1)} mmol/L`;
     const lactateWarn = l.lactate !== null && l.lactate >= 2.0;
     const row = el("tr", { dataset: { stay: s.stay } }, [
-      el("td", {}, [tierBadge(s.tier)]),
-      el("td", { className: "mono", text: s.risk.toFixed(2), style: "font-weight: 700; color: #ffffff;" }),
+      el("td", {}, [riskBadge(s.tier)]),
+      el("td", { className: "mono", text: pct(s.risk), style: "font-weight: 700; color: #ffffff;" }),
       el("td", {}, [el("div", { className: "patient-name-cell", text: `Stay ${s.stay}` }),
                     el("div", { className: "patient-mrn-cell", text: `${s.variables_measured}/14 variables measured` })]),
       el("td", { text: `${s.age ?? "--"}y / ${s.sex ?? "--"}` }),
@@ -271,12 +266,13 @@ function renderStay(d) {
   if (d.bp_source) meta.push(`blood pressure by ${d.bp_source}`);
   setText("drawer-stay-meta", meta.join(" · "));
 
-  const badge = document.getElementById("drawer-risk-badge");
-  badge.className = `risk-badge risk-badge-${d.tier.toLowerCase()}`;
-  badge.textContent = `${d.tier} Risk Tier`;
+  const badgeSlot = document.getElementById("drawer-risk-badge");
+  badgeSlot.className = "";
+  badgeSlot.textContent = "";
+  badgeSlot.appendChild(riskBadge(d.tier, "large"));
 
   setText("drawer-risk-val", pct(d.risk));
-  setText("drawer-risk-context", `cohort death rate ${pct(d.death_rate)} · ${(d.risk / d.death_rate).toFixed(1)}× the rate`);
+  setText("drawer-risk-context", `cohort death rate ${pct(d.death_rate)}`);
   const outcome = document.getElementById("drawer-outcome-val");
   outcome.textContent = d.died ? "Died in hospital" : "Survived to discharge";
   outcome.style.color = d.died ? "var(--risk-critical)" : "var(--risk-low)";
@@ -288,64 +284,39 @@ function renderStay(d) {
     const slot = document.getElementById(`vote-${m}`);
     if (!slot) return;
     slot.textContent = "";
-    slot.appendChild(tierBadge(d.models[m].tier, true));
+    slot.appendChild(riskBadge(d.models[m].tier, "small"));
     slot.appendChild(el("span", { className: "mono", text: ` ${pct(d.models[m].probability)}`, style: "margin-left: 4px;" }));
   });
 
-  renderModelsChart(d);
+  renderModelsTable(d);
   renderVariables(d);
 
   setText("drawer-measure-meta", `${d.variables_measured} of 14 variables measured in the first 24 h`);
   setText("drawer-scoring-note",
     `Each model that scored this stay was trained on the other four folds, which contain none of this patient's ICU ` +
-    `stays, so the score is an honest estimate of how the model performs on a new patient. The consensus is the ` +
-    `mean of the four models. Tiers are fixed multiples of the cohort death rate (${pct(d.death_rate)}): Medium from 1×, ` +
-    `High from 2×, Critical from 4×. These are display bands for research, not clinical thresholds.`);
+    `stays, so the score is an honest estimate of how the model performs on a new patient. The overall risk is the ` +
+    `mean of the four models. Risk levels are fixed probability bands (Very low < 2.5%, Low 2.5–7.5%, Medium 7.5–15%, ` +
+    `High 15–30%, Very high 30–60%, Extreme ≥ 60%; cohort death rate ${pct(d.death_rate)}). They are display bands ` +
+    `for research, not clinical thresholds.`);
 }
 
-function renderModelsChart(d) {
-  const canvas = document.getElementById("stayModelsChart");
-  if (!canvas || typeof Chart === "undefined") return;
-  if (stayModelsChart) stayModelsChart.destroy();
-  const rate = Math.round(d.death_rate * 1000) / 10;
-  stayModelsChart = new Chart(canvas.getContext("2d"), {
-    type: "bar",
-    data: {
-      labels: VOTE_MODELS.map((m) => VOTE_LABELS[m]),
-      datasets: [
-        {
-          type: "bar",
-          label: "Estimated risk of in-hospital death (%)",
-          data: VOTE_MODELS.map((m) => Math.round(d.models[m].probability * 1000) / 10),
-          backgroundColor: VOTE_MODELS.map((m) => VOTE_COLORS[m]),
-        },
-        {
-          type: "line",
-          label: `Cohort death rate (${rate}%)`,
-          data: VOTE_MODELS.map(() => rate),
-          borderColor: "#f87171",
-          borderDash: [6, 4],
-          borderWidth: 2,
-          pointRadius: 0,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 300 },
-      scales: {
-        y: { beginAtZero: true, max: 100, ticks: { color: "#94a3b8", callback: (v) => `${v}%` },
-             grid: { color: "rgba(148, 163, 184, 0.12)" } },
-        x: { ticks: { color: "#cbd5e1" }, grid: { display: false } },
-      },
-      plugins: { legend: { labels: { color: "#cbd5e1", font: { size: 11 } } } },
-    },
+function renderModelsTable(d) {
+  const container = document.getElementById("drawer-models-table");
+  container.textContent = "";
+  const table = el("table", { className: "clinical-table", style: "font-size: 12px;" });
+  table.appendChild(el("tr", {}, ["Model", "Predicted risk", "Risk level"].map((h) => el("th", { text: h }))));
+  VOTE_MODELS.forEach((m) => {
+    table.appendChild(el("tr", {}, [
+      el("td", { text: VOTE_LABELS[m] }),
+      el("td", { className: "mono", text: pct(d.models[m].probability), style: "font-weight: 700; color: #ffffff;" }),
+      el("td", {}, [riskBadge(d.models[m].tier)]),
+    ]));
   });
+  container.appendChild(table);
+  levelLegend(document.getElementById("drawer-level-legend"));
 }
 
 function rangeBar(v) {
-  // Scale: union of the plausible range's sensible part and the observed values
   const [refLow, refHigh] = v.reference || [null, null];
   const values = [v.min, v.max, v.last, refLow, refHigh].filter((x) => x !== null && x !== undefined);
   const lo = Math.min(...values);

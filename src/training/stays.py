@@ -33,9 +33,12 @@ from src.utils.logger import get_logger
 logger = get_logger("medihaven.research.stays")
 
 REAL_MODELS = tuple(m for m in MODEL_ORDER if m != REFERENCE_MODEL)
-TIERS = ("Low", "Medium", "High", "Critical")
-# Display bands as multiples of the cohort death rate (fixed in advance; not clinical thresholds)
-TIER_MULTIPLES = (1.0, 2.0, 4.0)
+# Six risk levels shown to physicians in research mode (triage roster, stay chart, what-if estimator).
+# Fixed probability bands around the cohort death rate (10.3 %), chosen in advance; display bands for
+# research, not clinical thresholds. Each level starts at its lower bound.
+TIERS = ("Very low", "Low", "Medium", "High", "Very high", "Extreme")
+TIER_LOWER_BOUNDS = (0.0, 0.025, 0.075, 0.15, 0.30, 0.60)
+HIGH_LEVELS = ("High", "Very high", "Extreme")
 AUROC_TOLERANCE = 1e-9
 
 VARIABLE_LABELS = {
@@ -60,15 +63,35 @@ class StayViewError(RuntimeError):
         self.code = code
 
 
-def tier_for(probability: float, death_rate: float) -> str:
-    low, medium, high = (death_rate * m for m in TIER_MULTIPLES)
-    if probability < low:
-        return "Low"
-    if probability < medium:
-        return "Medium"
-    if probability < high:
-        return "High"
-    return "Critical"
+def tier_for(probability: float) -> str:
+    """The risk level whose band contains the probability."""
+    level = TIERS[0]
+    for name, lower in zip(TIERS, TIER_LOWER_BOUNDS):
+        if probability >= lower:
+            level = name
+    return level
+
+
+def risk_bands() -> list:
+    """Level names with their probability ranges, for legends."""
+    uppers = TIER_LOWER_BOUNDS[1:] + (1.0,)
+    return [{"level": t, "from": lo, "to": hi} for t, lo, hi in zip(TIERS, TIER_LOWER_BOUNDS, uppers)]
+
+
+def assess(probabilities: Dict[str, float]) -> Dict[str, object]:
+    """Overall level from the mean of the four models, plus each model's own level."""
+    consensus = float(np.mean([probabilities[m] for m in REAL_MODELS]))
+    level = tier_for(consensus)
+    models = {m: {"probability": round(float(probabilities[m]), 4), "level": tier_for(probabilities[m])}
+              for m in REAL_MODELS}
+    return {
+        "consensus": round(consensus, 4),
+        "level": level,
+        "models": models,
+        "models_high_or_above": sum(v["level"] in HIGH_LEVELS for v in models.values()),
+        "models_at_level": sum(v["level"] == level for v in models.values()),
+        "bands": risk_bands(),
+    }
 
 
 def _number(value) -> Optional[float]:
@@ -131,7 +154,7 @@ def build_stay_view(research_dir: Path, features: List[str], metrics: Dict[str, 
         i = position[r["src_stay_id"]]
         probabilities = {name: round(float(pooled[name][i]), 4) for name in MODEL_ORDER}
         consensus = round(float(np.mean([pooled[name][i] for name in REAL_MODELS])), 4)
-        votes = {name: {"probability": probabilities[name], "tier": tier_for(probabilities[name], death_rate)}
+        votes = {name: {"probability": probabilities[name], "tier": tier_for(probabilities[name])}
                  for name in REAL_MODELS}
         sex = None if pd.isna(r.get("sex_male")) else ("M" if int(r["sex_male"]) == 1 else "F")
         measured = sum(int(r[f"{v.name}_missing"]) == 0 for v in VARIABLES)
@@ -140,7 +163,7 @@ def build_stay_view(research_dir: Path, features: List[str], metrics: Dict[str, 
             "age": None if pd.isna(r.get("age")) else int(round(float(r["age"]))),
             "sex": sex,
             "risk": consensus,
-            "tier": tier_for(consensus, death_rate),
+            "tier": tier_for(consensus),
             "models": votes,
             "died": bool(int(r[LABEL_COLUMN]) == 1),
             "variables_measured": measured,
@@ -169,7 +192,7 @@ def build_stay_view(research_dir: Path, features: List[str], metrics: Dict[str, 
                 for v in VARIABLES
             ],
         }
-    bands = {"Low": 0.0, **{t: round(death_rate * m, 4) for t, m in zip(TIERS[1:], TIER_MULTIPLES)}}
+    bands = {t: lower for t, lower in zip(TIERS, TIER_LOWER_BOUNDS)}
     logger.info(f"Research stay view ready: {len(rows)} stays, out-of-fold predictions match the verified run")
     return StayView(death_rate=death_rate, bands=bands, rows=rows, details=details)
 

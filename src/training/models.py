@@ -1,6 +1,6 @@
-"""Fixed-hyperparameter tabular models for Task 1 (model set v2).
+"""Tabular models for Task 1 (model set v3).
 
-Four real models — logistic regression, a smoothed decision tree, a random forest and a small neural
+Four real models — logistic regression, a distilled decision tree, a random forest and a small neural
 network — plus a prior-only baseline that is kept as the reference line, not as a model.
 
 Hyperparameters were chosen a priori for a very small dataset (strong regularization, shallow
@@ -8,6 +8,11 @@ trees, a single small hidden layer) and are never tuned on evaluation folds. Eve
 preprocessing step (median imputation, zero-variance filtering, scaling) sits inside the Pipeline,
 so it is fitted on the training part of each fold only. Missing values are imputed inside the
 pipeline; the dataset's explicit ``<variable>_missing`` flags keep missingness visible to the models.
+
+The decision tree is distilled: a single shallow regression tree learns the out-of-bag risk estimates of
+a random forest fitted on the same training rows, instead of the few raw outcomes. Its rules stay readable,
+but its splits are far more stable than a tree grown directly on 11 deaths (model set v2's smoothed tree,
+kept below so saved v2 runs still load; a nested-CV-tuned variant was tried and evaluated worse).
 
 K-Means is deliberately absent: it is not a supervised mortality predictor.
 """
@@ -24,19 +29,56 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 MODEL_ORDER = ("dummy_prior", "logistic_regression", "decision_tree", "random_forest", "neural_network")
 REFERENCE_MODEL = "dummy_prior"  # predicts the training death rate; shown as a reference, not a model
+# Leaf risks are kept strictly inside (0, 1): a readable tree should never claim certainty
+PROBABILITY_FLOOR = 0.001
+
+
+class DistilledDecisionTree(ClassifierMixin, BaseEstimator):
+    """One readable decision tree that imitates a random forest ("born-again" tree / model distillation).
+
+    fit(): a random forest is trained on the rows; each row's out-of-bag forest risk (from trees that did
+    not see that row) becomes the regression target of a shallow decision tree. The tree's leaf values are
+    therefore smoothed risks with many distinct levels, and its splits follow the forest's stable signal.
+    """
+
+    def __init__(self, max_depth: int = 4, min_samples_leaf: int = 5, teacher_trees: int = 300,
+                 random_state=None):
+        self.max_depth = max_depth
+        self.min_samples_leaf = min_samples_leaf
+        self.teacher_trees = teacher_trees
+        self.random_state = random_state
+
+    def fit(self, X, y):
+        y = np.asarray(y).astype(int)
+        teacher = RandomForestClassifier(
+            n_estimators=self.teacher_trees, max_depth=4, min_samples_leaf=3, max_features="sqrt",
+            oob_score=True, random_state=self.random_state, n_jobs=1,
+        ).fit(X, y)
+        target = teacher.oob_decision_function_[:, list(teacher.classes_).index(1)]
+        # a row left out of no tree's bootstrap has no out-of-bag estimate: use the forest's prediction
+        missing = np.isnan(target)
+        if missing.any():
+            target[missing] = teacher.predict_proba(np.asarray(X)[missing])[:, list(teacher.classes_).index(1)]
+        self.tree_ = DecisionTreeRegressor(max_depth=self.max_depth, min_samples_leaf=self.min_samples_leaf,
+                                           random_state=self.random_state).fit(X, target)
+        self.classes_ = np.array([0, 1])
+        return self
+
+    def predict_proba(self, X):
+        p = np.clip(self.tree_.predict(X), PROBABILITY_FLOOR, 1.0 - PROBABILITY_FLOOR)
+        return np.column_stack([1.0 - p, p])
+
+    def predict(self, X):
+        return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)
 
 
 class SmoothedDecisionTree(ClassifierMixin, BaseEstimator):
-    """A shallow decision tree whose leaf death rates are shrunk toward the training death rate.
-
-    With few deaths, many leaves contain none and a plain tree outputs exactly 0% (or 100%). Each leaf
-    instead reports (deaths + m * prior) / (stays + m) — the m-estimate — so small leaves move toward
-    the overall rate while the tree's rules stay unchanged and readable.
-    """
+    """Model set v2's tree (kept so saved v2 runs can still be loaded): leaf death rates shrunk toward the
+    training death rate with the m-estimate (deaths + m * prior) / (stays + m)."""
 
     def __init__(self, max_depth: int = 3, min_samples_leaf: int = 8, smoothing: float = 5.0, random_state=None):
         self.max_depth = max_depth
@@ -83,7 +125,7 @@ def candidate_models(seed: int) -> Dict[str, Pipeline]:
         ]),
         "decision_tree": Pipeline([
             _impute(), _drop_constant(),
-            ("model", SmoothedDecisionTree(max_depth=3, min_samples_leaf=8, smoothing=5.0, random_state=seed)),
+            ("model", DistilledDecisionTree(max_depth=4, min_samples_leaf=5, random_state=seed)),
         ]),
         "random_forest": Pipeline([
             _impute(), _drop_constant(),

@@ -18,7 +18,7 @@ from src.datasources.mimic.mappings import VARIABLES, feature_columns
 from src.training.artifacts import ArtifactVerificationError, VerifiedArtifacts, verify_and_load
 from src.training.features import build_feature_matrix
 from src.training.models import MODEL_ORDER
-from src.training.stays import TIERS, LazyStayView, StayViewError  # noqa: F401 (StayViewError re-exported)
+from src.training.stays import HIGH_LEVELS, TIERS, LazyStayView, StayViewError, assess  # noqa: F401 (StayViewError re-exported)
 from src.training.train_mimic_t1 import DISCLAIMER
 from src.training.whatif import PredictionInputError, build_whatif_row  # noqa: F401 (re-exported)
 from src.utils.config import Config
@@ -240,7 +240,7 @@ class ResearchModelService:
                 "stays": len(view.rows),
                 "deaths": deaths,
                 "tiers": {t: tiers.get(t, 0) for t in TIERS},
-                "deaths_in_high_or_critical": sum(r["died"] for r in view.rows if r["tier"] in ("High", "Critical")),
+                "deaths_high_or_above": sum(r["died"] for r in view.rows if r["tier"] in HIGH_LEVELS),
             },
             "stays": view.rows,
         }
@@ -272,6 +272,8 @@ class ResearchModelService:
             "task": TASK_DESCRIPTION,
             "prediction_point": PREDICTION_POINT,
             "probabilities": probabilities,
+            # Overall level (mean of the four models) and each model's level on the six-level scale
+            "assessment": assess(probabilities),
             "reference_model": "dummy_prior",
             "evaluation_status": self.artifacts.metrics["analyses"]["primary"]["evaluation"],
             "input_summary": input_summary,

@@ -30,7 +30,7 @@ Remove-Item Env:DATA_MODE   # back to synthetic mode
 ```
 
 Prerequisites for research inference: the Phase 1 dataset (v1.2.0) and Phase 2 run
-(`medihaven_t1_phase2_baselines_v2.0.0`) in `MIMIC_OUTPUT_DIR`. Without them the app still starts,
+(`medihaven_t1_phase2_baselines_v3.0.0`) in `MIMIC_OUTPUT_DIR`. Without them the app still starts,
 but research inference stays disabled and the reason is shown. The demo vault in research mode
 needs the existing demo database; it is never created in research mode.
 
@@ -86,7 +86,7 @@ browser storage. Per-stay predictions over MIMIC patients are deliberately not o
 
 1. `MIMIC_OUTPUT_DIR` is outside the repository and OneDrive.
 2. `run_manifest.json` is valid JSON of the expected shape, matches the optional pin, and names run
-   `medihaven_t1_phase2_baselines` v2.0.0, dataset v1.2.0, task `t1_inhospital_mortality_after_icu24h`
+   `medihaven_t1_phase2_baselines` v3.0.0, dataset v1.2.0, task `t1_inhospital_mortality_after_icu24h`
    v3, feature spec `mimic-iv-t1-features-v1` and **the installed scikit-learn version** (exact match;
    otherwise reinstall the recorded version or retrain).
 3. The training dataset hash equals the current Phase 1 dataset manifest.

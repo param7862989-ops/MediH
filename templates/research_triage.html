@@ -46,19 +46,19 @@
       <div class="kpi-subtext">Adult stays, first 24 h</div>
     </div>
     <div class="kpi-card kpi-critical">
-      <div class="kpi-label">Critical Tier</div>
-      <div class="kpi-value text-critical" id="kpi-critical">--</div>
-      <div class="kpi-subtext" id="kpi-critical-band">Risk ≥ --</div>
+      <div class="kpi-label">Extreme / Very high</div>
+      <div class="kpi-value text-critical" id="kpi-top-levels">--</div>
+      <div class="kpi-subtext">Risk ≥ 30%</div>
     </div>
     <div class="kpi-card kpi-high">
-      <div class="kpi-label">High Risk Tier</div>
+      <div class="kpi-label">High</div>
       <div class="kpi-value text-high" id="kpi-high">--</div>
-      <div class="kpi-subtext" id="kpi-high-band">Risk ≥ --</div>
+      <div class="kpi-subtext">Risk 15–30%</div>
     </div>
     <div class="kpi-card kpi-medium">
-      <div class="kpi-label">Medium Tier</div>
+      <div class="kpi-label">Medium</div>
       <div class="kpi-value" id="kpi-medium">--</div>
-      <div class="kpi-subtext" id="kpi-medium-band">Risk ≥ --</div>
+      <div class="kpi-subtext">Risk 7.5–15% (cohort rate 10.3%)</div>
     </div>
     <div class="kpi-card kpi-critical">
       <div class="kpi-label">In-hospital Deaths</div>
@@ -66,7 +66,7 @@
       <div class="kpi-subtext" id="kpi-death-rate">--% of stays</div>
     </div>
     <div class="kpi-card kpi-low">
-      <div class="kpi-label">Deaths Flagged High/Critical</div>
+      <div class="kpi-label">Deaths Rated High or Above</div>
       <div class="kpi-value" id="kpi-captured">--</div>
       <div class="kpi-subtext">of all in-hospital deaths</div>
     </div>
@@ -81,10 +81,12 @@
   <section class="roster-controls" aria-label="Stay filters">
     <div class="filter-pills" role="tablist">
       <button class="filter-pill active" data-filter="" role="tab">All Stays (<span id="count-all">0</span>)</button>
-      <button class="filter-pill" data-filter="Critical" role="tab">Critical (<span id="count-critical">0</span>)</button>
-      <button class="filter-pill" data-filter="High" role="tab">High (<span id="count-high">0</span>)</button>
-      <button class="filter-pill" data-filter="Medium" role="tab">Medium (<span id="count-medium">0</span>)</button>
-      <button class="filter-pill" data-filter="Low" role="tab">Low (<span id="count-low">0</span>)</button>
+      <button class="filter-pill" data-filter="Extreme" role="tab">Extreme (<span data-count="Extreme">0</span>)</button>
+      <button class="filter-pill" data-filter="Very high" role="tab">Very high (<span data-count="Very high">0</span>)</button>
+      <button class="filter-pill" data-filter="High" role="tab">High (<span data-count="High">0</span>)</button>
+      <button class="filter-pill" data-filter="Medium" role="tab">Medium (<span data-count="Medium">0</span>)</button>
+      <button class="filter-pill" data-filter="Low" role="tab">Low (<span data-count="Low">0</span>)</button>
+      <button class="filter-pill" data-filter="Very low" role="tab">Very low (<span data-count="Very low">0</span>)</button>
     </div>
 
     <div style="display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap;">
@@ -111,7 +113,7 @@
     <table class="clinical-table" id="research-triage-table">
       <thead>
         <tr>
-          <th>Risk Tier</th>
+          <th>Risk Level</th>
           <th>Risk</th>
           <th>Stay</th>
           <th>Age/Sex</th>
@@ -176,15 +178,11 @@
         </div>
       </div>
 
-      <!-- 2. Model comparison chart -->
-      <div class="chart-box">
-        <div class="chart-header">
-          <div class="chart-title">Model Votes vs Cohort Death Rate</div>
-          <div style="font-size: 11px; color: var(--text-muted);">Out-of-fold estimates · dashed line = cohort death rate</div>
-        </div>
-        <div class="chart-canvas-wrapper">
-          <canvas id="stayModelsChart"></canvas>
-        </div>
+      <!-- 2. Each model's estimate on the six-level scale -->
+      <div class="card" style="padding: var(--space-md);">
+        <div class="chart-title" style="margin-bottom: 6px;">Model Predictions (out-of-fold)</div>
+        <div id="drawer-models-table"></div>
+        <div id="drawer-level-legend" style="display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 11px; color: var(--text-muted);"></div>
       </div>
 
       <!-- 3. First-24-hour summaries -->
@@ -226,6 +224,6 @@
 
 {% block scripts %}
 {% if status.research_inference_available %}
-<script src="{{ url_for('static', filename='js/research_triage.js') }}"></script>
+<script src="{{ asset_url('js/research_triage.js') }}"></script>
 {% endif %}
 {% endblock %}

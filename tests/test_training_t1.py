@@ -26,7 +26,7 @@ from src.training.features import (
     select_features,
 )
 from src.training.metrics import binary_metrics
-from src.training.models import MODEL_ORDER, SmoothedDecisionTree, candidate_models
+from src.training.models import MODEL_ORDER, DistilledDecisionTree, SmoothedDecisionTree, candidate_models
 from src.training.splits import InsufficientDataError, make_grouped_folds
 from src.training.train_mimic_t1 import main, output_dir_for, training_log_path, train_and_evaluate
 from src.utils.config import Config
@@ -204,7 +204,7 @@ def test_smoothed_decision_tree_never_outputs_zero_or_one():
     rng = np.random.default_rng(0)
     X = rng.normal(size=(80, 3))
     y = (X[:, 0] > 1.2).astype(int)  # few positives: a plain tree would have pure leaves
-    plain = clone(candidate_models(0)["decision_tree"]).set_params(model__smoothing=0.0).fit(X, y)
+    plain = SmoothedDecisionTree(max_depth=3, min_samples_leaf=8, smoothing=0.0, random_state=0).fit(X, y)
     assert {0.0, 1.0} & set(plain.predict_proba(X)[:, 1])
     smoothed = SmoothedDecisionTree(max_depth=3, min_samples_leaf=8, smoothing=5.0, random_state=0).fit(X, y)
     p = smoothed.predict_proba(X)[:, 1]
@@ -215,6 +215,22 @@ def test_smoothed_decision_tree_never_outputs_zero_or_one():
     for leaf, rate in smoothed.leaf_rate_.items():
         raw = y[leaves == leaf].mean()
         assert min(raw, smoothed.prior_) - 1e-12 <= rate <= max(raw, smoothed.prior_) + 1e-12
+
+
+def test_distilled_tree_imitates_its_forest_and_never_claims_certainty():
+    from sklearn.ensemble import RandomForestClassifier
+    rng = np.random.default_rng(1)
+    X = rng.normal(size=(120, 5))
+    y = ((X[:, 0] + 0.5 * X[:, 1] + rng.normal(scale=0.7, size=120)) > 1.3).astype(int)  # ~10 % positives
+    tree = DistilledDecisionTree(max_depth=4, min_samples_leaf=5, random_state=0).fit(X, y)
+    p = tree.predict_proba(X)[:, 1]
+    assert ((p > 0) & (p < 1)).all()
+    np.testing.assert_allclose(tree.predict_proba(X).sum(axis=1), 1.0)
+    assert len(np.unique(np.round(p, 6))) >= 6  # graded risks, not a handful of pure-leaf values
+    forest = RandomForestClassifier(n_estimators=300, max_depth=4, min_samples_leaf=3, max_features="sqrt",
+                                    random_state=0).fit(X, y)
+    assert np.corrcoef(p, forest.predict_proba(X)[:, 1])[0, 1] > 0.7  # follows the teacher's signal
+    assert isinstance(candidate_models(0)["decision_tree"].named_steps["model"], DistilledDecisionTree)
 
 
 # ------------------------------------------------------------------------------
