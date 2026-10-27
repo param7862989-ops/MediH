@@ -450,7 +450,7 @@ def test_research_page_is_a_chart_dashboard(research_env):
     page = _physician(create_app({"TESTING": True})).get("/research", headers=ENFORCE).get_data(as_text=True)
     for canvas in ("researchAurocChart", "researchApChart", "researchFlowChart", "researchCoverageChart",
                    "researchSensitivityChart", "researchFoldChart", "researchWeightsChart", "researchQualityChart",
-                   "researchWhatIfChart"):
+                   ):
         assert f'id="{canvas}"' in page
     assert 'class="kpi-grid"' in page and "js/research.js" in page and "NOT FOR PATIENT CARE" in page
 
@@ -633,7 +633,7 @@ def test_research_stays_have_out_of_fold_scores_and_no_identifiers(research_env)
         probabilities = [m["probability"] for m in stay["models"].values()]
         assert all(0.0 < p < 1.0 for p in probabilities)
         assert stay["risk"] == pytest.approx(sum(probabilities) / 4, abs=1e-3)
-        assert stay["tier"] in ("Low", "Medium", "High", "Critical")
+        assert stay["tier"] in ("Very low", "Low", "Medium", "High", "Very high", "Extreme")
     text = response.get_data(as_text=True)
     assert not any(identifier in text for identifier in FIXTURE_IDS)
     assert "index_time" not in text and "src_" not in text and "2150-" not in text
@@ -681,3 +681,35 @@ def test_research_triage_script_never_injects_html_or_uses_browser_storage():
     assert not re.search(r"\.innerHTML\s*[+]?=|insertAdjacentHTML", script)
     assert not re.search(r"localStorage|sessionStorage|indexedDB", script)
     assert "/api/research/stays" in script
+
+
+@pytest.mark.parametrize("probability, level", [
+    (0.0, "Very low"), (0.0249, "Very low"), (0.025, "Low"), (0.074, "Low"), (0.075, "Medium"),
+    (0.149, "Medium"), (0.15, "High"), (0.299, "High"), (0.30, "Very high"), (0.599, "Very high"),
+    (0.60, "Extreme"), (0.999, "Extreme"),
+])
+def test_six_level_risk_scale(probability, level):
+    from src.training.stays import tier_for
+    assert tier_for(probability) == level
+
+
+def test_whatif_returns_a_six_level_assessment(research_env):
+    client = _physician(create_app({"TESTING": True}))
+    payload = {"heart_rate_count": 1, "heart_rate_last": 120, "lactate_count": 1, "lactate_last": 4.1, "age": 71}
+    data = client.post("/api/research/predict", headers=ENFORCE, json={"features": payload}).get_json()["data"]
+    a = data["assessment"]
+    real = ("logistic_regression", "decision_tree", "random_forest", "neural_network")
+    assert set(a["models"]) == set(real)
+    assert a["consensus"] == pytest.approx(sum(data["probabilities"][m] for m in real) / 4, abs=1e-3)
+    levels = ("Very low", "Low", "Medium", "High", "Very high", "Extreme")
+    assert a["level"] in levels and all(v["level"] in levels for v in a["models"].values())
+    assert [b["level"] for b in a["bands"]] == list(levels)
+    assert 0 <= a["models_high_or_above"] <= 4 and 0 <= a["models_at_level"] <= 4
+
+
+def test_research_pages_draw_no_model_charts():
+    for name in ("research.js", "research_triage.js"):
+        script = (PROJECT_ROOT / "static" / "js" / name).read_text(encoding="utf-8")
+        assert "whatIfChart" not in script and "stayModelsChart" not in script
+    common = (PROJECT_ROOT / "static" / "js" / "common.js").read_text(encoding="utf-8")
+    assert all(level in common for level in ("Very low", "Low", "Medium", "High", "Very high", "Extreme"))

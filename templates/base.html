@@ -18,8 +18,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Core Design Tokens -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('css/tokens.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('css/styles.css') }}">
 
   <style>
     /* Critical Base Shell Layout Styles */
@@ -181,8 +181,8 @@
     }
   </style>
   <!-- Chart.js 4.4.1 (self-hosted, MIT) for clinical telemetry charts; common.js handles expired sessions -->
-  <script src="{{ url_for('static', filename='vendor/chart.umd.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/common.js') }}"></script>
+  <script src="{{ asset_url('vendor/chart.umd.js') }}"></script>
+  <script src="{{ asset_url('js/common.js') }}"></script>
   {% block extra_head %}{% endblock %}
 </head>
 <body>

@@ -175,6 +175,14 @@ def create_app(test_config: Optional[Dict[str, Any]] = None) -> Flask:
             response.headers.setdefault("Cache-Control", "no-store")
         return response
 
+    @app.template_global()
+    def asset_url(filename: str) -> str:
+        """Static URL with ?v=<file modification time>: an updated script or stylesheet gets a new URL,
+        so browsers never keep running a stale cached copy against newer pages."""
+        path = Config.STATIC_DIR / filename
+        version = int(path.stat().st_mtime) if path.is_file() else 0
+        return url_for("static", filename=filename, v=version)
+
     @app.context_processor
     def inject_user():
         from flask import session

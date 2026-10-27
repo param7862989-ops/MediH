@@ -207,7 +207,7 @@
     </form>
     <div id="whatif-error" role="alert" style="display: none; margin-top: var(--space-md); color: #f87171; font-size: 13px;"></div>
     <div id="whatif-result" style="display: none; margin-top: var(--space-md);">
-      <div class="chart-canvas-wrapper" style="height: 200px;"><canvas id="researchWhatIfChart" aria-label="What-if risk estimates"></canvas></div>
+      <div id="whatif-assessment" aria-live="polite"></div>
       <p id="whatif-summary" style="font-size: 12px; color: var(--text-secondary); margin: 8px 0 0;"></p>
       <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0;">Research output on demo data — not clinical advice.</p>
     </div>
@@ -228,6 +228,6 @@
 
 {% block scripts %}
 {% if status.research_inference_available %}
-<script src="{{ url_for('static', filename='js/research.js') }}"></script>
+<script src="{{ asset_url('js/research.js') }}"></script>
 {% endif %}
 {% endblock %}

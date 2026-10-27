@@ -53,7 +53,7 @@
 Options: `--dataset-dir`, `--seed` (default 42), `--folds` (default 5), `--bootstrap` (default 2000).
 `--research-dir` defaults to `MIMIC_OUTPUT_DIR`. Locations inside the repository or OneDrive are refused.
 
-Outputs, in `<research-dir>\medihaven_t1_phase2_baselines_v2.0.0\`: `models\*.joblib` (pipelines
+Outputs, in `<research-dir>\medihaven_t1_phase2_baselines_v3.0.0\`: `models\*.joblib` (pipelines
 refitted on all eligible stays, each bundled with its features, dataset/task versions, dataset content
 hash and seed), `metrics.json`, `feature_config.json`, `split_metadata.json`, `report.md` and
 `run_manifest.json` (versions, seed, timestamp, software, command and SHA-256 of every output file).
@@ -73,15 +73,26 @@ scikit-learn Pipeline and is therefore fitted on training folds only.
 | :--- | :--- |
 | `dummy_prior` | predicts the training prevalence — a **reference line**, not one of the four models |
 | `logistic_regression` | median imputation → drop constant → standardize → L2 logistic regression, C = 0.1 |
-| `decision_tree` | median imputation → drop constant → depth ≤ 3, ≥ 8 stays per leaf; each leaf reports the m-estimate (deaths + 5 × prior) / (stays + 5), so it never outputs exactly 0 % or 100 % |
+| `decision_tree` | median imputation → drop constant → **distilled tree**: a random forest (300 trees, depth ≤ 4, ≥ 3 stays per leaf) is fitted on the training rows, and one regression tree (depth ≤ 4, ≥ 5 stays per leaf) learns each row's out-of-bag forest risk. Leaf risks are kept within 0.1–99.9 % |
 | `random_forest` | median imputation → drop constant → 300 trees, depth ≤ 4, ≥ 3 stays per leaf |
 | `neural_network` | median imputation → drop constant → standardize → MLP, one hidden layer of 16 ReLU units, L2 α = 1.0, L-BFGS |
 
-Model set history: v1.0.0 (88 inputs including counts; three models plus the reference; a plain
-decision tree whose zero-death leaves output exactly 0 %) is kept on disk; v2.0.0 is the current set.
-The v2 changes (count exclusion, leaf smoothing, the neural network) were made to fix the what-if
-behaviour, not chosen to maximise the scores below; they were nonetheless decided after seeing v1
-results on the same data, so v1→v2 differences are not independent evidence of improvement.
+Model set history (all runs kept on disk):
+- **v1.0.0:** 88 inputs including counts; three models plus the reference; a plain decision tree whose
+  zero-death leaves output exactly 0 %.
+- **v2.0.0:** counts excluded; the neural network added; the decision tree's leaf risks smoothed with
+  the m-estimate. The tree still had only a few distinct outputs and AUROC 0.56.
+- **v3.0.0 (current):** only the decision tree changed. Grown directly on 11 deaths, a single tree is
+  unstable. The distilled tree instead imitates the forest's out-of-bag risk estimates: its rules stay
+  readable, its outputs are graded, and its splits are steadier.
+
+Two candidate fixes for the tree were evaluated on the same folds before choosing:
+- a tree whose depth, leaf size and class weighting were tuned by nested inner cross-validation
+  (AUROC 0.48, rejected);
+- the distilled tree (AUROC 0.69, adopted).
+
+All of these changes were decided after seeing earlier results on the same data, so differences between
+versions are not independent evidence of improvement, and the v3 tree estimate is slightly optimistic.
 
 K-Means is not used: it is not a supervised mortality predictor.
 
@@ -129,31 +140,30 @@ dischtime) are positive in the primary analysis. The flag is never a model input
 Primary population: 107 stays, 86 subjects, 11 positive / 96 negative (10.3%). Folds held 2–3
 positive and 19–20 negative test stays each.
 
-| Model | AUROC [95% CI] | Avg. precision [95% CI] | Brier | Sens. / Spec. at prevalence threshold |
-| :--- | :--- | :--- | :--- | :--- |
-Model set v2.0.0:
+Model set v3.0.0 (only the decision tree differs from v2.0.0):
 
 | Model | AUROC [95% CI] | Avg. precision [95% CI] | Brier | Sens. / Spec. at prevalence threshold |
 | :--- | :--- | :--- | :--- | :--- |
 | dummy_prior (reference) | 0.46 [0.30–0.62] | 0.10 [0.05–0.17] | 0.092 | 1.00 / 0.00 |
 | logistic_regression | 0.74 [0.57–0.90] | 0.31 [0.14–0.62] | 0.086 | 0.73 / 0.76 |
-| decision_tree | 0.56 [0.35–0.77] | 0.15 [0.07–0.39] | 0.098 | 0.36 / 0.75 |
+| decision_tree (distilled) | 0.69 [0.48–0.87] | 0.25 [0.10–0.54] | 0.088 | 0.64 / 0.67 |
 | random_forest | 0.73 [0.53–0.91] | 0.34 [0.14–0.66] | 0.082 | 0.64 / 0.62 |
 | neural_network | 0.77 [0.60–0.91] | 0.41 [0.17–0.66] | 0.087 | 0.55 / 0.85 |
 
 Sensitivity analyses (103 stays, 83 subjects, 7 positive / 96 negative):
-A (evaluation-only) — logistic regression AUROC 0.73, decision tree 0.52, random forest 0.73,
-neural network 0.78.
-B (retrained, folds with 1–2 positives) — logistic regression 0.40 [0.08–0.76], decision tree 0.61,
-random forest 0.71, neural network 0.39 [0.02–0.78].
+- **A (evaluation-only):** logistic regression AUROC 0.73, decision tree 0.64, random forest 0.73,
+  neural network 0.78.
+- **B (retrained, folds with 1–2 positives):** logistic regression 0.40 [0.08–0.76], decision tree 0.67
+  [0.43–0.87], random forest 0.71, neural network 0.39 [0.02–0.78].
 
-For comparison, v1.0.0 (primary): logistic regression 0.73, decision tree 0.62, random forest 0.75
-AUROC.
+Earlier decision trees (primary analysis):
+- v2 smoothed tree: AUROC 0.56, A 0.52, B 0.61;
+- v1 plain tree: AUROC 0.62.
 
 Reading: the intervals overlap heavily; the neural network has the highest pooled AUROC and average
 precision but the widest swings between analyses (0.78 in A, 0.39 in B), and logistic regression
-collapses the same way in B. The depth-3 tree has only four distinct outputs and is the weakest
-model. B shows how fragile any estimate is with 7 positive stays. No model ranking or performance
+collapses the same way in B. The distilled tree is close to its random-forest teacher and stays
+stable in B. B shows how fragile any estimate is with 7 positive stays. No model ranking or performance
 claim is supported by these numbers.
 
 ## 9. What would be needed before performance claims
@@ -166,3 +176,21 @@ claim is supported by these numbers.
   estimates at clinically chosen thresholds.
 - Subgroup and fairness analyses (age, sex, race, care unit) and missing-data sensitivity analyses.
 - External validation on another population (e.g. eICU-CRD) and clinical review before any use.
+
+## 10. Risk levels shown in research mode
+
+The research triage page and the what-if estimator classify each risk on six fixed probability bands.
+These are display bands for research, chosen in advance around the cohort death rate of 10.3 %. They are
+not clinical thresholds.
+
+| Level | Risk of in-hospital death |
+| :--- | :--- |
+| Very low | < 2.5 % |
+| Low | 2.5–7.5 % |
+| Medium | 7.5–15 % |
+| High | 15–30 % |
+| Very high | 30–60 % |
+| Extreme | ≥ 60 % |
+
+The overall level is the mean of the four models' risks. Each model's own percentage and level is shown
+beside it.

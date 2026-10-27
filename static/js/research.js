@@ -32,7 +32,6 @@ const AXIS = { ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { color: "
 
 let dashboardData = null;
 let weightsChart = null;
-let whatIfChart = null;
 
 document.addEventListener("DOMContentLoaded", loadResearchDashboard);
 
@@ -488,37 +487,51 @@ async function submitWhatIf(event) {
 
 function renderWhatIf(result) {
   document.getElementById("whatif-result").style.display = "block";
-  const prevalence = dashboardData.kpis.prevalence;
-  if (whatIfChart) whatIfChart.destroy();
-  whatIfChart = new Chart(document.getElementById("researchWhatIfChart"), {
-    type: "bar",
-    data: {
-      labels: REAL_MODELS.map((m) => MODEL_LABELS[m]),
-      datasets: [
-        {
-          type: "bar",
-          label: "Estimated risk of in-hospital death (%)",
-          data: REAL_MODELS.map((m) => Math.round(result.probabilities[m] * 1000) / 10),
-          backgroundColor: REAL_MODELS.map((m) => MODEL_COLORS[m]),
-        },
-        {
-          type: "line",
-          label: `Cohort death rate / baseline (${(prevalence * 100).toFixed(1)}%)`,
-          data: REAL_MODELS.map(() => Math.round(prevalence * 1000) / 10),
-          borderColor: "#94a3b8",
-          borderDash: [5, 4],
-          borderWidth: 1,
-          pointRadius: 0,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: LEGEND },
-      scales: { x: AXIS, y: { ...AXIS, min: 0, max: 100, title: { display: true, text: "%", color: "#64748b", font: { size: 10 } } } },
-    },
+  const a = result.assessment;
+  const box = document.getElementById("whatif-assessment");
+  box.textContent = "";
+  const pct = (p) => `${(p * 100).toFixed(1)}%`;
+
+  // Overall level: mean of the four models
+  const headline = makeEl("div", null,
+    "display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 14px; border-radius: 10px; " +
+    `border: 1px solid ${riskLevelColor(a.level)}; background: ${riskLevelColor(a.level)}14;`);
+  const label = makeEl("div", null);
+  label.appendChild(makeEl("div", "Overall risk of in-hospital death", "font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em;"));
+  label.appendChild(makeEl("div", pct(a.consensus), "font-size: 26px; font-weight: 800; color: #ffffff; font-family: var(--font-mono, monospace);"));
+  headline.appendChild(label);
+  headline.appendChild(riskBadge(a.level, "large"));
+  const agree = a.models_at_level === 4 ? "All 4 models agree on this level."
+    : `${a.models_at_level} of 4 models give this level; ${a.models_high_or_above} of 4 rate the risk High or above.`;
+  headline.appendChild(makeEl("div", agree, "font-size: 13px; color: #cbd5e1; flex: 1 1 220px;"));
+  box.appendChild(headline);
+
+  // Each model: its own percentage and level
+  const table = makeEl("table", null, "width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px;");
+  const head = makeEl("tr", null);
+  ["Model", "Predicted risk", "Risk level"].forEach((h) =>
+    head.appendChild(makeEl("th", h, "text-align: left; color: #94a3b8; font-weight: 600; padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.08);")));
+  table.appendChild(head);
+  REAL_MODELS.forEach((m) => {
+    const row = makeEl("tr", null);
+    row.appendChild(makeEl("td", MODEL_LABELS[m], "padding: 7px 8px; color: #e2e8f0;"));
+    row.appendChild(makeEl("td", pct(a.models[m].probability), "padding: 7px 8px; color: #ffffff; font-weight: 700; font-family: var(--font-mono, monospace);"));
+    const cell = makeEl("td", null, "padding: 7px 8px;");
+    cell.appendChild(riskBadge(a.models[m].level));
+    row.appendChild(cell);
+    table.appendChild(row);
   });
+  box.appendChild(table);
+
+  // Scale legend
+  const legend = makeEl("div", null, "display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 11px; color: #94a3b8;");
+  RISK_LEVELS.forEach((entry, i) => {
+    const item = makeEl("span", null, "display: inline-flex; align-items: center; gap: 5px;");
+    item.appendChild(riskBadge(entry.level, "small"));
+    item.appendChild(makeEl("span", riskRangeText(entry, RISK_LEVELS[i + 1])));
+    legend.appendChild(item);
+  });
+  box.appendChild(legend);
   const s = result.input_summary;
   const measured = s.variables_measured.map((v) => VARIABLE_LABELS[v] || v).join(", ") || "none";
   setText("whatif-summary",
