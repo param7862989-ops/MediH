@@ -1,0 +1,33 @@
+# Render Blueprint: deploys the synthetic MediHaven demo on Render's native Python runtime (no Docker).
+# Render dashboard -> New -> Blueprint -> pick this repository.
+services:
+  - type: web
+    name: medihaven
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    # wsgi.py seeds the demo database and trains the models on first start
+    startCommand: waitress-serve --host=0.0.0.0 --port=$PORT --threads=8 wsgi:app
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      # Render generates strong random secrets (256-bit) on first deploy
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      # Public demo accounts (physician1 / patient1), shown on the login page
+      - key: DEMO_LOGINS
+        value: "1"
+      # Render puts one proxy in front of the app (real client IP + HTTPS scheme)
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: FLASK_ENV
+        value: production
+      - key: DATA_MODE
+        value: synthetic
+      # Optional: live Gemini narratives. Leave empty to use the local fallback text.
+      - key: GEMINI_API_KEY
+        sync: false
