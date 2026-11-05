@@ -87,7 +87,7 @@ async function toggleCamera() {
     stopCamera();
     btn.textContent = "📷 Start Camera";
     reticle.style.display = "none";
-    placeholder.style.display = "block";
+    placeholder.style.display = "flex";
     return;
   }
 
@@ -187,7 +187,7 @@ async function submitPayloadForVerification(payload, isSilentScan = false) {
       stopCamera();
       document.getElementById("btn-toggle-camera").textContent = "📷 Start Camera";
       document.getElementById("reticle-box").style.display = "none";
-      document.getElementById("camera-placeholder").style.display = "block";
+      document.getElementById("camera-placeholder").style.display = "flex";
     }
 
     renderVerificationResult(json.data);
