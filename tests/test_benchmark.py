@@ -65,7 +65,8 @@ def test_benchmark_report_artifacts_exported():
     assert data["status"] == "PASS"
 
     md_text = md_report.read_text(encoding="utf-8")
-    assert "MediHaven Clinical Benchmarking" in md_text
+    assert "MediHaven Synthetic Pipeline Benchmark" in md_text
+    assert "not** a measure of clinical accuracy" in md_text
     assert "Confusion Matrix" in md_text
 
 
