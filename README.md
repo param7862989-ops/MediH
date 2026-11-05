@@ -377,6 +377,30 @@ MediHaven enforces strict role-based access control ([`src/api/auth.py`](src/api
 * **Auto-Redirection**: Users are automatically directed to their dedicated portal upon login (`/admin`, `/dashboard`, or `/vault`).
 * **Active Session Persistence**: Managed securely with signed Flask session cookies and explicit logout handlers.
 
+### Admin passwords in production (hashed, never stored in the repo)
+Only password **hashes** are ever stored, using scrypt via Werkzeug. In production (`FLASK_ENV=production`, as on
+the live Render site) the built-in development passwords are refused for the three admin accounts, so each
+admin sets a personal password:
+
+1. Generate a hash locally. You are asked for the password twice; it must be at least 12 characters, and
+   it is never shown or saved:
+   ```bash
+   python -m src.api.auth
+   ```
+2. In the Render dashboard, open **medihaven → Environment** and add the printed `scrypt:...` line under
+   the account's key:
+
+   | Username | Environment variable |
+   | :--- | :--- |
+   | `vidhi` | `PASSWORD_HASH_VIDHI` |
+   | `param` | `PASSWORD_HASH_PARAM` |
+   | `nirupam` | `PASSWORD_HASH_NIRUPAM` |
+
+3. Save. Render redeploys, and the admin can sign in with the username and their own password.
+
+Each admin should generate their own hash, so nobody else ever knows their password. The demo accounts
+`physician1` and `patient1` stay available on the live demo through `DEMO_LOGINS=1`.
+
 ---
 
 ## 9. Sovereign Patient Medical Vault & Cryptographic QR
@@ -457,6 +481,8 @@ Built with a **restrained clinical design system** ([`static/css/tokens.css`](st
 * **Hairline Borders**: Crisp `1px solid rgba(255,255,255,0.08)` divisions.
 * **Calibrated Semantics**: Critical Crimson (`#EF4444`), Medical Tangerine (`#F97316`), Observation Amber (`#F59E0B`), Stable Sage (`#10B981`), Surgical Cobalt (`#0284C7`).
 * **Numeric Density**: Tabular font numbers (`font-feature-settings: 'tnum' 1`) preventing jitter in live telemetry tables.
+
+**Light and dark themes:** dark is the default. The sun/moon button in the navigation bar switches to a light theme ([`static/css/theme-light.css`](static/css/theme-light.css), [`static/js/theme.js`](static/js/theme.js)). The choice is remembered in the browser and applied before the page draws, so there's no flash. Accent colours are darkened in the light theme to keep text readable.
 
 ### The 6 MediHaven Web Portals:
 1. **🏠 Architectural Hero & Landing Portal (`/`)**:

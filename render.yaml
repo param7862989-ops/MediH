@@ -31,3 +31,12 @@ services:
       # Optional: live Gemini narratives. Leave empty to use the local fallback text.
       - key: GEMINI_API_KEY
         sync: false
+      # Admin logins (vidhi / param / nirupam). Production refuses the built-in development
+      # passwords, so each admin sets their own: run `python -m src.api.auth` locally and paste the
+      # printed scrypt hash in the Render dashboard. Only hashes are stored; never commit them.
+      - key: PASSWORD_HASH_VIDHI
+        sync: false
+      - key: PASSWORD_HASH_PARAM
+        sync: false
+      - key: PASSWORD_HASH_NIRUPAM
+        sync: false
