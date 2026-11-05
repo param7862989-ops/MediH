@@ -1,5 +1,6 @@
 # MediHaven: Clinical Decision Support and Patient-Controlled Medical Record Sharing Platform
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-medihaven--0mrj.onrender.com-46E3B7?style=flat&logo=render&logoColor=white)](https://medihaven-0mrj.onrender.com/)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-0284C7?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 [![Test Suite 377 Passing](https://img.shields.io/badge/Test%20Suite-377%20Passing-10B981?style=flat&logo=pytest&logoColor=white)](https://pytest.org/)
 [![Scoped QR Access](https://img.shields.io/badge/Vault-HMAC--SHA256%20Scoped%20QR%20Passes-4338CA?style=flat)](src/vault/)
@@ -8,6 +9,12 @@
 [![Agent Codex](https://img.shields.io/badge/Agent%20Codex-agent--context.md-8B5CF6?style=flat)](agent-context.md)
 [![Explainability SHAP](https://img.shields.io/badge/Explainability-SHAP%20%2B%20K--Means%20Cohort%20Map-0284C7?style=flat)](src/models/explainability.py)
 [![Academic Capstone](https://img.shields.io/badge/SPIT%20CE%202026-TE%20Sem%20V%20Mini%20Project%20I-F59E0B?style=flat)](https://www.spit.ac.in/)
+
+## 🌐 Live Demo: [medihaven-0mrj.onrender.com](https://medihaven-0mrj.onrender.com/)
+
+Synthetic demo data only. Sign in as the demo physician (`physician1`) or patient (`patient1`); the
+passwords are shown on the login page. The free server sleeps when idle, so the first visit can take
+about a minute to load.
 
 > **Institute:** Sardar Patel Institute of Technology (SPIT), Mumbai · Autonomous Institute affiliated to the University of Mumbai  
 > **Department:** Computer Engineering · T.E. Semester V · Academic Year 2026–27  
