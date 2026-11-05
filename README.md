@@ -2,7 +2,7 @@
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-medihaven--0mrj.onrender.com-46E3B7?style=flat&logo=render&logoColor=white)](https://medihaven-0mrj.onrender.com/)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-0284C7?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![Test Suite 377 Passing](https://img.shields.io/badge/Test%20Suite-377%20Passing-10B981?style=flat&logo=pytest&logoColor=white)](https://pytest.org/)
+[![Test Suite 387 Passing](https://img.shields.io/badge/Test%20Suite-387%20Passing-10B981?style=flat&logo=pytest&logoColor=white)](https://pytest.org/)
 [![Scoped QR Access](https://img.shields.io/badge/Vault-HMAC--SHA256%20Scoped%20QR%20Passes-4338CA?style=flat)](src/vault/)
 [![Google Gemini LLM](https://img.shields.io/badge/GenAI-Google%20Gemini%20Flash-F59E0B?style=flat&logo=google&logoColor=white)](src/nlp/)
 [![RBAC Enabled](https://img.shields.io/badge/Auth-Multi--Role%20RBAC%20(Admin%2FPhysician%2FPatient)-8B5CF6?style=flat)](src/api/auth.py)
@@ -86,7 +86,7 @@ The architecture directly bridges theoretical engineering principles across five
 ├───────────────┼──────────────────────────────────┼───────────────────────────┤
 │ CE202         │ Software Engineering             │ 8-Phase Master Build,     │
 │               │                                  │ Clinical Design Tokens,   │
-│               │                                  │ 377 Automated Test Cases  │
+│               │                                  │ 387 Automated Test Cases  │
 └───────────────┴──────────────────────────────────┴───────────────────────────┘
 ```
 
@@ -458,6 +458,7 @@ The Flask backend ([`src/api/`](src/api/)) exposes standardized JSON endpoints (
 | `GET` | `/api/patients/<id>/predict` | Live multi-model ML inference (<2.5ms) | Physician, Admin |
 | `GET` | `/api/patients/<id>/similar` | KNN precedent cases & protocol success | Physician, Admin |
 | `GET` | `/api/patients/<id>/cluster-map` | K-Means cohort map: PCA points, cluster profiles, patient placement | Physician, Admin |
+| `POST` | `/api/risk-calculator` | What-if calculator: scores entered vitals and labs (nothing stored) | Physician, Admin |
 | `GET` | `/api/patients/<id>/clinical-narrative` | Google Gemini clinical handover / discharge synthesis | Physician, Admin |
 | `GET` | `/api/dashboard/summary` | Hospital cohort census & tier distribution | Physician, Admin |
 | `GET` | `/api/alerts` | Active 7–14 day deterioration alerts | Physician, Admin |
@@ -484,7 +485,7 @@ Built with a **restrained clinical design system** ([`static/css/tokens.css`](st
 
 **Light and dark themes:** dark is the default. The sun/moon button in the navigation bar switches to a light theme ([`static/css/theme-light.css`](static/css/theme-light.css), [`static/js/theme.js`](static/js/theme.js)). The choice is remembered in the browser and applied before the page draws, so there's no flash. Accent colours are darkened in the light theme to keep text readable.
 
-### The 6 MediHaven Web Portals:
+### The 7 MediHaven Web Portals:
 1. **🏠 Architectural Hero & Landing Portal (`/`)**:
    * Introductory portal detailing system architecture, multimodal pipeline, clinical motivation, and immediate role-based portal routing.
 2. **👤 Role Selection & Authentication Portal (`/login`)**:
@@ -506,7 +507,14 @@ Built with a **restrained clinical design system** ([`static/css/tokens.css`](st
    * Instant HMAC-SHA256 verification badge with patient demographic verification.
    * Scoped read-only medical record cards highlighting allergies in critical red borders.
    * **Zero Data Leakage Banner** verifying that non-authorized categories were cryptographically sealed at the server.
-6. **📊 Hospital Administrator & AI Observability Portal (`/admin`)**:
+6. **🧮 What-if Risk Calculator (`/calculator`)**:
+   * Enter vital signs and labs (or pick the Stable, Borderline or Septic-shock example) and see how the
+     4-model ensemble scores them: risk tier and score, each model's vote, SHAP attributions, the entry's
+     place on the K-Means cohort map, and the 5 most similar reference patients.
+   * Nothing entered is saved. Optional values left empty use the pipeline's typical defaults, and every
+     assumption is listed with the result. Works on the live demo (synthetic models). Research mode has a
+     separate what-if estimator for the MIMIC-IV models on the Model Analytics page.
+7. **📊 Hospital Administrator & AI Observability Portal (`/admin`)**:
    * Telemetry for all 4 synthetic-ensemble models (weights, status, latency).
    * Interactive Google Gemini clinical narrative test console.
    * Hospital census demographics and ward occupancy metrics.
@@ -594,6 +602,7 @@ MediH/
 │   ├── models/
 │   │   ├── kmeans_model.py             # K-Means cohort discovery + cluster-to-tier mapping
 │   │   ├── explainability.py           # SHAP (TreeSHAP for the tree, permutation SHAP for the MLP)
+│   │   ├── risk_calculator.py          # What-if calculator: entered values -> 30 features
 │   │   ├── decision_tree_model.py      # Decision tree explainability engine
 │   │   ├── knn_model.py                # KNN case-based precedent matcher
 │   │   ├── neural_network_model.py     # MLP classifier & continuous regressor
@@ -718,7 +727,7 @@ security notes. Research mode (`DATA_MODE=mimic`) is never deployable.
 
 ## 15. Automated Verification & Test Suite
 
-MediHaven includes an automated pytest suite of **377 tests across 19 modules**, all passing (last run:
+MediHaven includes an automated pytest suite of **387 tests across 19 modules**, all passing (last run:
 5 November 2026, Python 3.13, about 2 minutes). This is a pass count, not a code-coverage figure.
 
 ```bash
