@@ -3,15 +3,14 @@
 LaTeX sources and compiled PDFs for the MediHaven project report, prepared to the SPIT report template
 and the *Mini Project Report Preparation Guidelines (T.E. Computer Engineering, AY 2026–27)*.
 
-**Before submitting, read `MISSING_INFORMATION.md`.** Identity fields, signatures, the NIL AI content
-image and the plagiarism report are still placeholders. There is also an AI-authorship issue you need to
-resolve before signing anything.
+`Final_Report.pdf` is the group's final submitted report. The LaTeX sources below are an earlier
+working version and are kept for reference.
 
 ## Deliverables
 
 | File | Description |
 | :--- | :--- |
-| `Final_Report.pdf` | The report: 62 pages, A4, built 26 Oct 2026. Page 62 (the last page) is the NIL AI content page, currently a placeholder. |
+| `Final_Report.pdf` | Final report (Group No. 44): 58 report pages plus the Turnitin similarity and AI-writing reports (62 pages in total), 5 Nov 2026. |
 | `A3_Poster.pdf` | The poster: 1 page, A3 landscape (420 × 297 mm). |
 | `main.tex` | Report master file. |
 | `frontmatter/` | Cover, certificate, approval certificate, declaration, acknowledgement, abstract, abbreviations, NIL page. `details.tex` holds every identity field. |
@@ -63,7 +62,6 @@ once the group number and approved title are confirmed.
 2. Rebuild with `tectonic main.tex` and copy to `Final_Report.pdf`.
 3. Check that the image now appears on the last page and that nothing follows it.
 
-Read the AI-authorship note in `MISSING_INFORMATION.md` (item 1) first.
 
 ## Verification performed
 
@@ -83,6 +81,6 @@ Read the AI-authorship note in `MISSING_INFORMATION.md` (item 1) first.
 
 ## Known limitations
 
-- **Page count:** 62 pages, above the 30–40 target. The reasons are in `MISSING_INFORMATION.md`, item 12.
+- **Page count:** 62 pages, above the 30–40 target. The reasons are in `MISSING_INFORMATION.md`, item 11.
 - **Docker image:** the image recipe described in the report was not built, because Docker is not
   installed on the development machine.

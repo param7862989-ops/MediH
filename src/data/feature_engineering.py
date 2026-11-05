@@ -9,7 +9,7 @@ actionable, normalized mathematical features:
 """
 
 from datetime import timedelta
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 import numpy as np
 import pandas as pd
 
@@ -56,6 +56,46 @@ FEATURE_COLUMNS: List[str] = [
     # 6. Comorbidity Burden
     "active_medications_count",
 ]
+
+# Human-readable names and units for the engineered features (used by explanations and cluster profiles)
+FEATURE_LABELS: Dict[str, Tuple[str, str]] = {
+    "age": ("Age", "y"),
+    "gender_encoded": ("Sex (male = 1)", ""),
+    "heart_rate_latest": ("Heart rate", "bpm"),
+    "sbp_latest": ("Systolic BP", "mmHg"),
+    "dbp_latest": ("Diastolic BP", "mmHg"),
+    "temperature_latest": ("Temperature", "°C"),
+    "oxygen_saturation_latest": ("SpO2", "%"),
+    "respiratory_rate_latest": ("Respiratory rate", "/min"),
+    "heart_rate_mean": ("Mean heart rate (72 h)", "bpm"),
+    "heart_rate_slope": ("Heart-rate trend", "bpm/h"),
+    "sbp_mean": ("Mean systolic BP (72 h)", "mmHg"),
+    "sbp_slope": ("Systolic-BP trend", "mmHg/h"),
+    "spo2_mean": ("Mean SpO2 (72 h)", "%"),
+    "spo2_min": ("Lowest SpO2 (72 h)", "%"),
+    "spo2_slope": ("SpO2 trend", "%/h"),
+    "temp_max": ("Peak temperature (72 h)", "°C"),
+    "mean_arterial_pressure": ("Mean arterial pressure", "mmHg"),
+    "pulse_pressure": ("Pulse pressure", "mmHg"),
+    "shock_index": ("Shock index", ""),
+    "modified_shock_index": ("Modified shock index", ""),
+    "glucose_latest": ("Glucose", "mg/dL"),
+    "glucose_delta": ("Glucose change", "mg/dL"),
+    "creatinine_latest": ("Creatinine", "mg/dL"),
+    "creatinine_delta": ("Creatinine change", "mg/dL"),
+    "wbc_latest": ("White cell count", "K/uL"),
+    "bun_latest": ("Blood urea nitrogen", "mg/dL"),
+    "bun_creatinine_ratio": ("BUN/creatinine ratio", ""),
+    "hemoglobin_latest": ("Hemoglobin", "g/dL"),
+    "platelets_latest": ("Platelets", "K/uL"),
+    "active_medications_count": ("Active medications", ""),
+}
+
+
+def feature_label(name: str) -> str:
+    """Display name for a feature column, falling back to the column name."""
+    return FEATURE_LABELS.get(name, (name, ""))[0]
+
 
 TARGET_COLUMNS: List[str] = [
     "risk_tier_encoded",

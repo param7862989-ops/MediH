@@ -12,6 +12,7 @@ import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
 
 from src.data.feature_engineering import FEATURE_COLUMNS, TIER_MAP, REVERSE_TIER_MAP
+from src.models.explainability import format_attribution
 from src.utils.config import Config
 from src.utils.logger import get_logger
 
@@ -73,6 +74,7 @@ class DecisionTreeRiskClassifier:
         self.min_samples_leaf = min_samples_leaf
         self.random_state = random_state
         self.feature_names = feature_names or list(FEATURE_COLUMNS)
+        self._shap_explainer = None  # built on first SHAP request, never serialized
 
         self.tree = DecisionTreeClassifier(
             max_depth=max_depth,
@@ -174,6 +176,59 @@ class DecisionTreeRiskClassifier:
 
         return rule_path
 
+    def shap_explanation(self, x_raw: np.ndarray, target_code: Optional[int] = None, top_n: int = 8) -> Optional[Dict[str, Any]]:
+        """Exact TreeSHAP attribution of the tree's class probability for one patient.
+
+        SHAP values split the predicted probability of the target tier into one contribution per
+        feature: base value (average over the training data) + sum of contributions = the tree's
+        predicted probability. Returns None when the shap package is unavailable.
+
+        Args:
+            x_raw: Unscaled feature vector (shape (30,) or (1, 30)).
+            target_code: Tier code to explain (default: the tree's own predicted tier).
+            top_n: Number of largest contributions to return.
+        """
+        if not self.is_fitted:
+            raise RuntimeError("Model must be fitted before computing SHAP values.")
+        try:
+            import shap  # imported lazily: only needed when an explanation is requested
+        except ImportError:
+            logger.warning("shap is not installed; SHAP explanations are unavailable.")
+            return None
+
+        if getattr(self, "_shap_explainer", None) is None:
+            self._shap_explainer = shap.TreeExplainer(self.tree)
+        explainer = self._shap_explainer
+
+        x = np.asarray(x_raw, dtype=np.float64).reshape(1, -1)
+        classes = [int(c) for c in self.tree.classes_]
+        proba = self.tree.predict_proba(x)[0]
+        if target_code is None or target_code not in classes:
+            target_code = classes[int(np.argmax(proba))]
+        class_idx = classes.index(target_code)
+
+        values = explainer.shap_values(x)
+        # shap returns either a list (one array per class) or an array (samples, features, classes)
+        if isinstance(values, list):
+            contrib = np.asarray(values[class_idx])[0]
+        else:
+            arr = np.asarray(values)
+            contrib = arr[0, :, class_idx] if arr.ndim == 3 else arr[0]
+        expected = np.atleast_1d(explainer.expected_value)
+        base_value = float(expected[class_idx] if len(expected) > class_idx else expected[0])
+
+        return format_attribution(
+            feature_names=self.feature_names,
+            contributions=contrib,
+            display_values=x[0],
+            base_value=base_value,
+            predicted_probability=float(proba[class_idx]),
+            target_code=target_code,
+            method="TreeSHAP (exact)",
+            model="Decision Tree",
+            top_n=top_n,
+        )
+
     def save(self, path: Optional[Path] = None) -> None:
         """Serializes Decision Tree model and feature metadata."""
         target_path = path or Config.DECISION_TREE_MODEL_PATH
@@ -201,6 +256,7 @@ class DecisionTreeRiskClassifier:
             feature_names=data.get("feature_names", list(FEATURE_COLUMNS)),
         )
         instance.tree = data["tree"]
+        instance._shap_explainer = None
         instance.is_fitted = True
         logger.info(f"Loaded Decision Tree model from: {target_path}")
         return instance

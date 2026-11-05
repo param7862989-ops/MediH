@@ -1,20 +1,29 @@
-# MediHaven: Integrated Multimodal Clinical Intelligence & Sovereign Medical Vault Platform
+# MediHaven: Clinical Decision Support and Patient-Controlled Medical Record Sharing Platform
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-0284C7?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![Test Suite 77/77 Passing](https://img.shields.io/badge/Test%20Suite-77%2F77%20Passing%20(100%25)-10B981?style=flat&logo=pytest&logoColor=white)](https://pytest.org/)
-[![Benchmark Accuracy 100%](https://img.shields.io/badge/5--Fold%20CV%20Accuracy-100.00%25-10B981?style=flat)](models_store/benchmark_report.md)
-[![Zero Data Leakage](https://img.shields.io/badge/Security-HMAC--SHA256%20Zero--Trust-4338CA?style=flat)](src/vault/)
+[![Test Suite 377 Passing](https://img.shields.io/badge/Test%20Suite-377%20Passing-10B981?style=flat&logo=pytest&logoColor=white)](https://pytest.org/)
+[![Scoped QR Access](https://img.shields.io/badge/Vault-HMAC--SHA256%20Scoped%20QR%20Passes-4338CA?style=flat)](src/vault/)
 [![Google Gemini LLM](https://img.shields.io/badge/GenAI-Google%20Gemini%20Flash-F59E0B?style=flat&logo=google&logoColor=white)](src/nlp/)
 [![RBAC Enabled](https://img.shields.io/badge/Auth-Multi--Role%20RBAC%20(Admin%2FPhysician%2FPatient)-8B5CF6?style=flat)](src/api/auth.py)
 [![Agent Codex](https://img.shields.io/badge/Agent%20Codex-agent--context.md-8B5CF6?style=flat)](agent-context.md)
-[![Clinical UI Anti-AI](https://img.shields.io/badge/Design-Anti--AI%20Obsidian%20Slate-1E293B?style=flat)](static/css/tokens.css)
+[![Explainability SHAP](https://img.shields.io/badge/Explainability-SHAP%20%2B%20K--Means%20Cohort%20Map-0284C7?style=flat)](src/models/explainability.py)
 [![Academic Capstone](https://img.shields.io/badge/SPIT%20CE%202026-TE%20Sem%20V%20Mini%20Project%20I-F59E0B?style=flat)](https://www.spit.ac.in/)
 
-> **Academic Capstone:** Sardar Patel Institute of Technology (SPIT) · Autonomous Institute Affiliated to the University of Mumbai  
-> **Department:** Computer Engineering | Third Year B.Tech (TE) · Semester V (2026)  
-> **Course:** Mini Project I (Integrated Multimodal Clinical Intelligence & Medical Vault Platform)  
-> **Author & Developer:** Nirupam (Branch: `nirupam`)  
-> **Collaborators & Administrators:** Vidhi, Nirupam, Param
+> **Institute:** Sardar Patel Institute of Technology (SPIT), Mumbai · Autonomous Institute affiliated to the University of Mumbai  
+> **Department:** Computer Engineering · T.E. Semester V · Academic Year 2026–27  
+> **Course:** Mini Project I · **Group No. 44**  
+> **Team:** Nirupam Gupta · Vidhi Patel · Param Thakkar  
+> **Project Guide:** Ms. Swapnali Kurhade, Assistant Professor, Department of Computer Engineering  
+> **Project Report:** [`GroupNo-TBD_MediHaven/Final_Report.pdf`](GroupNo-TBD_MediHaven/Final_Report.pdf) · **Poster:** [`GroupNo-TBD_MediHaven/A3_Poster.pdf`](GroupNo-TBD_MediHaven/A3_Poster.pdf)
+
+| Team member | Main areas of work |
+| :--- | :--- |
+| **Nirupam Gupta** | Module structure, 30-feature data pipeline, the four models and ensemble, QR vault service and access log; maintained the `nirupam` branch and the test suite. |
+| **Param Thakkar** | MIMIC-IV research-mode adapter and ingestion, what-if module, security checks, Waitress deployment; technical report and documentation. |
+| **Vidhi Patel** | Front-end interface, CSS design tokens and Jinja2 templates; dashboard and QR-scanner testing, UI test cases, presentation material. |
+
+> **Not for patient care.** MediHaven is an educational prototype. It is not a medical device, has not been
+> clinically validated, and its outputs must not be used for diagnosis or treatment.
 
 ---
 
@@ -26,7 +35,7 @@
 5. [4-Model Machine Learning Ensemble & Explainability](#5-4-model-machine-learning-ensemble--explainability)
 6. [Technology Stack & Explicit Model Implementation Mapping](#6-technology-stack--explicit-model-implementation-mapping)
 7. [Generative AI Clinical Narrative Synthesizer (Google Gemini)](#7-generative-ai-clinical-narrative-synthesizer-google-gemini)
-8. [Enterprise Role-Based Access Control (RBAC) & Authentication](#8-enterprise-role-based-access-control-rbac--authentication)
+8. [Role-Based Access Control (RBAC) & Authentication](#8-role-based-access-control-rbac--authentication)
 9. [Sovereign Patient Medical Vault & Cryptographic QR](#9-sovereign-patient-medical-vault--cryptographic-qr)
 10. [RESTful API Services Reference](#10-restful-api-services-reference)
 11. [Clinical UI Design System & Web Portals](#11-clinical-ui-design-system--web-portals)
@@ -34,7 +43,7 @@
 13. [Repository Directory Structure](#13-repository-directory-structure)
 14. [Quickstart: Single-Command Demo Runner](#14-quickstart-single-command-demo-runner)
 15. [Automated Verification & Test Suite](#15-automated-verification--test-suite)
-16. [Omniscient AI Agent Context & Extension Codex](#16-omniscient-ai-agent-context--extension-codex)
+16. [Agent Context & Extension Guide](#16-agent-context--extension-guide)
 17. [Git Branch & Commit History](#17-git-branch--commit-history)
 18. [Academic Citation & Departmental Sign-Off](#18-academic-citation--departmental-sign-off)
 
@@ -42,7 +51,7 @@
 
 ## 1. Academic & Institutional Context
 
-MediHaven is developed as a production-grade, enterprise-ready clinical decision support and patient sovereignty system designed for the **TE Computer Engineering Semester V Mini Project I** at **Sardar Patel Institute of Technology (SPIT)**.
+MediHaven is an educational clinical decision-support and patient-controlled record-sharing prototype developed for the **TE Computer Engineering Semester V Mini Project I** at **Sardar Patel Institute of Technology (SPIT)**.
 
 The architecture directly bridges theoretical engineering principles across five core curriculum subjects:
 
@@ -69,8 +78,8 @@ The architecture directly bridges theoretical engineering principles across five
 │               │                                  │ Signed JWT Claims         │
 ├───────────────┼──────────────────────────────────┼───────────────────────────┤
 │ CE202         │ Software Engineering             │ 8-Phase Master Build,     │
-│               │                                  │ Anti-AI Clinical Tokens,  │
-│               │                                  │ 77 Automated Test Cases   │
+│               │                                  │ Clinical Design Tokens,   │
+│               │                                  │ 377 Automated Test Cases  │
 └───────────────┴──────────────────────────────────┴───────────────────────────┘
 ```
 
@@ -79,7 +88,7 @@ The architecture directly bridges theoretical engineering principles across five
 ## 2. Clinical Problem Statement & Motivation
 
 ### The Silent Decompensation Window
-In acute hospital care and intensive monitoring units, physiological deterioration leading to cardiac arrest, septic shock, or emergency ICU transfer is rarely sudden. Extensive critical care literature indicates that subtle physiological abnormalities develop **7 to 14 days** prior to adverse clinical events. However, traditional manual chart audits and isolated vital alarms fail to synthesize cross-organ biomarker trajectories.
+In acute hospital care and intensive monitoring units, physiological deterioration leading to cardiac arrest, septic shock, or emergency ICU transfer is rarely sudden. Abnormal vital signs and laboratory trends often appear in the hours to days before a patient deteriorates, but manual chart review and single-parameter alarms make these combined trends easy to miss. (The dashboard's "7–14 day" alert window is a configurable display setting of this prototype, not a validated clinical horizon.)
 
 ### The Black-Box AI Crisis in Medicine
 While deep learning models can predict clinical risk scores, physicians routinely reject "black-box" systems. In high-stakes medicine, clinicians require **actionable explainability**:
@@ -130,7 +139,7 @@ MediHaven was executed strictly following an **8-Phase Master Build Plan**:
                     ▼                                                   ▼
  ┌──────────────────────────────────────────┐  ┌────────────────────────────────────────────┐
  │  CLINICAL INTELLIGENCE ENGINE (Phase 4)  │  │   PATIENT VAULT & SECURITY (Phase 5)       │
- │  • K-Means Clustering (K=4 Risk Tiers)   │  │   • 7-Category Encrypted CRUD Service      │
+ │  • K-Means Cohort Map (K=4 clusters)     │  │   • 7-Category Encrypted CRUD Service      │
  │  • Decision Tree (Unscaled Physical Rules│  │   • HMAC-SHA256 Signed JWT Token Engine    │
  │  • KNN Similarity Engine (K=5 Precedents)│  │   • High-Contrast Base64 PNG QR Generator  │
  │  • MLP Neural Net (30d Readmission Risk) │  │   • OpenCV Bedside Optical QR Decoder      │
@@ -238,35 +247,34 @@ MediHaven integrates four complementary algorithms into a unified clinical predi
                        ┌───────────────────────────────┐
                        │   7-14 DAY EARLY WARNING      │
                        │   DETERIORATION TRIGGER       │
-                       │ (SI >= 0.90 or SpO2 < 92%)    │
+                       │ (SI >= 0.90 or MAP < 65)      │
                        └───────────────────────────────┘
 ```
 
 1. **Clinical Decision Tree Classifier** *(Weight: 30% / 0.30)*:
-   * **Accuracy: 98.5% | AUROC: 94.8%**
-   * Evaluates physiological rules directly on **raw, unscaled clinical measurements** (`max_depth=5`, cost-complexity pruned).
-   * Emits human-readable breadcrumb paths: `Glucose Latest <= 111.25 mg/dL [Observed: 98.40 mg/dL] -> Classification Outcome: LOW RISK TIER`.
+   * Trained on **raw, unscaled clinical measurements** (`max_depth=5`), so split thresholds stay in clinical units.
+   * Emits human-readable rule paths: `Glucose Latest <= 111.25 mg/dL [Observed: 98.40 mg/dL] -> Classification Outcome: LOW RISK TIER`.
+   * **SHAP:** exact TreeSHAP values show how much each feature moved the tree's predicted probability.
 
 2. **Multi-Layer Perceptron (MLP Neural Network)** *(Weight: 30% / 0.30)*:
-   * **Accuracy: 99.2% | AUROC: 95.4%** *(Highest individual accuracy)*
-   * Architecture: Input (30) $\rightarrow$ Dense(64, ReLU) $\rightarrow$ Dense(32, ReLU) $\rightarrow$ Dual Output: Softmax Tier Classifier & Continuous 30-day Readmission Risk Regressor.
-   * Models complex non-linear hemodynamic and biomarker cross-correlations.
+   * Architecture: Input (30) $\rightarrow$ Dense(64, ReLU) $\rightarrow$ Dense(32, ReLU) $\rightarrow$ Softmax tier classifier, plus a separate MLP regressor for the 30-day readmission estimate.
+   * **SHAP:** permutation SHAP against the reference cohort (fixed seed), so every one of the 30 features gets a contribution.
 
 3. **k-Nearest Neighbors (KNN)** *(Weight: 25% / 0.25)*:
-   * **Accuracy: 97.8% | AUROC: 93.9%**
-   * Uses $K=5$ nearest neighbors with **BallTree spatial indexing** over normalized Euclidean space.
-   * Case-Based Reasoning: surfaces the top-5 historical patient cases and computes empirical therapeutic protocol success rates (e.g., *90% Success on Protocol C*).
+   * Uses $K=5$ nearest neighbors over standardized Euclidean space.
+   * Case-based reasoning: surfaces the 5 most similar reference patients and the protocol most of them received.
 
-4. **K-Means Phenotype Clustering** *(Weight: 15% / 0.15)*:
-   * **Accuracy: 96.4% | AUROC: 92.1%**
-   * Partitions patients into 4 objective clinical phenotypes: *Septic, Cardiogenic, Acute, Stable*.
-   * Converts geometric distance to cluster centroids into soft membership probabilities via inverse-distance softmax.
+4. **K-Means Patient Cohort Discovery** *(Weight: 15% / 0.15)*:
+   * **Step 1, unsupervised:** groups patients into $K=4$ clusters from the 30 standardized features alone (k-means++, `n_init=10`). Risk labels are **not** used.
+   * **Step 2, cluster-to-tier mapping:** each discovered cluster is then named with the tier most of its members share (majority vote). Each cluster's **purity** (share of members matching its tier) and the **silhouette score** are reported, so the mapping can be checked.
+   * **Cohort map in the patient chart:** all reference patients projected onto two principal components (PCA), coloured by cluster, with centroids and the current patient marked. Alongside it: cluster size, tier mix, readmission and ICU-transfer rates, and a table comparing the patient's vitals and labs with their cluster's mean. Clicking any point opens that patient's chart.
+   * Its vote is a soft membership from inverse centroid distances, re-ordered by the mapped tier.
+   * On the synthetic cohort the four clusters match the four tiers exactly (purity 1.00, silhouette 0.41). That reflects how the synthetic data is generated, not clinical skill.
 
 5. **Consensus Ensemble Weighted Fusion**:
    $$P_{\text{consensus}} = 0.30 \cdot P_{\text{DT}} + 0.30 \cdot P_{\text{NN}} + 0.25 \cdot P_{\text{KNN}} + 0.15 \cdot P_{\text{KM}}$$
-   * **Model Consensus AUROC: 95.4% | Holdout Accuracy: 99.4% (100% on 5-Fold CV)**
-   * Precision: **98.7%** | Recall: **99.1%** | F1-Score: **98.9%**
-   * Mean Pure Inference Latency: **1.53 ms** (P95: **2.40 ms**).
+   * The weights are fixed, hand-set values (not learned from data).
+   * Performance on the synthetic cohort: see [Section 12](#12-empirical-clinical-benchmarking-results). Performance on real ICU data (MIMIC-IV Demo): see research mode.
 
 ---
 
@@ -279,8 +287,9 @@ To provide complete architectural transparency, the table below maps **every mod
 | **Clinical Decision Tree** | [`src/models/decision_tree_model.py`](src/models/decision_tree_model.py)<br>`ClinicalDecisionTreeModel` | `DecisionTreeClassifier(max_depth=5, min_samples_leaf=3, ccp_alpha=0.005)`<br>Evaluates **unscaled raw physical units** | [`models_store/decision_tree_model.joblib`](models_store/decision_tree_model.joblib) | **30%** (0.30) | `GET /api/patients/<id>/predict`<br>Extracted via `extract_rule_path()`, saved to `predictions.decision_tree_path` | [`templates/dashboard.html`](templates/dashboard.html) & [`static/js/dashboard.js`](static/js/dashboard.js) (Slide-over drawer -> *Explainable Decision Tree Breadcrumbs*) |
 | **Multi-Layer Perceptron (MLP)** | [`src/models/neural_network_model.py`](src/models/neural_network_model.py)<br>`ClinicalNeuralNetworkModel` | `MLPClassifier(hidden_layer_sizes=(64, 32), activation='relu', solver='adam')`<br>30 features scaled via `StandardScaler` | [`models_store/neural_network_model.joblib`](models_store/neural_network_model.joblib) | **30%** (0.30) | `GET /api/patients/<id>/predict`<br>Calculates tier probability + `readmission_30d_risk` stored in `predictions` table | [`templates/dashboard.html`](templates/dashboard.html) (Risk Meter & 30-Day Readmission pill), [`templates/admin.html`](templates/admin.html) (MLP weights telemetry) |
 | **k-Nearest Neighbors (KNN)** | [`src/models/knn_model.py`](src/models/knn_model.py)<br>`ClinicalKNNModel` | `NearestNeighbors(n_neighbors=5, algorithm='ball_tree', metric='euclidean')`<br>Case-based historical cohort search | [`models_store/knn_model.joblib`](models_store/knn_model.joblib) | **25%** (0.25) | `GET /api/patients/<id>/predict`<br>`GET /api/patients/<id>/similar`<br>Matches saved to `similar_patient_ids` | [`templates/dashboard.html`](templates/dashboard.html) (Slide-over drawer -> *Top-5 Historical Precedents & Protocol Success Badges*) |
-| **K-Means Phenotype Clustering** | [`src/models/kmeans_model.py`](src/models/kmeans_model.py)<br>`ClinicalKMeansModel` | `KMeans(n_clusters=4, init='k-means++', n_init=10)`<br>Inverse centroid distance Softmax: $P_k = \frac{1/d_k}{\sum 1/d_j}$ | [`models_store/kmeans_model.joblib`](models_store/kmeans_model.joblib) | **15%** (0.15) | `GET /api/patients/<id>/predict`<br>`GET /api/dashboard/summary`<br>Cohort phenotype mapping | [`templates/dashboard.html`](templates/dashboard.html) (Triage Census risk categories), [`templates/admin.html`](templates/admin.html) (Cluster distribution) |
-| **Ensemble Fusion Engine** | [`src/models/ensemble.py`](src/models/ensemble.py)<br>`EnsembleClinicalPredictor` | Weighted Softmax Consensus:<br>$0.30\text{DT} + 0.30\text{NN} + 0.25\text{KNN} + 0.15\text{KM}$<br>Safety override: $\text{SI}\ge 0.90 \lor \text{SpO}_2<92\%$ | [`models_store/ensemble_metadata.json`](models_store/ensemble_metadata.json) | **100%** (Unified) | Preloaded into Flask `current_app.ensemble_predictor` in [`src/api/app.py`](src/api/app.py); runs on every triage view | Census KPI Marquee, priority-sorted patient queue, deterioration alert banners across all views |
+| **K-Means Cohort Discovery** | [`src/models/kmeans_model.py`](src/models/kmeans_model.py)<br>`KMeansRiskClustering` | `KMeans(n_clusters=4, init='k-means++', n_init=10)` fit without labels; clusters mapped to tiers by majority vote; `PCA(2)` cohort map, silhouette and purity | [`models_store/kmeans_model.joblib`](models_store/kmeans_model.joblib) | **15%** (0.15) | `GET /api/patients/<id>/predict` (`kmeans_cluster`)<br>`GET /api/patients/<id>/cluster-map` | [`templates/dashboard.html`](templates/dashboard.html) (K-Means Patient Cohort Map in the patient chart) |
+| **SHAP Explainability** | [`src/models/explainability.py`](src/models/explainability.py)<br>`DecisionTreeRiskClassifier.shap_explanation` | `shap.TreeExplainer` (exact) for the Decision Tree; `shap.PermutationExplainer` (reference cohort as background, seed 42) for the MLP | computed per request | — | `GET /api/patients/<id>/predict` (`shap_explanations`) | [`templates/dashboard.html`](templates/dashboard.html) (SHAP Feature Attribution chart, Neural Net / Decision Tree toggle) |
+| **Ensemble Fusion Engine** | [`src/models/ensemble.py`](src/models/ensemble.py)<br>`EnsembleClinicalPredictor` | Fixed-weight consensus:<br>$0.30\text{DT} + 0.30\text{NN} + 0.25\text{KNN} + 0.15\text{KM}$<br>Safety override: $\text{SI}\ge 0.90 \lor \text{MAP}<65$ | [`models_store/ensemble_metadata.json`](models_store/ensemble_metadata.json) | Combined | Preloaded into Flask `current_app.ensemble_predictor` in [`src/api/app.py`](src/api/app.py); runs on every triage view | Census KPI Marquee, priority-sorted patient queue, deterioration alert banners across all views |
 | **Google Gemini Generative AI** | [`src/nlp/summarizer.py`](src/nlp/summarizer.py)<br>`ClinicalNarrativeSummarizer` | `gemini-3.5-flash-lite` / `gemini-flash-latest`<br>Prompt synthesizes vitals, DT rules, KNN precedents, and clinical trajectories | Configured via `GEMINI_API_KEY` in `.env`<br>*(Includes deterministic rule-based offline fallback)* | N/A (Copilot) | `GET`/`POST /api/patients/<id>/clinical-narrative`<br>`POST /api/admin/gemini/synthesize` in `predictions.py` | [`templates/dashboard.html`](templates/dashboard.html) (*Clinical Handover* & *Discharge Summary* modals), [`templates/admin.html`](templates/admin.html) (*Interactive AI Sandbox*) |
 | **Cryptographic QR Token Engine** | [`src/vault/qr_generator.py`](src/vault/qr_generator.py)<br>`generate_vault_access_token()`<br>`revoke_vault_access_token()` | RFC 7519 HMAC-SHA256 JWT claims (`sub`, `mrn`, `scope`, `iat`, `exp`, `jti`, `max_uses`). Renders Base64 PNG matrix | Database table `vault_access_tokens` | N/A (Zero-Trust Security) | `POST /api/vault/<id>/share`<br>`POST /api/vault/revoke/<token_id>` in [`src/api/routes/vault.py`](src/api/routes/vault.py) | [`templates/patient_vault.html`](templates/patient_vault.html) & [`static/js/vault.js`](static/js/vault.js) (*Scoped QR Pass Modal* & 1-Click *Revoke Access* button) |
 | **Bedside Optical QR Scanner** | [`src/vault/qr_scanner.py`](src/vault/qr_scanner.py)<br>`extract_qr_text_from_image()`<br>`scan_and_validate_qr()` | Multi-input decoder: OpenCV `cv2.QRCodeDetectorAruco` / `cv2.QRCodeDetector` + Pyzbar fallback. Live signature & revocation check | Database table `vault_access_log` | N/A (Bedside Verification) | `POST /api/vault/access` in [`src/api/routes/vault.py`](src/api/routes/vault.py) | [`templates/scanner.html`](templates/scanner.html) & [`static/js/scanner.js`](static/js/scanner.js) (Live camera viewfinder, drag-and-drop QR image reader, token parser) |
@@ -291,7 +300,7 @@ To provide complete architectural transparency, the table below maps **every mod
 
 ## 7. Generative AI Clinical Narrative Synthesizer (Google Gemini)
 
-MediHaven incorporates an enterprise generative clinical narrative engine ([`src/nlp/summarizer.py`](src/nlp/summarizer.py)) powered by **Google Gemini Generative AI** (`gemini-3.5-flash-lite`, `gemini-flash-latest`):
+MediHaven includes an optional generative clinical narrative feature ([`src/nlp/summarizer.py`](src/nlp/summarizer.py)) powered by **Google Gemini Generative AI** (`gemini-3.5-flash-lite`, `gemini-flash-latest`):
 
 ```
                    MULTIMODAL CLINICAL GENERATIVE AI PIPELINE
@@ -331,7 +340,7 @@ MediHaven incorporates an enterprise generative clinical narrative engine ([`src
 
 ---
 
-## 8. Enterprise Role-Based Access Control (RBAC) & Authentication
+## 8. Role-Based Access Control (RBAC) & Authentication
 
 MediHaven enforces strict role-based access control ([`src/api/auth.py`](src/api/auth.py)) to safeguard patient privacy, clinical workflows, and administrative telemetry across three distinct organizational roles:
 
@@ -417,6 +426,7 @@ The Flask backend ([`src/api/`](src/api/)) exposes standardized JSON endpoints (
 | `GET` | `/api/patients/<id>/labs` | Chronological biomarker history | Physician, Admin |
 | `GET` | `/api/patients/<id>/predict` | Live multi-model ML inference (<2.5ms) | Physician, Admin |
 | `GET` | `/api/patients/<id>/similar` | KNN precedent cases & protocol success | Physician, Admin |
+| `GET` | `/api/patients/<id>/cluster-map` | K-Means cohort map: PCA points, cluster profiles, patient placement | Physician, Admin |
 | `GET` | `/api/patients/<id>/clinical-narrative` | Google Gemini clinical handover / discharge synthesis | Physician, Admin |
 | `GET` | `/api/dashboard/summary` | Hospital cohort census & tier distribution | Physician, Admin |
 | `GET` | `/api/alerts` | Active 7–14 day deterioration alerts | Physician, Admin |
@@ -435,7 +445,7 @@ The Flask backend ([`src/api/`](src/api/)) exposes standardized JSON endpoints (
 
 ## 11. Clinical UI Design System & Web Portals
 
-Built with an **Anti-AI Clinical Design Philosophy** ([`static/css/tokens.css`](static/css/tokens.css)):
+Built with a **restrained clinical design system** ([`static/css/tokens.css`](static/css/tokens.css)):
 * **Obsidian Slate Palette**: Deep charcoal background (`#0B0F17`, `#111827`, `#1E293B`) eliminating eye strain during night shifts.
 * **Hairline Borders**: Crisp `1px solid rgba(255,255,255,0.08)` divisions.
 * **Calibrated Semantics**: Critical Crimson (`#EF4444`), Medical Tangerine (`#F97316`), Observation Amber (`#F59E0B`), Stable Sage (`#10B981`), Surgical Cobalt (`#0284C7`).
@@ -443,7 +453,7 @@ Built with an **Anti-AI Clinical Design Philosophy** ([`static/css/tokens.css`](
 
 ### The 6 MediHaven Web Portals:
 1. **🏠 Architectural Hero & Landing Portal (`/`)**:
-   * Enterprise introductory portal detailing system architecture, multimodal pipeline, clinical motivation, and immediate role-based portal routing.
+   * Introductory portal detailing system architecture, multimodal pipeline, clinical motivation, and immediate role-based portal routing.
 2. **👤 Role Selection & Authentication Portal (`/login`)**:
    * Interactive role selector with distinct login profiles for Administrators, Physicians, and Patients.
 3. **🩺 Physician Clinical Triage Dashboard (`/dashboard`)**:
@@ -464,7 +474,7 @@ Built with an **Anti-AI Clinical Design Philosophy** ([`static/css/tokens.css`](
    * Scoped read-only medical record cards highlighting allergies in critical red borders.
    * **Zero Data Leakage Banner** verifying that non-authorized categories were cryptographically sealed at the server.
 6. **📊 Hospital Administrator & AI Observability Portal (`/admin`)**:
-   * Real-time telemetry monitoring for all 4 ML models (weights, AUROC, accuracy, P95 latency).
+   * Telemetry for all 4 synthetic-ensemble models (weights, status, latency).
    * Interactive Google Gemini clinical narrative test console.
    * Hospital census demographics and ward occupancy metrics.
 
@@ -472,23 +482,42 @@ Built with an **Anti-AI Clinical Design Philosophy** ([`static/css/tokens.css`](
 
 ## 12. Empirical Clinical Benchmarking Results
 
-Evaluated via stratified 5-fold cross-validation on the complete 100-patient multimodal cohort ([`src/evaluation/benchmark.py`](src/evaluation/benchmark.py)):
+### Synthetic cohort: a pipeline check, not clinical accuracy
+The benchmark ([`src/evaluation/benchmark.py`](src/evaluation/benchmark.py)) runs stratified 5-fold
+cross-validation and a 20-patient hold-out on the 100 synthetic patients. Every metric comes out at 1.00:
+accuracy, weighted precision, recall and F1. **That does not measure clinical skill.** The synthetic
+patients are generated tier by tier from tier-specific value ranges, so the tiers can be separated by
+construction. The K-Means clusters show the same thing: they match the tiers exactly (purity 1.00). A
+perfect score only shows that the pipeline learns the data generator correctly.
 
-| Performance Metric | Project Target Threshold | 5-Fold CV Mean | Holdout Test (20%) | Compliance Status |
-| :--- | :---: | :---: | :---: | :---: |
-| **Model Classification Accuracy** | $\ge 91.0\%$ | **100.00%** $\pm$ 0.00% | **100.00%** | **PASSED** |
-| **Weighted Precision** | $\ge 89.0\%$ | **100.00%** $\pm$ 0.00% | **100.00%** | **PASSED** |
-| **Clinical Recall (Sensitivity)** | $\ge 88.0\%$ | **100.00%** $\pm$ 0.00% | **100.00%** | **PASSED** |
-| **F1-Score** | $\ge 89.0\%$ | **100.00%** $\pm$ 0.00% | **100.00%** | **PASSED** |
-| **Pure Inference Latency** | $\le 25.0\text{ ms}$ | — | **1.53 ms** (P95: **2.40 ms**) | **PASSED** |
+| Check | Result on synthetic data |
+| :--- | :--- |
+| Ensemble hold-out accuracy (20 patients) | 1.00 (separable by construction) |
+| K-Means silhouette score / overall tier purity | 0.41 / 1.00 |
+| Mean inference latency per patient | see `models_store/benchmark_report.md` |
 
-### Confusion Matrix on Holdout Split (Risk Tiers)
-$$\begin{pmatrix}
-7 & 0 & 0 & 0 \\
-0 & 6 & 0 & 0 \\
-0 & 0 & 4 & 0 \\
-0 & 0 & 0 & 3
-\end{pmatrix} \quad \begin{matrix} \text{Row 0: Low Risk (7/7)} \\ \text{Row 1: Medium Risk (6/6)} \\ \text{Row 2: High Risk (4/4)} \\ \text{Row 3: Critical Risk (3/3)} \end{matrix}$$
+### Real ICU data: research mode (MIMIC-IV Clinical Database Demo)
+Research mode rebuilds an in-hospital mortality task from the openly available MIMIC-IV Clinical Database
+Demo 2.2. The prediction is made 24 hours after ICU admission, using only data from those first 24 hours.
+On the 107 eligible ICU stays (11 in-hospital deaths), patient-grouped 5-fold cross-validation gives
+pooled AUROCs of roughly 0.74 (logistic regression), 0.73 (random forest), 0.77 (neural network) and
+0.56 (smoothed decision tree). The 95% intervals span about 0.35–0.91, so the demo cohort is far too
+small for stable estimates.
+
+Research mode is opt-in, runs on loopback only, never calls an external AI service, and serves only model
+artifacts whose SHA-256 hashes verify. To run it, download the demo from PhysioNet, then:
+
+```bash
+export MIMIC_IV_DIR=/path/to/mimic-iv-clinical-database-demo-2.2
+export MIMIC_OUTPUT_DIR=/path/outside/the/repo/medihaven-output
+python -m src.tasks.build_mimic_t1        # build the versioned Task 1 dataset
+python -m src.training.train_mimic_t1     # grouped-CV baselines + verified artifacts
+DATA_MODE=mimic python run_demo.py        # serve the research pages on 127.0.0.1
+```
+
+Details: [`docs/research/mimic_iv_task1_dataset.md`](docs/research/mimic_iv_task1_dataset.md),
+[`docs/research/phase2_training_evaluation.md`](docs/research/phase2_training_evaluation.md),
+[`docs/research/phase3_integration_security.md`](docs/research/phase3_integration_security.md).
 
 ---
 
@@ -509,7 +538,7 @@ MediH/
 ├── models_store/
 │   ├── scaler.joblib                   # Serialized multimodal feature scaler
 │   ├── feature_columns.json            # 30-feature schema definition manifest
-│   ├── kmeans_model.joblib             # K=4 unsupervised risk clustering model
+│   ├── kmeans_model.joblib             # K=4 clusters, cluster-to-tier map, PCA cohort map
 │   ├── decision_tree_model.joblib      # Interpretable physical rule classifier
 │   ├── knn_model.joblib                # K=5 similarity & protocol recommendation engine
 │   ├── neural_network_model.joblib     # Multi-layer perceptron neural network
@@ -530,7 +559,8 @@ MediH/
 │   │   ├── scaler.py                   # Zero-leakage Standard scaler
 │   │   └── pipeline.py                 # Batch pipeline & single-patient transformer
 │   ├── models/
-│   │   ├── kmeans_model.py             # K-Means K=4 risk tiering
+│   │   ├── kmeans_model.py             # K-Means cohort discovery + cluster-to-tier mapping
+│   │   ├── explainability.py           # SHAP (TreeSHAP for the tree, permutation SHAP for the MLP)
 │   │   ├── decision_tree_model.py      # Decision tree explainability engine
 │   │   ├── knn_model.py                # KNN case-based precedent matcher
 │   │   ├── neural_network_model.py     # MLP classifier & continuous regressor
@@ -562,7 +592,7 @@ MediH/
 │   │   ├── favicon.svg                 # Scalable browser SVG favicon
 │   │   └── favicon.ico                 # Multi-resolution browser favicon
 │   ├── css/
-│   │   ├── tokens.css                  # Anti-AI design tokens (Obsidian slate)
+│   │   ├── tokens.css                  # Design tokens (dark slate palette)
 │   │   └── styles.css                  # High-density clinical component stylesheet
 │   └── js/
 │       ├── admin.js                    # Admin dashboard, model telemetry, Gemini playground
@@ -594,7 +624,7 @@ MediH/
 ├── master-build.md                     # Master engineering build plan
 ├── requirements.txt                    # Pinned production dependencies
 ├── run_demo.py                         # Single-command application launcher
-├── agent-context.md                    # Omniscient AI Agent Context & Architecture Codex
+├── agent-context.md                    # Architecture notes for new contributors
 └── README.md                           # Master project documentation
 ```
 
@@ -655,33 +685,18 @@ security notes. Research mode (`DATA_MODE=mimic`) is never deployable.
 
 ## 15. Automated Verification & Test Suite
 
-MediHaven includes an automated PyTest suite with **77 unit, integration, cryptographic, NLP, and UI tests across 10 modules** with a **100% pass rate**:
+MediHaven includes an automated pytest suite of **377 tests across 19 modules**, all passing (last run:
+5 November 2026, Python 3.13, about 2 minutes). This is a pass count, not a code-coverage figure.
 
 ```bash
-pytest tests/ -v
+pip install -r requirements-dev.txt
+pytest tests/ -q
 ```
 
-### Test Suite Execution Output
-```
-============================= test session starts ==============================
-platform darwin -- Python 3.13.12, pytest-9.1.1, pluggy-1.6.0
-rootdir: /Users/vidhipatel/Documents/Mini_Project/MediH
-plugins: cov-7.1.0
-collected 77 items
-
-tests/test_api.py ......................                                 [ 28%]
-tests/test_auth.py ..........                                            [ 41%]
-tests/test_benchmark.py ...                                              [ 45%]
-tests/test_data_pipeline.py .......                                      [ 54%]
-tests/test_database.py ......                                            [ 62%]
-tests/test_foundation.py ....                                            [ 67%]
-tests/test_models.py .......                                             [ 76%]
-tests/test_nlp.py ....                                                   [ 81%]
-tests/test_presentation.py .....                                         [ 88%]
-tests/test_vault.py .........                                            [100%]
-
-============================== 77 passed in 7.81s ==============================
-```
+The suite covers the database, feature pipeline, the four models and ensemble (including the K-Means
+cohort map and SHAP additivity checks), the QR vault, the REST API, authentication, security and
+deployment hardening, the Gemini fallback, and the MIMIC-IV research pipeline (dataset build,
+grouped cross-validation, verified-artifact serving).
 
 ### Running the Clinical Benchmarking Suite
 To re-run the 5-fold cross-validation report and export new benchmark JSON/Markdown artifacts:
@@ -691,11 +706,11 @@ python -m src.evaluation.benchmark
 
 ---
 
-## 16. Omniscient AI Agent Context & Extension Codex
+## 16. Agent Context & Extension Guide
 
 For autonomous AI agents, LLM copilots, and future engineering collaborators onboarding to this repository, a comprehensive single-source architecture codex is maintained in the root directory:
 
-📄 **[`agent-context.md`](agent-context.md)** — *The Omniscient AI Agent Context, Memory Codex & System Blueprint*
+📄 **[`agent-context.md`](agent-context.md)** — *architecture notes and system blueprint for new contributors*
 
 ### What `agent-context.md` Provides:
 1. **Zero Context Loss Onboarding**: Complete operational briefing covering the academic origins (SPIT CE 2026), core problem statement, and engineering philosophy.
@@ -703,7 +718,7 @@ For autonomous AI agents, LLM copilots, and future engineering collaborators onb
 3. **End-to-End System Architecture**: Relational database schemas, SQLite WAL connection management, 30-feature vector definitions, and mathematical derivations.
 4. **The 4-Model Intelligence Ensemble**: Algorithmic specifications for K-Means ($K=4$), Decision Tree rule extraction, KNN ($K=5$) precedent retrieval, and MLP Dual-Head Neural Network inference.
 5. **Zero-Trust Cryptographic Vault & QR Protocols**: HMAC-SHA256 JWT claims, 7-category field-level scope isolation matrix, replay protection, and tamper audit trails.
-6. **Presentation Layer & Design Tokens**: Anti-AI clinical design tokens, obsidian color palettes, typography scales, SVG charts, and vanilla JS state loops.
+6. **Presentation Layer & Design Tokens**: clinical design tokens, obsidian color palettes, typography scales, SVG charts, and vanilla JS state loops.
 7. **Production Gotchas & Critical Hard Constraints**: Documented historical bugs (Windows CP1252 charmap encoding, PyJWT RFC 7519 sub string casting, SQLite CHECK constraint mappings, dataset split tolerance) and exact mitigation rules.
 8. **Extensibility Playbook**: Step-by-step guides for adding new clinical models, expanding vault scope categories, integrating real-time IoT feeds, or migrating to PostgreSQL.
 
@@ -711,35 +726,32 @@ For autonomous AI agents, LLM copilots, and future engineering collaborators onb
 
 ## 17. Git Branch & Commit History
 
-All development was executed on active working branch **`nirupam`** and merged into **`main`**:
+Work was done on the `nirupam` and `param` branches and merged into `main` through pull requests on
+[param7862989-ops/MediH](https://github.com/param7862989-ops/MediH). Milestones, oldest first:
 
-```bash
-214c243 docs: integrate agent-context codex and update master README
-4333c21 docs: author omniscient agent-context.md codex for autonomous agent continuity
-cd4422a docs: rename legacy build/readme files and author comprehensive master README.md
-f801f9b feat(evaluation): implement clinical benchmarking engine, demo runner, and validation suite (Phase 8)
-5a54533 feat(presentation): implement clinical triage dashboard, patient vault, QR scanner, and UI design system (Phase 7)
-eb542ed feat(api): implement Flask RESTful API layer, in-memory model caching, route blueprints, and test suite (Phase 6)
-ed15f85 feat(vault): implement cryptographic QR token engine, scope isolation, and audit trail (Phase 5)
-9d556a8 feat(models): implement 4-model clinical intelligence ensemble and explainability engine (Phase 4)
-4934048 feat(data): implement clinical feature engineering pipeline and normalization engine (Phase 3)
-329bc8b feat(database): implement relational schema, WAL connection manager, and 100-patient clinical seeding engine (Phase 2)
-00816df feat(init): initialize MediHaven architecture, configuration, UI design tokens, and Phase 1 foundation
-```
+| Stage | Commits |
+| :--- | :--- |
+| Phases 1–8: foundation, database, feature pipeline, four-model ensemble, QR vault, REST API, UI, benchmark | `00816df` → `f801f9b` |
+| RBAC authentication, Gemini narrative, security and RBAC fixes | `a8f9cbc`, `87842dd`, `d8bc161` |
+| Research track: data modes and test isolation, MIMIC-IV adapter, Task 1 dataset, leakage-aware baselines, verified research serving | `0d6fce7` → `696e209` |
+| Research dashboard, model set v2, deployment hardening, research triage page | `cce0098` → `474f342` |
+| K-Means cohort map, SHAP explanations, README accuracy fixes, final report | this release |
+
+See the full history with `git log --oneline`.
 
 ---
 
 ## 18. Academic Citation & Departmental Sign-Off
 
 ```bibtex
-@project{medihaven2026,
-  title     = {MediHaven: Integrated Multimodal Clinical Intelligence and Sovereign Medical Vault Platform},
-  author    = {Nirupam, Vidhi, Param},
-  school    = {Sardar Patel Institute of Technology (SPIT)},
-  department= {Department of Computer Engineering},
-  year      = {2026},
-  course    = {TE Sem V Mini Project I},
-  keywords  = {Clinical AI, Decision Trees, K-Means, KNN, Neural Networks, Google Gemini, Zero-Trust QR, Explainable AI, RBAC}
+@misc{medihaven2026,
+  title        = {MediHaven: Clinical Decision Support and Patient-Controlled Medical Record Sharing Platform},
+  author       = {Gupta, Nirupam and Patel, Vidhi and Thakkar, Param},
+  howpublished = {T.E. Mini Project I report, Group No. 44, Department of Computer Engineering,
+                  Sardar Patel Institute of Technology, Mumbai. Guide: Ms. Swapnali Kurhade},
+  year         = {2026},
+  url          = {https://github.com/param7862989-ops/MediH},
+  keywords     = {clinical decision support, explainable ML, K-Means, SHAP, KNN, MIMIC-IV, patient-controlled records, QR access}
 }
 ```
 

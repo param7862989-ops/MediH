@@ -625,3 +625,29 @@ def test_vitals_window_ends_at_latest_reading_not_wall_clock(client: FlaskClient
             conn.execute("PRAGMA foreign_keys = ON")
             conn.execute("DELETE FROM vitals WHERE patient_id = ?", (patient_id,))
             conn.execute("DELETE FROM patients WHERE patient_id = ?", (patient_id,))
+
+
+def test_get_cluster_map(client: FlaskClient):
+    """K-Means cohort map endpoint: all reference points, 4 cluster profiles, and the patient's placement."""
+    response = client.get("/api/patients/1/cluster-map")
+    assert response.status_code == 200
+    data = response.get_json()["data"]
+    assert len(data["clusters"]) == 4
+    assert len(data["points"]) == data["n_reference_patients"]
+    assert data["patient"]["patient_id"] == 1
+    assert data["patient"]["mapped_tier"] in {"Low", "Medium", "High", "Critical"}
+    assert len(data["patient"]["coords_2d"]) == 2
+
+
+def test_cluster_map_unknown_patient_is_404(client: FlaskClient):
+    response = client.get("/api/patients/99999/cluster-map")
+    assert response.status_code == 404
+
+
+def test_prediction_includes_shap_and_cluster(client: FlaskClient):
+    response = client.get("/api/patients/1/predict")
+    assert response.status_code == 200
+    data = response.get_json()["data"]
+    assert set(data["shap_explanations"]) == {"decision_tree", "neural_network"}
+    assert data["shap_explanations"]["neural_network"]["features"]
+    assert data["kmeans_cluster"]["mapped_tier"] == data["model_consensus"]["kmeans_tier"]

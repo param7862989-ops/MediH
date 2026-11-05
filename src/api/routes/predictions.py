@@ -116,6 +116,21 @@ def get_similar_cases(patient_id: int):
                               status_code=500)
 
 
+@predictions_bp.route("/patients/<int:patient_id>/cluster-map", methods=["GET"])
+@role_required(CLINICAL_ROLES)
+def get_cluster_map(patient_id: int):
+    """K-Means cohort map: every reference patient in 2-D (PCA), cluster profiles, and this patient's placement."""
+    try:
+        ensemble = get_ensemble()
+        return success_response(data=ensemble.cluster_map_for_patient(patient_id))
+    except ValueError as e:
+        return error_response(message=str(e), code="PATIENT_NOT_FOUND", status_code=404)
+    except Exception as e:
+        logger.error(f"Cluster map error for patient {patient_id}: {e}", exc_info=True)
+        return error_response(message="The K-Means cohort map is unavailable.", code="CLUSTER_MAP_ERROR",
+                              status_code=500)
+
+
 @predictions_bp.route("/dashboard/summary", methods=["GET"])
 @role_required(CLINICAL_ROLES)
 def get_dashboard_summary():

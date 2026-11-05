@@ -252,10 +252,15 @@ def generate_markdown_report(report: Dict[str, Any]) -> str:
     cv = report["cross_validation_5fold"]
     c = report["compliance"]
 
-    return f"""# MediHaven Clinical Benchmarking & Model Evaluation Report
+    return f"""# MediHaven Synthetic Pipeline Benchmark (Sanity Check)
 **Timestamp:** {report["timestamp"]}  
-**Overall Validation Status:** `{'PASSED (ALL TARGETS MET)' if report['status'] == 'PASS' else 'FAILED'}`  
+**Pipeline check status:** `{'PASSED (ALL TARGETS MET)' if report['status'] == 'PASS' else 'FAILED'}`  
 **Project:** SPIT Department of Computer Engineering · Sem V Mini Project I
+
+> **Read this first.** These figures come from the 100 *synthetic* demo patients, which are generated
+> tier by tier from tier-specific value ranges, so the tiers are separable by construction. Scores near
+> 1.00 show that the pipeline learns the data generator; they are **not** a measure of clinical accuracy.
+> Results on real ICU data (MIMIC-IV Demo) are reported separately by research mode.
 
 ---
 
