@@ -85,7 +85,8 @@ MediH/
 │   │   └── pipeline.py                 # Batch pipeline & single-patient live transformer
 │   ├── models/
 │   │   ├── __init__.py
-│   │   ├── kmeans_model.py             # K=4 risk tiering & geometric probabilities
+│   │   ├── kmeans_model.py             # K=4 cohort clusters, tier mapping, PCA map
+│   │   ├── explainability.py           # SHAP attributions (TreeSHAP + permutation)
 │   │   ├── decision_tree_model.py      # Unscaled rule path traverser
 │   │   ├── knn_model.py                # Historical precedent matcher & protocol success aggregator
 │   │   ├── neural_network_model.py     # MLP softmax classifier & readmission risk regressor
@@ -169,7 +170,8 @@ MediH/
 * **Parquet Feature Store (`src/data/pipeline.py`):** Stratified 80/20 split saved to `data/processed/train.parquet` (80 rows) and `test.parquet` (20 rows) with a strict zero-null guarantee.
 
 ### Phase 4: 4-Model ML Intelligence & Explainability Engine
-* **K-Means Clustering (`src/models/kmeans_model.py`):** $K=4$ clusters mapped to Low, Medium, High, and Critical. Converts Euclidean distance from centroids to membership probabilities.
+* **K-Means Cohort Discovery (`src/models/kmeans_model.py`):** clusters patients into $K=4$ groups from the standardized features without using labels, then names each cluster with its majority tier (purity and silhouette reported). Builds a PCA 2-D cohort map with per-cluster profiles for the patient chart. Its ensemble vote converts centroid distances into membership probabilities re-ordered by tier.
+* **SHAP (`src/models/explainability.py`):** exact TreeSHAP for the Decision Tree; permutation SHAP (reference cohort as background, seed 42) for the MLP. Base value + contributions = the model's predicted probability.
 * **Decision Tree (`src/models/decision_tree_model.py`):** `max_depth=5`. Trained on **unscaled physical measurements** to produce human-readable clinical rules.
 * **KNN Precedent Matcher (`src/models/knn_model.py`):** $K=5$ nearest neighbors. Searches historical patients, calculates 30-day readmission frequencies, and recommends the protocol with highest historical success rate.
 * **MLP Neural Network (`src/models/neural_network_model.py`):** Dense(64, ReLU) $\rightarrow$ Dense(32, ReLU) $\rightarrow$ Softmax (tier classification) + Linear (continuous 30-day readmission risk).
@@ -263,6 +265,7 @@ Any agent modifying or refactoring this codebase must be aware of these discover
 * `GET /api/patients/<id>/labs` $\rightarrow$ Chronological lab biomarker history.
 * `GET /api/patients/<id>/predict` $\rightarrow$ Runs in-memory multi-model inference. Automatically logs result to `predictions` table. Returns consensus tier, risk score, confidence, DT rule breadcrumbs, KNN similar cases, and 7–14 day alert status.
 * `GET /api/patients/<id>/similar` $\rightarrow$ Supports `?k=5`. Returns top-$K$ historical matches and protocol recommendation success rates.
+* `GET /api/patients/<id>/cluster-map` $\rightarrow$ K-Means cohort map: every reference patient in 2-D (PCA), the 4 cluster profiles (size, tier mix, purity, mean vitals/labs, outcome rates), silhouette score, and this patient's cluster and position. `/predict` also returns `kmeans_cluster` and `shap_explanations` (TreeSHAP for the Decision Tree, permutation SHAP for the MLP).
 * `GET /api/dashboard/summary` $\rightarrow$ Aggregates census, tier distribution, ICU occupancy, active alerts, and average readmission risk.
 * `GET /api/alerts` $\rightarrow$ Priority-sorted feed of active High and Critical deterioration alerts with physiological trigger reasons.
 * `POST /api/alerts/<id>/acknowledge` $\rightarrow$ Body: `{"doctor_name", "notes"}`. Logs treating physician review.
