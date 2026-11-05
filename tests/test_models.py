@@ -234,3 +234,61 @@ def test_kmeans_probabilities_are_aligned_to_tiers_before_fusion():
     result = ensemble.predict(sample_vec, raw_features=raw)
     assert result["model_consensus"]["model_scores"]["kmeans"]["risk_score"] == expected_score
     assert int(np.argmax(aligned)) == TIER_MAP[result["model_consensus"]["kmeans_tier"]]
+
+
+def test_kmeans_cohort_map_profiles_every_cluster():
+    """K-Means clusters without labels, then maps clusters to tiers; the cohort map must be consistent."""
+    ensemble = EnsembleClinicalPredictor.load()
+    cohort = ensemble.kmeans.cohort_map
+    assert cohort is not None
+    assert len(cohort["clusters"]) == 4
+    assert sum(c["size"] for c in cohort["clusters"]) == cohort["n_reference_patients"] == len(cohort["points"])
+    assert -1.0 <= cohort["silhouette_score"] <= 1.0
+    assert len(cohort["explained_variance"]) == 2
+    for cluster in cohort["clusters"]:
+        assert cluster["mapped_tier"] == ensemble.kmeans.cluster_to_tier_map[cluster["cluster_id"]]
+        assert sum(cluster["tier_composition"].values()) == cluster["size"]
+        # The mapped tier is the majority tier of the cluster's members
+        assert cluster["tier_composition"][cluster["mapped_tier"]] == max(cluster["tier_composition"].values())
+        assert 0.0 <= cluster["purity"] <= 1.0
+    # Every plotted point is in the cluster K-Means assigns it to
+    point_clusters = {pt["cluster_id"] for pt in cohort["points"]}
+    assert point_clusters <= {c["cluster_id"] for c in cohort["clusters"]}
+
+
+def test_cluster_map_places_patient_in_its_cluster():
+    """The patient's cluster on the map matches the K-Means tier used in the vote."""
+    ensemble = EnsembleClinicalPredictor.load()
+    result = ensemble.cluster_map_for_patient(1)
+    patient = result["patient"]
+    assert patient["patient_id"] == 1
+    assert len(patient["coords_2d"]) == 2
+    distances = {d["cluster_id"]: d["distance"] for d in patient["centroid_distances"]}
+    assert patient["cluster_id"] == min(distances, key=distances.get)
+    prediction = ensemble.predict_patient(1)
+    assert prediction["kmeans_cluster"]["cluster_id"] == patient["cluster_id"]
+    assert prediction["model_consensus"]["kmeans_tier"] == patient["mapped_tier"]
+    assert {row["feature"] for row in patient["profile_comparison"]}
+
+
+@pytest.mark.parametrize("model_key", ["decision_tree", "neural_network"])
+def test_shap_values_add_up_to_the_model_probability(model_key):
+    """SHAP additivity: base value + all contributions = the model's predicted probability."""
+    ensemble = EnsembleClinicalPredictor.load()
+    for patient_id in (1, 90):
+        explanation = ensemble.predict_patient(patient_id)["shap_explanations"][model_key]
+        assert explanation is not None
+        assert explanation["target_tier"] in {"Low", "Medium", "High", "Critical"}
+        total = (explanation["base_value"] + sum(f["shap_value"] for f in explanation["features"])
+                 + explanation["other_features_total"])
+        assert abs(total - explanation["predicted_probability"]) < 0.02
+        values = [abs(f["shap_value"]) for f in explanation["features"]]
+        assert values == sorted(values, reverse=True)
+
+
+def test_shap_explanations_are_deterministic():
+    """The permutation explainer uses a fixed seed, so repeated requests give identical values."""
+    ensemble = EnsembleClinicalPredictor.load()
+    first = ensemble.predict_patient(42)["shap_explanations"]
+    second = ensemble.predict_patient(42)["shap_explanations"]
+    assert first == second
