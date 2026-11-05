@@ -1,8 +1,12 @@
 """Ensemble Clinical Reconciliation Engine for MediHaven.
 
-Integrates K-Means clustering, Decision Tree rules, KNN similarity matching, and Neural Network
-probabilities into an authoritative, verifiable risk tier, treatment recommendation,
-and 7–14 day early warning alert payload.
+Combines four models into one risk tier for the synthetic demonstration cohort:
+- K-Means finds clusters of physiologically similar patients without using labels; each cluster
+  is then named with its majority tier, and the patient's cluster is shown on a 2-D cohort map.
+- A Decision Tree gives rule paths and exact TreeSHAP feature attributions.
+- KNN retrieves the most similar reference patients.
+- An MLP neural network gives class probabilities and a readmission estimate.
+The weights are fixed, hand-set values (not learned).
 """
 
 import json
@@ -18,6 +22,7 @@ from src.data.scaler import ClinicalFeatureScaler
 from src.models.kmeans_model import KMeansRiskClustering
 from src.models.decision_tree_model import DecisionTreeRiskClassifier
 from src.models.knn_model import KNNSimilarityMatcher
+from src.models.explainability import format_attribution, permutation_shap
 from src.models.neural_network_model import NeuralNetworkRiskModel
 from src.utils.config import Config
 from src.utils.data_mode import require_synthetic_mode
@@ -44,7 +49,7 @@ class EnsembleClinicalPredictor:
         self.knn = knn
         self.neural_net = neural_net
 
-        # Calibrated model consensus weights
+        # Fixed, hand-set fusion weights (not learned from data)
         self.weights = {
             "decision_tree": 0.30,
             "neural_net": 0.30,
@@ -77,7 +82,7 @@ class EnsembleClinicalPredictor:
 
         # 2. K-Means
         self.kmeans = KMeansRiskClustering(n_clusters=4, random_state=42)
-        self.kmeans.fit(X_scaled, y_tier_str)
+        self.kmeans.fit(X_scaled, y_tier_str, reference_df=train_df)
         self.kmeans.save()
 
         # 3. Decision Tree (Trained on raw clinical scale for direct physiological rule interpretability)
@@ -118,12 +123,15 @@ class EnsembleClinicalPredictor:
         self,
         sample_vector: np.ndarray,
         raw_features: Optional[Dict[str, float]] = None,
+        include_explanations: bool = True,
     ) -> Dict[str, Any]:
         """Runs the multimodal ensemble and returns a comprehensive clinical intelligence packet.
 
         Args:
             sample_vector: Normalized 1D (or 2D) feature vector (shape: (30,) or (1, 30)).
             raw_features: Optional dictionary of original unscaled features.
+            include_explanations: Adds the K-Means cluster placement and SHAP attributions
+                (skipped in batch benchmarking).
 
         Returns:
             Dictionary matching clinical API schema and frontend visualization requirements.
@@ -230,7 +238,13 @@ class EnsembleClinicalPredictor:
             or map_val < 65.0
         )
 
+        explanations: Dict[str, Any] = {}
+        if include_explanations:
+            explanations["kmeans_cluster"] = self.kmeans.describe_patient(vec_2d, raw_features)
+            explanations["shap_explanations"] = self._shap_explanations(vec_2d, vec_raw, nn_tier_code)
+
         return {
+            **explanations,
             "risk_tier": consensus_tier,
             "risk_tier_code": consensus_tier_code,
             "risk_score": round(continuous_risk_score, 2),
@@ -294,7 +308,7 @@ class EnsembleClinicalPredictor:
         y_preds = []
         for i in range(len(X_test_scaled)):
             sample_vec = X_test_scaled[i]
-            res = self.predict(sample_vec)
+            res = self.predict(sample_vec, include_explanations=False)
             y_preds.append(res["risk_tier_code"])
 
         y_pred = np.array(y_preds)
@@ -315,6 +329,68 @@ class EnsembleClinicalPredictor:
             "f1_score": f1,
         }
 
+    def _shap_explanations(self, vec_scaled: np.ndarray, vec_raw: np.ndarray, nn_tier_code: int) -> Dict[str, Any]:
+        """SHAP attributions for the Decision Tree (exact TreeSHAP) and the MLP (permutation SHAP)."""
+        out: Dict[str, Any] = {"decision_tree": None, "neural_network": None}
+        try:  # an explanation failure must never block the prediction
+            out["decision_tree"] = self.decision_tree.shap_explanation(vec_raw[0])
+        except Exception as exc:
+            logger.warning(f"Decision Tree SHAP failed: {exc}")
+        try:
+            background = self._shap_background()
+            classes = [int(c) for c in self.neural_net.classifier.classes_]
+            if background is not None and nn_tier_code in classes:
+                class_idx = classes.index(nn_tier_code)
+                raw = permutation_shap(self.neural_net.predict_proba, vec_scaled[0], background, class_idx)
+                if raw is not None:
+                    out["neural_network"] = format_attribution(
+                        feature_names=FEATURE_COLUMNS,
+                        contributions=raw["values"],
+                        display_values=vec_raw[0],
+                        base_value=raw["base_value"],
+                        predicted_probability=float(self.neural_net.predict_proba(vec_scaled)[0][class_idx]),
+                        target_code=nn_tier_code,
+                        method="Permutation SHAP (sampled, seed 42)",
+                        model="Neural Network (MLP)",
+                    )
+        except Exception as exc:
+            logger.warning(f"Neural network SHAP failed: {exc}")
+        return out
+
+    def _shap_background(self) -> Optional[np.ndarray]:
+        """Standardized reference cohort, used as SHAP background data for the MLP."""
+        if getattr(self, "_background_cache", None) is None:
+            reference = getattr(self.knn, "patient_metadata", None)
+            if reference is None or reference.empty or not set(FEATURE_COLUMNS).issubset(reference.columns):
+                return None
+            self._background_cache = self.scaler.transform(reference)
+        return self._background_cache
+
+    def _ensure_cohort_map(self) -> None:
+        """Builds the K-Means cohort map from the KNN reference cohort when an older artifact lacks it."""
+        if self.kmeans is None or self.kmeans.cohort_map is not None:
+            return
+        reference = getattr(self.knn, "patient_metadata", None)
+        if reference is None or reference.empty or not set(FEATURE_COLUMNS).issubset(reference.columns):
+            return
+        try:
+            self.kmeans.build_cohort_map(self.scaler.transform(reference), reference)
+        except Exception as exc:
+            logger.warning(f"Could not build the K-Means cohort map: {exc}")
+
+    def cluster_map_for_patient(self, patient_id: int, conn: Optional[Any] = None) -> Dict[str, Any]:
+        """Returns the whole K-Means cohort map with this patient placed on it."""
+        require_synthetic_mode("Serving the synthetic K-Means cohort map")
+        self._ensure_cohort_map()
+        if not self.kmeans.cohort_map:
+            raise RuntimeError("The K-Means cohort map is not available; retrain the models.")
+        scaled_vec, raw_feats = transform_single_patient(patient_id=patient_id, scaler=self.scaler, conn=conn)
+        vec_2d = scaled_vec.reshape(1, -1) if scaled_vec.ndim == 1 else scaled_vec
+        return {
+            **self.kmeans.cohort_map,
+            "patient": {"patient_id": patient_id, **self.kmeans.describe_patient(vec_2d, raw_feats)},
+        }
+
     @classmethod
     def load(cls) -> "EnsembleClinicalPredictor":
         """Loads all serialized model artifacts from models_store/ into memory."""
@@ -331,6 +407,7 @@ class EnsembleClinicalPredictor:
             knn=knn,
             neural_net=neural_net,
         )
+        instance._ensure_cohort_map()
         logger.info("Ensemble Clinical Predictor loaded with all 4 models online.")
         return instance
 

@@ -20,6 +20,8 @@ duckdb==1.5.6
 # Machine learning
 scikit-learn==1.9.1
 joblib==1.6.0
+# SHAP feature attributions for the synthetic dashboard (TreeSHAP + permutation SHAP)
+shap==0.54.1
 
 # QR vault tokens & image decoding (headless OpenCV: no desktop GUI libraries needed on servers;
 # pyzbar is optional at runtime and needs the system zbar library, e.g. apt install libzbar0)
