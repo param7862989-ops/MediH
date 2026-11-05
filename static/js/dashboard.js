@@ -557,7 +557,15 @@ function shapFeatureLabel(f) {
   return `${f.label} = ${fmtMeasure(f.value)}${f.unit ? " " + f.unit : ""}`;
 }
 
+let lastClusterMapData = null;
+
+// Redraw the drawer charts when the theme switches, so outlines stay visible
+document.addEventListener("medihaven:themechange", () => {
+  if (activeClusterChart) renderClusterMap(lastClusterMapData);
+});
+
 function renderClusterMap(data) {
+  lastClusterMapData = data;
   // K-Means cohort map: every reference patient in 2-D (first two principal components),
   // coloured by the tier its cluster was mapped to, with centroids and the current patient on top
   if (activeClusterChart) {
@@ -636,7 +644,7 @@ function renderClusterMap(data) {
       pointRadius: 14,
       pointHoverRadius: 15,
       borderWidth: 2.5,
-      borderColor: "#ffffff",
+      borderColor: document.documentElement.dataset.theme === "light" ? "#0f172a" : "#ffffff",
       backgroundColor: tierColor(me.mapped_tier),
       order: 1,
     });

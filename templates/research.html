@@ -14,7 +14,7 @@
     </div>
     <div style="display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap;">
       {% if current_user and current_user.role == 'physician' %}
-      <a href="/dashboard" class="btn btn-outline btn-sm" style="color: #ffffff !important;">🩺 Research Triage →</a>
+      <a href="/dashboard" class="btn btn-outline btn-sm" style="color: var(--text-primary) !important;">🩺 Research Triage →</a>
       {% endif %}
       {% if status.research_inference_available %}
       <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); padding: 5px 12px; border-radius: var(--radius-full); font-size: 12px; font-weight: 600;">

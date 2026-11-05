@@ -1,0 +1,251 @@
+/* ==============================================================================
+   MediHaven Light Theme
+   Activated by <html data-theme="light"> (see static/js/theme.js). The dark theme stays the
+   default and is untouched. Tokens are remapped first; the rules below then correct colours
+   that are hard-coded for the dark theme in styles.css and in inline styles.
+   Accent colours are darkened so text keeps WCAG AA contrast on light surfaces.
+   ============================================================================== */
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-primary: #f4f6fa;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #eef2f7;
+  --bg-surface-subtle: #f8fafc;
+  --bg-surface-hover: #e6ecf4;
+
+  --border-subtle: #dbe2ec;
+  --border-hairline: rgba(15, 23, 42, 0.12);
+  --border-focus: #0369a1;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-inverse: #ffffff;
+
+  --color-brand-surface: rgba(2, 132, 199, 0.10);
+  --color-vault-surface: rgba(67, 56, 202, 0.10);
+
+  --risk-critical-bg: rgba(220, 38, 38, 0.08);
+  --risk-critical-border: rgba(220, 38, 38, 0.35);
+  --risk-high-bg: rgba(234, 88, 12, 0.08);
+  --risk-high-border: rgba(234, 88, 12, 0.35);
+  --risk-medium-bg: rgba(217, 119, 6, 0.10);
+  --risk-medium-border: rgba(217, 119, 6, 0.40);
+  --risk-low-bg: rgba(5, 150, 105, 0.08);
+  --risk-low-border: rgba(5, 150, 105, 0.35);
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 10px -2px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 12px 24px -6px rgba(15, 23, 42, 0.12), 0 4px 8px -4px rgba(15, 23, 42, 0.08);
+}
+
+/* ------------------------------------------------------------------------------
+   1. Headings and text that styles.css sets to white
+   ------------------------------------------------------------------------------ */
+[data-theme="light"] .page-title,
+[data-theme="light"] .kpi-value,
+[data-theme="light"] .alert-patient-headline,
+[data-theme="light"] .patient-name-cell,
+[data-theme="light"] .chart-title,
+[data-theme="light"] .vault-cat-count,
+[data-theme="light"] .record-title,
+[data-theme="light"] .modal-title,
+[data-theme="light"] .drawer-close-btn:hover {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .record-json-view {
+  color: #334155;
+  background: var(--bg-surface-elevated);
+}
+
+/* ------------------------------------------------------------------------------
+   2. Risk badges, chips and accents: darker shades for contrast on white
+   ------------------------------------------------------------------------------ */
+[data-theme="light"] .risk-badge-critical { color: #b91c1c; }
+[data-theme="light"] .risk-badge-high { color: #c2410c; }
+[data-theme="light"] .risk-badge-medium { color: #a16207; }
+[data-theme="light"] .risk-badge-low { color: #047857; }
+[data-theme="light"] .trigger-chip,
+[data-theme="light"] .hemo-warn,
+[data-theme="light"] .profile-diff-up { color: #b91c1c; }
+[data-theme="light"] .hemo-normal,
+[data-theme="light"] .alert-banner.alert-acknowledged .trigger-chip,
+[data-theme="light"] .alert-banner.alert-acknowledged .alert-urgency-pill { color: #047857; }
+[data-theme="light"] .profile-diff-down,
+[data-theme="light"] .shap-tab.active,
+[data-theme="light"] .dt-header,
+[data-theme="light"] .record-cat-pill,
+[data-theme="light"] .nav-link.active { color: #0369a1; }
+
+/* ------------------------------------------------------------------------------
+   3. Surfaces with dark gradients or dark translucent backgrounds
+   ------------------------------------------------------------------------------ */
+[data-theme="light"] .alert-banner {
+  background: linear-gradient(90deg, rgba(220, 38, 38, 0.07) 0%, #ffffff 100%);
+}
+[data-theme="light"] .alert-banner.alert-acknowledged {
+  background: var(--bg-surface-subtle);
+  border-color: var(--border-hairline);
+}
+[data-theme="light"] .verification-badge-card {
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.07) 0%, #ffffff 100%);
+}
+[data-theme="light"] .kpi-card:hover { border-color: rgba(15, 23, 42, 0.22); }
+[data-theme="light"] .drawer-panel { border-color: var(--border-hairline); }
+[data-theme="light"] .drawer-backdrop { background-color: rgba(15, 23, 42, 0.35); }
+[data-theme="light"] .modal-overlay { background-color: rgba(15, 23, 42, 0.45); }
+
+/* ------------------------------------------------------------------------------
+   4. Neutral buttons (filled brand/success/danger buttons keep white text)
+   ------------------------------------------------------------------------------ */
+[data-theme="light"] .btn-outline,
+[data-theme="light"] .btn-dark,
+[data-theme="light"] .btn-logout,
+[data-theme="light"] #nav-logout-btn,
+[data-theme="light"] #nav-role-switcher,
+[data-theme="light"] #btn-toggle-camera {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-subtle) !important;
+}
+[data-theme="light"] .btn-outline:hover,
+[data-theme="light"] .btn-dark:hover,
+[data-theme="light"] #nav-role-switcher:hover,
+[data-theme="light"] #btn-toggle-camera:hover {
+  background: var(--bg-surface-hover) !important;
+  color: var(--text-primary) !important;
+}
+[data-theme="light"] .btn-logout:hover,
+[data-theme="light"] #nav-logout-btn:hover {
+  background: rgba(220, 38, 38, 0.06) !important;
+  color: #b91c1c !important;
+}
+
+/* ------------------------------------------------------------------------------
+   5. Inline styles written for the dark theme. Elements on a coloured gradient
+      (filled buttons, hero badges) are excluded so their white text stays.
+   ------------------------------------------------------------------------------ */
+[data-theme="light"] [style*="color: #ffffff"]:not([style*="gradient"]):not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-chart):not(.btn-acknowledge),
+[data-theme="light"] [style*="color: #fff;"]:not([style*="gradient"]):not(.btn-primary):not(.btn-success):not(.btn-danger),
+[data-theme="light"] [style*="color: #f8fafc"]:not([style*="gradient"]),
+[data-theme="light"] [style*="color: #f1f5f9"]:not([style*="gradient"]),
+[data-theme="light"] [style*="color: white"]:not([style*="gradient"]) {
+  color: var(--text-primary) !important;
+}
+[data-theme="light"] [style*="color: #e2e8f0"],
+[data-theme="light"] [style*="color: #cbd5e1"] {
+  color: #334155 !important;
+}
+[data-theme="light"] [style*="color: #94a3b8"] { color: var(--text-secondary) !important; }
+
+[data-theme="light"] [style*="color: #38bdf8"],
+[data-theme="light"] [style*="color: #7dd3fc"],
+[data-theme="light"] [style*="color: #0ea5e9"] { color: #0369a1 !important; }
+[data-theme="light"] [style*="color: #60a5fa"],
+[data-theme="light"] [style*="color: #93c5fd"],
+[data-theme="light"] [style*="color: #3b82f6"] { color: #1d4ed8 !important; }
+[data-theme="light"] [style*="color: #34d399"],
+[data-theme="light"] [style*="color: #6ee7b7"],
+[data-theme="light"] [style*="color: #10b981"] { color: #047857 !important; }
+[data-theme="light"] [style*="color: #fbbf24"],
+[data-theme="light"] [style*="color: #f59e0b"] { color: #a16207 !important; }
+[data-theme="light"] [style*="color: #fb923c"],
+[data-theme="light"] [style*="color: #f97316"] { color: #c2410c !important; }
+[data-theme="light"] [style*="color: #f87171"],
+[data-theme="light"] [style*="color: #fca5a5"],
+[data-theme="light"] [style*="color: #ef4444"] { color: #b91c1c !important; }
+[data-theme="light"] [style*="color: #a78bfa"],
+[data-theme="light"] [style*="color: #818cf8"],
+[data-theme="light"] [style*="color: #c4b5fd"] { color: #4338ca !important; }
+
+/* Dark panels and translucent slate backgrounds */
+[data-theme="light"] [style*="background: #0f172a"],
+[data-theme="light"] [style*="background: #111827"],
+[data-theme="light"] [style*="background: #1e293b"],
+[data-theme="light"] [style*="background-color: #0f172a"],
+[data-theme="light"] [style*="background-color: #111827"],
+[data-theme="light"] [style*="background-color: #1e293b"],
+[data-theme="light"] [style*="background: rgba(15, 23, 42"],
+[data-theme="light"] [style*="background: rgba(17, 24, 39"],
+[data-theme="light"] [style*="background: rgba(30, 41, 59"],
+[data-theme="light"] [style*="background-color: rgba(15, 23, 42"],
+[data-theme="light"] [style*="background-color: rgba(30, 41, 59"] {
+  background: var(--bg-surface-elevated) !important;
+}
+
+/* White-tinted hairlines used for dark surfaces */
+[data-theme="light"] [style*="border: 1px solid rgba(255, 255, 255"],
+[data-theme="light"] [style*="border-color: rgba(255, 255, 255"] {
+  border-color: var(--border-subtle) !important;
+}
+[data-theme="light"] [style*="border-bottom: 1px solid rgba(255, 255, 255"],
+[data-theme="light"] [style*="border-top: 1px solid rgba(255, 255, 255"] {
+  border-color: var(--border-hairline) !important;
+}
+
+/* The camera viewfinder stays black: it frames a live video feed */
+[data-theme="light"] #viewport-box { background: #0b0f17 !important; }
+[data-theme="light"] #viewport-box #camera-placeholder [style*="color"] { color: #e2e8f0 !important; }
+
+/* ------------------------------------------------------------------------------
+   6. Theme toggle button (both themes)
+   ------------------------------------------------------------------------------ */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-hairline);
+  background: var(--bg-surface-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.theme-toggle:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+.theme-toggle svg { width: 17px; height: 17px; }
+.theme-toggle .icon-sun { display: none; }
+[data-theme="light"] .theme-toggle .icon-sun { display: block; }
+[data-theme="light"] .theme-toggle .icon-moon { display: none; }
+
+/* ------------------------------------------------------------------------------
+   7. Landing page headings (white in the dark theme)
+   ------------------------------------------------------------------------------ */
+[data-theme="light"] .hero-title,
+[data-theme="light"] .stat-label,
+[data-theme="light"] .section-title,
+[data-theme="light"] .feature-heading,
+[data-theme="light"] .role-title,
+[data-theme="light"] .about-heading {
+  color: var(--text-primary);
+}
+
+/* ------------------------------------------------------------------------------
+   8. Page-level headings set to white in individual templates
+   ------------------------------------------------------------------------------ */
+[data-theme="light"] .dossier-title,
+[data-theme="light"] .login-title,
+[data-theme="light"] .form-control,
+[data-theme="light"] .demo-label,
+[data-theme="light"] .login-back-link:hover,
+[data-theme="light"] .admin-tab-btn:hover,
+[data-theme="light"] .physician-name,
+[data-theme="light"] .activity-title {
+  color: var(--text-primary);
+}
+[data-theme="light"] .vault-sovereignty-badge { color: #4338ca; }
+[data-theme="light"] .badge-physician { color: #1d4ed8; background: rgba(37, 99, 235, 0.10); }
+[data-theme="light"] .badge-patient { color: #4338ca; background: rgba(99, 102, 241, 0.10); }
+[data-theme="light"] .badge-admin { color: #047857; background: rgba(16, 185, 129, 0.10); }
