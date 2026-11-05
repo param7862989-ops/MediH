@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}What-if Risk Calculator | MediHaven{% endblock %}
+
+{% block content %}
+<div class="calc-page">
+  <header class="calc-header">
+    <div>
+      <h1 class="page-title">🧮 What-if Risk Calculator</h1>
+      <p class="calc-intro">
+        Enter a set of vital signs and labs to see how the four-model ensemble (Decision Tree, MLP, KNN,
+        K-Means) scores them, why, and where they fall among the reference patients. Nothing you enter is saved.
+      </p>
+    </div>
+    <div class="calc-presets" aria-label="Example values">
+      <span class="calc-presets-label">Try an example:</span>
+      <button type="button" class="btn btn-outline btn-sm calc-preset" data-preset="stable">Stable</button>
+      <button type="button" class="btn btn-outline btn-sm calc-preset" data-preset="watch">Borderline</button>
+      <button type="button" class="btn btn-outline btn-sm calc-preset" data-preset="septic">Septic shock</button>
+    </div>
+  </header>
+
+  <div class="calc-disclaimer" role="note">
+    Demonstration only: the models are trained on synthetic patients and are not clinically validated.
+    Do not use the result for patient care.
+  </div>
+
+  <div class="calc-layout">
+    <!-- Input form -->
+    <form class="card calc-form" id="calc-form" novalidate>
+      <div class="calc-form-grid">
+        <div class="form-group">
+          <label class="form-label" for="calc-sex">Sex <span class="calc-req">*</span></label>
+          <select class="form-control" id="calc-sex" name="sex" required>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+          </select>
+        </div>
+        {% for f in fields %}
+        <div class="form-group">
+          <label class="form-label" for="calc-{{ f.key }}">
+            {{ f.label }} <span class="calc-unit">({{ f.unit }})</span>{% if f.required %} <span class="calc-req">*</span>{% endif %}
+          </label>
+          <input class="form-control" id="calc-{{ f.key }}" name="{{ f.key }}" type="number" inputmode="decimal"
+                 step="any" min="{{ f.min }}" max="{{ f.max }}" {% if f.required %}required{% endif %}
+                 placeholder="{% if f.required %}{{ '%g'|format(f.min) }}–{{ '%g'|format(f.max) }}{% else %}typical {{ '%g'|format(f.default) }}{% endif %}">
+        </div>
+        {% endfor %}
+      </div>
+      <p class="calc-hint"><span class="calc-req">*</span> required. Leave the others empty to use a typical value.</p>
+      <div class="calc-actions">
+        <button type="submit" class="btn btn-primary" id="calc-submit">Calculate risk</button>
+        <button type="reset" class="btn btn-outline" id="calc-reset">Clear</button>
+      </div>
+      <div class="calc-error" id="calc-error" role="alert" hidden></div>
+    </form>
+
+    <!-- Result summary -->
+    <section class="card calc-result" id="calc-result" aria-live="polite">
+      <div class="calc-empty" id="calc-empty">
+        <div class="calc-empty-icon" aria-hidden="true">📊</div>
+        <div class="calc-empty-title">No estimate yet</div>
+        <div class="calc-empty-text">Fill in the required values, or pick an example, then press <strong>Calculate risk</strong>.</div>
+      </div>
+      <div id="calc-summary" hidden>
+        <div class="kpi-label">4-Model Consensus</div>
+        <div class="calc-score-row">
+          <span class="calc-score mono" id="calc-score">--</span>
+          <span class="risk-badge" id="calc-tier">--</span>
+        </div>
+        <div class="calc-confidence" id="calc-confidence"></div>
+        <div class="calc-alert" id="calc-alert" hidden>⚠️ Would trigger a deterioration alert on the dashboard</div>
+        <div class="calc-votes" id="calc-votes"></div>
+        <div class="calc-derived" id="calc-derived"></div>
+        <ul class="calc-assumptions" id="calc-assumptions"></ul>
+      </div>
+    </section>
+  </div>
+
+  <!-- Explanations (same charts as the patient chart drawer) -->
+  <div class="calc-explain" id="calc-explain" hidden>
+    <div class="chart-box shap-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">SHAP Feature Attribution</div>
+          <div class="card-subtitle" id="shap-subtitle">Which measurements moved this model's prediction, and by how much.</div>
+        </div>
+        <div class="shap-toggle" role="tablist" aria-label="Model to explain">
+          <button type="button" class="shap-tab active" data-model="neural_network" role="tab" aria-selected="true">Neural Net</button>
+          <button type="button" class="shap-tab" data-model="decision_tree" role="tab" aria-selected="false">Decision Tree</button>
+        </div>
+      </div>
+      <div class="chart-canvas-wrapper shap-canvas-wrapper">
+        <canvas id="shapChart" aria-label="Bar chart of SHAP feature contributions"></canvas>
+      </div>
+      <div class="shap-footer" id="shap-footer"></div>
+    </div>
+
+    <div class="chart-box cluster-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">K-Means Patient Cohort Map</div>
+          <div class="card-subtitle">
+            Where these values fall among the reference patients. Clusters are found from physiology alone,
+            then named with the tier most of their members share.
+          </div>
+        </div>
+        <div class="cluster-assignment" id="cluster-assignment">Cluster: --</div>
+      </div>
+      <div class="cluster-stats" id="cluster-stats"></div>
+      <div class="chart-canvas-wrapper cluster-canvas-wrapper">
+        <canvas id="clusterChart" aria-label="Scatter plot of reference patients grouped by K-Means cluster"></canvas>
+      </div>
+      <div class="cluster-legend" id="cluster-legend"></div>
+      <div class="cluster-profile" id="cluster-profile"></div>
+    </div>
+
+    <div class="card calc-similar">
+      <div class="chart-title">Most similar reference patients (KNN, K=5)</div>
+      <div class="calc-similar-list" id="calc-similar"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ asset_url('js/explain_charts.js') }}"></script>
+<script src="{{ asset_url('js/risk_calculator.js') }}"></script>
+{% endblock %}

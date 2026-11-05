@@ -48,7 +48,8 @@ CONTENT_SECURITY_POLICY = "; ".join((
 ))
 
 # Synthetic clinical-intelligence APIs that research mode must never serve (no silent synthetic fallback)
-RESEARCH_BLOCKED_API_PREFIXES = ("/api/patients", "/api/dashboard", "/api/alerts", "/api/admin")
+RESEARCH_BLOCKED_API_PREFIXES = ("/api/patients", "/api/dashboard", "/api/alerts", "/api/admin",
+                                 "/api/risk-calculator")
 # The patient vault reads its own (synthetic demo) chart: GET /api/patients/<id> for the patient role
 VAULT_PROFILE_PATH = re.compile(r"^/api/patients/\d+$")
 
@@ -266,6 +267,18 @@ def create_app(test_config: Optional[Dict[str, Any]] = None) -> Flask:
             return render_template("patient_vault.html", active_page="vault")
         except Exception:
             return render_template("base.html", active_page="vault")
+
+    @app.route("/calculator", methods=["GET"])
+    def view_risk_calculator():
+        """What-if Risk Calculator for the synthetic ensemble (Physician & Admin)."""
+        guard = enforce_role(["physician", "admin"])
+        if guard:
+            return guard
+        if research:
+            # Research mode has its own what-if estimator on the Model Analytics page
+            return redirect("/research")
+        from src.models.risk_calculator import describe_fields
+        return render_template("risk_calculator.html", active_page="calculator", fields=describe_fields())
 
     @app.route("/scanner", methods=["GET"])
     def view_scanner():

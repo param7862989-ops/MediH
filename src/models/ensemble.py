@@ -23,6 +23,7 @@ from src.models.kmeans_model import KMeansRiskClustering
 from src.models.decision_tree_model import DecisionTreeRiskClassifier
 from src.models.knn_model import KNNSimilarityMatcher
 from src.models.explainability import format_attribution, permutation_shap
+from src.models.risk_calculator import build_features as build_calculator_features
 from src.models.neural_network_model import NeuralNetworkRiskModel
 from src.utils.config import Config
 from src.utils.data_mode import require_synthetic_mode
@@ -377,6 +378,24 @@ class EnsembleClinicalPredictor:
             self.kmeans.build_cohort_map(self.scaler.transform(reference), reference)
         except Exception as exc:
             logger.warning(f"Could not build the K-Means cohort map: {exc}")
+
+    def predict_from_values(self, payload: Any) -> Dict[str, Any]:
+        """What-if calculator: scores manually entered values (nothing is stored).
+
+        Returns the full prediction (tier, score, model votes, SHAP, K-Means placement, similar
+        reference patients), the cohort map to draw the entry on, and the assumptions made.
+        Raises RiskInputError for invalid input.
+        """
+        require_synthetic_mode("Scoring what-if values with the synthetic ensemble")
+        raw, details = build_calculator_features(payload)
+        scaled = self.scaler.transform(raw)
+        prediction = self.predict(scaled, raw_features=raw)
+        self._ensure_cohort_map()
+        return {
+            "prediction": prediction,
+            "cohort_map": self.kmeans.cohort_map,
+            **details,
+        }
 
     def cluster_map_for_patient(self, patient_id: int, conn: Optional[Any] = None) -> Dict[str, Any]:
         """Returns the whole K-Means cohort map with this patient placed on it."""

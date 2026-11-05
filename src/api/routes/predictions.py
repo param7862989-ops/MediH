@@ -14,6 +14,7 @@ from src.api.schemas import success_response, error_response
 from src.api.auth import role_required, CLINICAL_ROLES
 from src.api.rate_limit import rate_limited
 from src.models.ensemble import EnsembleClinicalPredictor
+from src.models.risk_calculator import RiskInputError
 from src.nlp.summarizer import summarizer
 from src.utils.logger import get_logger
 
@@ -128,6 +129,25 @@ def get_cluster_map(patient_id: int):
     except Exception as e:
         logger.error(f"Cluster map error for patient {patient_id}: {e}", exc_info=True)
         return error_response(message="The K-Means cohort map is unavailable.", code="CLUSTER_MAP_ERROR",
+                              status_code=500)
+
+
+@predictions_bp.route("/risk-calculator", methods=["POST"])
+@role_required(CLINICAL_ROLES)
+@rate_limited("risk_calculator", limit=120, window_seconds=300)
+def what_if_risk_calculator():
+    """Scores manually entered vitals and labs with the synthetic 4-model ensemble (nothing is stored)."""
+    payload = request.get_json(silent=True)
+    try:
+        result = get_ensemble().predict_from_values(payload)
+        result["prediction"].pop("raw_features", None)
+        return success_response(data=result, message="What-if risk estimate (synthetic demo models).")
+    except RiskInputError as e:
+        return error_response(message=str(e), code="INVALID_INPUT", status_code=400,
+                              details={"field": e.field})
+    except Exception as e:
+        logger.error(f"Risk calculator error: {e}", exc_info=True)
+        return error_response(message="The risk calculator is unavailable.", code="CALCULATOR_ERROR",
                               status_code=500)
 
 

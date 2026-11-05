@@ -651,3 +651,69 @@ def test_prediction_includes_shap_and_cluster(client: FlaskClient):
     assert set(data["shap_explanations"]) == {"decision_tree", "neural_network"}
     assert data["shap_explanations"]["neural_network"]["features"]
     assert data["kmeans_cluster"]["mapped_tier"] == data["model_consensus"]["kmeans_tier"]
+
+
+# ==============================================================================
+# What-if Risk Calculator
+# ==============================================================================
+
+STABLE_VALUES = {"sex": "female", "age": 45, "heart_rate": 72, "sbp": 122, "dbp": 78, "spo2": 98}
+SEPTIC_VALUES = {"sex": "male", "age": 71, "heart_rate": 126, "sbp": 84, "dbp": 50, "spo2": 88,
+                 "respiratory_rate": 29, "temperature": 39.3, "glucose": 175, "creatinine": 2.5,
+                 "bun": 46, "wbc": 19.5, "hemoglobin": 10.4, "platelets": 110, "active_medications": 5}
+
+
+def test_risk_calculator_scores_entered_values(client: FlaskClient):
+    stable = client.post("/api/risk-calculator", json=STABLE_VALUES).get_json()["data"]
+    septic = client.post("/api/risk-calculator", json=SEPTIC_VALUES).get_json()["data"]
+    assert stable["prediction"]["risk_tier"] == "Low"
+    assert septic["prediction"]["risk_tier"] == "Critical"
+    assert septic["prediction"]["risk_score"] > stable["prediction"]["risk_score"]
+    # Same explanation payloads as a stored patient
+    assert set(septic["prediction"]["shap_explanations"]) == {"decision_tree", "neural_network"}
+    assert septic["prediction"]["kmeans_cluster"]["mapped_tier"] == septic["prediction"]["model_consensus"]["kmeans_tier"]
+    assert len(septic["cohort_map"]["points"]) == septic["cohort_map"]["n_reference_patients"]
+    assert "raw_features" not in septic["prediction"]
+    # Omitted optional values are reported as defaults
+    assert "Temperature" in stable["defaulted"]
+    assert septic["defaulted"] == []
+    assert septic["derived"]["shock_index"] == round(126 / 84, 2)
+
+
+def test_risk_calculator_stores_nothing(client: FlaskClient):
+    from src.database.db import get_connection
+    with get_connection() as conn:
+        before = conn.execute("SELECT COUNT(*) FROM predictions").fetchone()[0]
+    client.post("/api/risk-calculator", json=SEPTIC_VALUES)
+    with get_connection() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM predictions").fetchone()[0] == before
+
+
+@pytest.mark.parametrize("body, field", [
+    ({**STABLE_VALUES, "heart_rate": 999}, "heart_rate"),
+    ({**STABLE_VALUES, "sbp": 70, "dbp": 90}, "dbp"),
+    ({k: v for k, v in STABLE_VALUES.items() if k != "spo2"}, "spo2"),
+    ({**STABLE_VALUES, "sex": "x"}, "sex"),
+    ({**STABLE_VALUES, "age": "old"}, "age"),
+    ({**STABLE_VALUES, "lactate": 4}, "lactate"),
+])
+def test_risk_calculator_rejects_invalid_input(client: FlaskClient, body, field):
+    response = client.post("/api/risk-calculator", json=body)
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["error"]["code"] == "INVALID_INPUT"
+    assert payload["error"]["details"]["field"] == field
+
+
+def test_risk_calculator_requires_clinical_role(client: FlaskClient):
+    response = client.post("/api/risk-calculator", json=STABLE_VALUES, headers={"X-Enforce-Auth": "1"})
+    assert response.status_code in (401, 403)
+
+
+def test_risk_calculator_page_renders(client: FlaskClient):
+    response = client.get("/calculator")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert "What-if Risk Calculator" in html
+    assert 'id="calc-heart_rate"' in html
+    assert "explain_charts.js" in html
