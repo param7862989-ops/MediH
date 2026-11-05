@@ -173,7 +173,7 @@
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 11px; margin-top: 8px; border-top: 1px solid var(--border-hairline); padding-top: 8px;">
-          <div><span style="color: var(--text-muted);">K-Means:</span> <strong id="vote-kmeans">--</strong></div>
+          <div><span style="color: var(--text-muted);">K-Means cluster:</span> <strong id="vote-kmeans">--</strong></div>
           <div><span style="color: var(--text-muted);">Decision Tree:</span> <strong id="vote-dt">--</strong></div>
           <div><span style="color: var(--text-muted);">KNN:</span> <strong id="vote-knn">--</strong></div>
           <div><span style="color: var(--text-muted);">Neural Net:</span> <strong id="vote-nn">--</strong></div>
@@ -191,6 +191,44 @@
         <div class="chart-canvas-wrapper">
           <canvas id="vitalsChart"></canvas>
         </div>
+      </div>
+
+      <!-- 2.1. K-Means Patient Cohort Map -->
+      <div class="chart-box cluster-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">K-Means Patient Cohort Map</div>
+            <div class="card-subtitle">
+              Patients are grouped by physiology alone (K=4, no risk labels used). Each cluster is then named
+              with the tier most of its members share.
+            </div>
+          </div>
+          <div class="cluster-assignment" id="cluster-assignment">Cluster: --</div>
+        </div>
+        <div class="cluster-stats" id="cluster-stats"></div>
+        <div class="chart-canvas-wrapper cluster-canvas-wrapper">
+          <canvas id="clusterChart" aria-label="Scatter plot of all reference patients grouped by K-Means cluster"></canvas>
+        </div>
+        <div class="cluster-legend" id="cluster-legend"></div>
+        <div class="cluster-profile" id="cluster-profile"></div>
+      </div>
+
+      <!-- 2.2. SHAP Feature Attribution -->
+      <div class="chart-box shap-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">SHAP Feature Attribution</div>
+            <div class="card-subtitle" id="shap-subtitle">Which measurements moved this model's prediction, and by how much.</div>
+          </div>
+          <div class="shap-toggle" role="tablist" aria-label="Model to explain">
+            <button type="button" class="shap-tab active" data-model="neural_network" role="tab" aria-selected="true">Neural Net</button>
+            <button type="button" class="shap-tab" data-model="decision_tree" role="tab" aria-selected="false">Decision Tree</button>
+          </div>
+        </div>
+        <div class="chart-canvas-wrapper shap-canvas-wrapper">
+          <canvas id="shapChart" aria-label="Bar chart of SHAP feature contributions"></canvas>
+        </div>
+        <div class="shap-footer" id="shap-footer"></div>
       </div>
 
       <!-- 2.5. AI Clinical Narrative (Google Gemini Generative AI) -->
