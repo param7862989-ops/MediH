@@ -23,11 +23,7 @@ about a minute to load.
 > **Project Guide:** Ms. Swapnali Kurhade, Assistant Professor, Department of Computer Engineering  
 > **Project Report:** [`GroupNo-TBD_MediHaven/Final_Report.pdf`](GroupNo-TBD_MediHaven/Final_Report.pdf) · **Poster:** [`GroupNo-TBD_MediHaven/A3_Poster.pdf`](GroupNo-TBD_MediHaven/A3_Poster.pdf)
 
-| Team member | Main areas of work |
-| :--- | :--- |
-| **Nirupam Gupta** | Module structure, 30-feature data pipeline, the four models and ensemble, QR vault service and access log; maintained the `nirupam` branch and the test suite. |
-| **Param Thakkar** | MIMIC-IV research-mode adapter and ingestion, what-if module, security checks, Waitress deployment; technical report and documentation. |
-| **Vidhi Patel** | Front-end interface, CSS design tokens and Jinja2 templates; dashboard and QR-scanner testing, UI test cases, presentation material. |
+All three team members contributed equally across the project, including the machine-learning pipeline and models, the backend and API, the front-end interface, testing, and the report and presentation. Every member did their part, and the work was shared and reviewed together. Commit authorship in the Git history does not accurately reflect individual contributions, so it should not be used to infer who built what.
 
 > **Not for patient care.** MediHaven is an educational prototype. It is not a medical device, has not been
 > clinically validated, and its outputs must not be used for diagnosis or treatment.
